@@ -1,0 +1,29 @@
+{
+ "cue": "bonus",
+ "model": "google/lyria-3-pro-preview",
+ "prompt": "Instrumental only. Key: D major. Tempo: 136 BPM. Strictly instrumental: no vocals, no singing, no humming, no shouts, no yee-haws, no spoken words. A fast, rowdy, joyful harvest hoedown for a slot game's free spins: 136 BPM, D major, 4/4. A lively fiddle reel melody, fast rolling bluegrass banjo, driving boom-chick acoustic guitar, a bouncing upright bass doubled by a comedic blown jug, a busy washboard and snappy brushed snare, a pumping accordion, sparkling glockenspiel accents. Cartoon jug band at full tilt at a Thanksgiving barn dance, with a slightly tipsy swagger. Energetic and fun from the first bar: [Main section] -> [Main section, fiddle and banjo trading licks] -> [Main section with variations] -> [Main section]. No intro, no breakdown, no ending, no fade-out.",
+ "text": "[[A0]]\n[[B1]]\n[[C2]]\n[[A3]]",
+ "usage": {
+  "prompt_tokens": 195,
+  "completion_tokens": 8,
+  "total_tokens": 203,
+  "cost": 0.08,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.08,
+   "upstream_inference_prompt_cost": 0,
+   "upstream_inference_completions_cost": 0.08
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 0,
+   "audio_tokens": 8
+  }
+ }
+}

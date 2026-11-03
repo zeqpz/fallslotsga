@@ -1,8 +1,8 @@
-"""OpenRouter helpers for the framed3 sound/image pass. The key is read from
-Documents/gamdevkey.txt and never printed."""
+"""OpenRouter helpers for the sound pass. The key is read from
+%USERPROFILE%/.fallslots/openrouter-key.txt and never printed."""
 import json, os, sys, time, urllib.request, urllib.error, base64
 
-KEY_PATH = os.path.join(os.path.expanduser("~"), "Documents", "gamdevkey.txt")
+KEY_PATH = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), ".fallslots", "openrouter-key.txt")
 BASE = "https://openrouter.ai/api/v1"
 
 
@@ -15,7 +15,7 @@ def _req(path, body=None, method=None, timeout=240):
     data = None if body is None else json.dumps(body).encode("utf-8")
     req = urllib.request.Request(BASE + path, data=data, method=method or ("POST" if body else "GET"))
     req.add_header("Authorization", "Bearer " + _key())
-    req.add_header("X-Title", "smukiez slot sfx")
+    req.add_header("X-Title", "fall slots sfx")
     if body is not None:
         req.add_header("Content-Type", "application/json")
     return urllib.request.urlopen(req, timeout=timeout)

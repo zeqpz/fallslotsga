@@ -2,10 +2,10 @@
 // There is no ffmpeg on the build machine, so this drives Chromium's WebCodecs AudioEncoder
 // through Playwright and muxes the packets into Ogg by hand. The game plays the .ogg wherever
 // the browser takes Opus and falls back to the .wav elsewhere.
-//   node tools/encode_sfx.js <path-to-playwright-module>
+//   node tools/sfx/encode_new.js <path-to-playwright-module> <list of sfx_*.wav names, one a line>
 const path = require('path'), fs = require('fs');
 const { chromium } = require(process.argv[2] || 'playwright');
-const DIR = 'C:/Users/CooperHinkel/Documents/ClaudeRoblox/slotsgame-current/frontend/assets';
+const DIR = path.join(__dirname, '..', '..', 'frontend', 'assets');
 const ONLY = new Set(fs.readFileSync(process.argv[3], 'utf8').split(String.fromCharCode(10)).map(l => l.trim()).filter(Boolean));
 const BITRATE = { 1: 64000, 2: 96000 };
 

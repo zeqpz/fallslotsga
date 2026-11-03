@@ -1,0 +1,29 @@
+{
+ "cue": "intro",
+ "model": "google/lyria-3-pro-preview",
+ "prompt": "Instrumental only. Key: D major. Tempo: 136 BPM. Strictly instrumental: no vocals, no singing, no humming, no shouts, no yee-haws, no spoken words. A cartoon barn-dance announcement for a bonus round: 136 BPM, D major, 4/4. It opens instantly with a big comedic fanfare hit - a crash cymbal, a fast fiddle run up to a high note, a banjo strum and a deep blown jug 'boom' - then settles into an excited, bouncing vamp that holds steady and keeps repeating: chugging banjo and guitar on D and A, a steady upright bass and jug 'oom-pah', snappy washboard and brushed snare, short fiddle stabs, an accordion pumping chords. The excited feeling just before the hoedown starts. Structure: [Fanfare hit] -> [Steady bouncing vamp, repeating]. No big drop, no ending, no fade-out.",
+ "text": "[[A0]]\n[[B1]]",
+ "usage": {
+  "prompt_tokens": 193,
+  "completion_tokens": 4,
+  "total_tokens": 197,
+  "cost": 0.08,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.08,
+   "upstream_inference_prompt_cost": 0,
+   "upstream_inference_completions_cost": 0.08
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 0,
+   "audio_tokens": 4
+  }
+ }
+}

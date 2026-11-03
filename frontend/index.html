@@ -5321,7 +5321,7 @@ function pickSfx(list, memo) {
 const dripMemo = { last: null }, jackpotMemo = { last: null };
 const SFX_VOL = {
   spin: .5, bet: .45, reels: .3, jackpotA: .55, jackpotB: .55, skip: .45, line: .4,
-  bonusStart: .55, bonusEnd: .55, coins: .4, bell: .55,
+  bonusStart: .42, bonusEnd: .55, coins: .4, bell: .55,
   dripA: .5, dripB: .5, dripC: .5, dripD: .5, dripE: .5, dripF: .5,
   scatterLand: .55, pop: .42, multiHit: .55, alertA: .55, alertB: .55, bustA: .5, bustB: .5,
   winText: .5, hoverLoop: .28, autoStart: .45, autoStop: .45, menuOpen: .4, menuClose: .4, toggle: .4,
@@ -5366,12 +5366,12 @@ const SFX_SETS = {
   floatAway: ["sfx_float_away", 2, .36],        // the figure floating away
   paintBurst: ["sfx_paint_burst", 3, .4],       // an icon bursting: a wet paint pop
   // board foley: what each symbol is made of, as it lands (landFoley)
-  landSoft: ["sfx_land_soft", 3, .26], landBag: ["sfx_land_bag", 3, .28], landCan: ["sfx_land_can", 3, .26],
-  landChain: ["sfx_land_chain", 3, .24], landCoin: ["sfx_land_coin", 2, .24], landDice: ["sfx_land_dice", 3, .24],
-  landBaggie: ["sfx_land_baggie", 3, .24], landFabric: ["sfx_land_fabric", 2, .28], landHoodie: ["sfx_land_hoodie", 2, .28],
-  landMarker: ["sfx_land_marker", 3, .24], landBrick: ["sfx_land_brick", 3, .34], landBoard: ["sfx_land_board", 2, .26],
-  landBox: ["sfx_land_box", 2, .28], landShoe: ["sfx_land_shoe", 2, .28], landBoombox: ["sfx_land_boombox", 2, .26],
-  landMetal: ["sfx_land_metal", 3, .24], landCard: ["sfx_land_card", 2, .24], landToy: ["sfx_land_toy", 2, .26],
+  landPlatter: ["sfx_land_platter", 3, .28], landPie: ["sfx_land_pie", 3, .26], landWicker: ["sfx_land_wicker", 3, .28],
+  landHat: ["sfx_land_hat", 2, .28], landJug: ["sfx_land_jug", 3, .28], landCorn: ["sfx_land_corn", 3, .26],
+  landPumpkin: ["sfx_land_pumpkin", 3, .3], landLeaf: ["sfx_land_leaf", 3, .24], landAcorn: ["sfx_land_acorn", 3, .24],
+  landApple: ["sfx_land_apple", 3, .26], landGrapes: ["sfx_land_grapes", 2, .26], landSunflower: ["sfx_land_sunflower", 2, .24],
+  landCandy: ["sfx_land_candy", 3, .24], landFeather: ["sfx_land_feather", 2, .22], landJelly: ["sfx_land_jelly", 3, .26],
+  landPorcelain: ["sfx_land_porcelain", 3, .24], landHay: ["sfx_land_hay", 3, .28], landBottle: ["sfx_land_bottle", 3, .34],
   cascade: ["sfx_cascade", 2, .3],              // a tumble's refill starting to fall
   reelStop: ["sfx_reel_stop", 3, .3],           // a column's last tile down
   canShake: ["sfx_can_shake", 2, .34],          // a spin pressed: the can's ball rattling
@@ -5386,8 +5386,9 @@ const SFX_SETS = {
   fsTick: ["sfx_fs_tick", 2, .32],              // the free spins counter turning over
   // the figures (charSfx)
   // the characters' foley stays quiet, well under everything else (owner, 2026-11-03)
-  sneakerScuff: ["sfx_sneaker_scuff", 2, .08], cigarPuff: ["sfx_cigar_puff", 1, .09], lighter: ["sfx_lighter", 1, .1],
-  cashRiffle: ["sfx_cash_riffle", 2, .11], cashFlick: ["sfx_cash_flick", 2, .11],
+  hiccup: ["sfx_hiccup", 3, .12], strawRustle: ["sfx_straw_rustle", 3, .08], crowCaw: ["sfx_crow_caw", 2, .12],
+  jugSlosh: ["sfx_jug_slosh", 2, .1], ropeCreak: ["sfx_rope_creak", 2, .08], wingFlap: ["sfx_wing_flap", 2, .1],
+  crowPeck: ["sfx_crow_peck", 3, .1],
 };
 const SFX_VARS = {}, sfxVarMemo = {};
 for (const [name, [stem, n, level]] of Object.entries(SFX_SETS)) {
@@ -5447,12 +5448,12 @@ function applyVolumes() {
 // level: each cue's gain under the music bar. Every master reads -14 LUFS; the levels sit the base
 // game where the old loop sat, the menu under it and the bonus and its screens a little over it,
 // all well under the effects. bpm and bars give the cue's beat, so the free spins can start on one.
-const MUSIC = {
-  base:  { ogg: "assets/music_base.ogg",  aac: "assets/music_base.aac",  frames: 2949081, aacStart: 5824, aacFrames: 2955264, bpm: 124.998, bars: 32, level: .3 },
-  menu:  { ogg: "assets/music_menu.ogg",  aac: "assets/music_menu.aac",  frames: 1536012, aacStart: 5824, aacFrames: 1542144, bpm: 120.003, bars: 16, level: .224 },
-  intro: { ogg: "assets/music_intro.ogg", aac: "assets/music_intro.aac", frames: 529664,  head: 268153, headLen: 296953, aacStart: 5824, aacFrames: 832512,  bpm: 174.005, bars: 8,  level: .335 },
-  bonus: { ogg: "assets/music_bonus.ogg", aac: "assets/music_bonus.aac", frames: 2118613, aacStart: 5824, aacFrames: 2124800, bpm: 173.996, bars: 32, level: .398 },
-  total: { ogg: "assets/music_total.ogg", aac: "assets/music_total.aac", frames: 768000,  head: 414889, headLen: 472489, aacStart: 5824, aacFrames: 1247232, bpm: 120,     bars: 8,  level: .376 },
+const MUSIC = {   // the fall pass (2026-11-03): harvest jug band / hoedown, D major (total G major)
+  base:  { ogg: "assets/music_base.ogg", aac: "assets/music_base.aac", frames: 3649709, aacStart: 5824, aacFrames: 3655680, bpm: 101.003, bars: 32, level: 0.299 },
+  menu:  { ogg: "assets/music_menu.ogg", aac: "assets/music_menu.aac", frames: 1843162, aacStart: 5824, aacFrames: 1849344, bpm: 99.999, bars: 16, level: 0.224 },
+  intro: { ogg: "assets/music_intro.ogg", aac: "assets/music_intro.aac", frames: 682495, head: 276503, headLen: 305303, aacStart: 5824, aacFrames: 994304, bpm: 135.7, bars: 8, level: 0.335 },
+  bonus: { ogg: "assets/music_bonus.ogg", aac: "assets/music_bonus.aac", frames: 2717296, aacStart: 5824, aacFrames: 2723840, bpm: 135.636, bars: 32, level: 0.398 },
+  total: { ogg: "assets/music_total.ogg", aac: "assets/music_total.aac", frames: 755134, head: 213476, headLen: 271076, aacStart: 5824, aacFrames: 1032192, bpm: 122.99, bars: 8, level: 0.376 },
 };
 const MUSIC_RATE = 48000;
 const OPUS_OK = (() => { try { return !!new Audio().canPlayType('audio/ogg; codecs="opus"'); } catch (e) { return false; } })();
@@ -5686,9 +5687,9 @@ function sfxGap(name, gapMs, rate = 1) {
 // brick knocks. Quiet, under the drop note, and thinned out - one every 34 ms at most and the same
 // material not again inside 90 ms - so a board of 49 reads as a patter, never a pile-up.
 const LAND_FOLEY = {
-  H1: "landBag", H2: "landToy", H3: "landChain", H4: "landShoe", H5: "landBoombox", H6: "landBoard", H7: "landBox",
-  L1: "landCan", L2: "landMarker", L3: "landFabric", L4: "landCard", L5: "landDice", L6: "landFabric", L7: "landHoodie",
-  L8: "landBaggie", L9: "landMetal", L10: "landMetal", M: "landBrick",
+  H1: "landPlatter", H2: "landPie", H3: "landWicker", H4: "landHat", H5: "landJug", H6: "landCorn", H7: "landPumpkin",
+  L1: "landLeaf", L2: "landAcorn", L3: "landApple", L4: "landGrapes", L5: "landSunflower", L6: "landCandy", L7: "landFeather",
+  L8: "landJelly", L9: "landPorcelain", L10: "landHay", M: "landBottle",
 };
 let foleyAt = 0;
 function landFoley(sym) {
@@ -5702,13 +5703,16 @@ function landFoley(sym) {
 
 // The figures' foley, cued off the frames of each clip (ms from the clip's start): the skull's
 // cigar flick, the boy's bills, their sneakers walking on and off.
-const CHAR_SFX = {
-  skull: { ash_break: [["cigarPuff", 700]], enter: [["sneakerScuff", 230], ["sneakerScuff", 800]], exit: [["sneakerScuff", 100]] },
-  boy: {
-    cash_show: [["cashFlick", 600], ["cashFlick", 1600]],
-    cash_count: [["cashRiffle", 950], ["cashFlick", 1700], ["cashFlick", 2200], ["cashRiffle", 7450]],
-    win: [["cashRiffle", 200], ["sneakerScuff", 1370]], big_win: [["cashRiffle", 450], ["sneakerScuff", 1450]],
-    enter: [["sneakerScuff", 230], ["sneakerScuff", 880]], exit: [["sneakerScuff", 100]],
+const CHAR_SFX = {   // ms into each clip, from the keyframes in tools/fall/blender/scarecrow.py
+  scarecrow: {
+    enter: [["ropeCreak", 540], ["strawRustle", 600]],                      // wakes with a jolt
+    exit: [["strawRustle", 120], ["ropeCreak", 500]],
+    anticipation: [["strawRustle", 130], ["ropeCreak", 250]],
+    win: [["jugSlosh", 300], ["strawRustle", 750], ["jugSlosh", 1650]],
+    big_win: [["wingFlap", 330], ["crowCaw", 600], ["jugSlosh", 900], ["strawRustle", 1500], ["jugSlosh", 2100], ["wingFlap", 2950]],
+    lose: [["ropeCreak", 250], ["strawRustle", 400], ["hiccup", 2100]],
+    hiccup: [["hiccup", 290], ["hiccup", 1010], ["hiccup", 1730], ["jugSlosh", 1050]],
+    peck: [["crowPeck", 780], ["crowPeck", 1150], ["crowPeck", 1510], ["crowCaw", 1900], ["strawRustle", 1950]],
   },
 };
 function charSfx(fig, clip) {

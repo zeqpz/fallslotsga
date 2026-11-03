@@ -8,15 +8,14 @@ The prompts are in cues.py. Takes land in %TEMP%/music_gen/<cue>/<stamp>_<n>.mp3
 sends back: MP3, 44.1 kHz stereo, 192 kbps - each with a .json beside it (model, prompt, cost). Copy
 the keeper to art/music-src/<cue>.mp3 and run tools/music/build.py to cut it into the game's loop.
 
-The key is read from %USERPROFILE%/.smukiez/openrouter-key.txt (never printed, never committed),
-as tools/icon_redraw does.
+The key is read from %USERPROFILE%/.fallslots/openrouter-key.txt (never printed, never committed).
 """
 import base64, json, os, sys, tempfile, threading, time, urllib.error, urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cues import CUES
 
-KEY_FILE = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), ".smukiez", "openrouter-key.txt")
+KEY_FILE = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), ".fallslots", "openrouter-key.txt")
 URL = "https://openrouter.ai/api/v1/chat/completions"
 MODELS = {"pro": "google/lyria-3-pro-preview", "clip": "google/lyria-3-clip-preview"}
 OUT = os.path.join(tempfile.gettempdir(), "music_gen")
@@ -30,7 +29,7 @@ def generate(prompt, model):
     key = open(KEY_FILE, encoding="utf-8").read().strip()
     req = urllib.request.Request(URL, data=json.dumps(body).encode("utf-8"), headers={
         "Authorization": "Bearer " + key, "Content-Type": "application/json",
-        "User-Agent": "smukiez-music/1.0", "X-Title": "Smukiez music"})
+        "User-Agent": "fallslots-music/1.0", "X-Title": "Fall Slots music"})
     audio, text, usage = [], [], None
     try:
         with urllib.request.urlopen(req, timeout=900) as r:

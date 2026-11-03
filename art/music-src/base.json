@@ -1,0 +1,29 @@
+{
+ "cue": "base",
+ "model": "google/lyria-3-pro-preview",
+ "prompt": "Instrumental only. Key: G major. Tempo: 104 BPM. Strictly instrumental: no vocals, no singing, no humming, no shouts, no yee-haws, no spoken words. A cosy, bouncy Thanksgiving harvest-fair jug band tune for a cartoon slot game, 104 BPM, G major, 4/4. Warm Americana folk: a gentle fiddle melody, rolling clawhammer banjo, strummed acoustic guitar, a walking upright bass doubled by a comedic blown jug going 'oom-pah', light washboard scratches and brushed snare, a little accordion and a few soft glockenspiel notes. A slightly tipsy, swaying, good-natured feel, like a happy drunk scarecrow tapping his boot at a county fair. Relaxed and friendly, never busy or fatiguing: background music that can play for a long time. Chords G - C - D - G with an Em now and then. Structure: [Short intro] -> [Main groove] -> [Main groove with fiddle and banjo trading the tune] -> [Main groove]. No breakdown, no big ending, no fade-out.",
+ "text": "[[A0]]\n[[B1]]\n[[C2]]\n[[B3]]",
+ "usage": {
+  "prompt_tokens": 232,
+  "completion_tokens": 8,
+  "total_tokens": 240,
+  "cost": 0.08,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.08,
+   "upstream_inference_prompt_cost": 0,
+   "upstream_inference_completions_cost": 0.08
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 0,
+   "audio_tokens": 8
+  }
+ }
+}

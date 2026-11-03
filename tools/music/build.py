@@ -225,6 +225,28 @@ def best_lag(a, b, span):
     return int(np.argmax(c / norm)) - span
 
 
+def coarse_lag(x, S, L0, bpm, hop=240):
+    """how far (frames, within +-half a beat) the loop's end has drifted off the grid: the broadband
+    onset curve of the 2 bars after S + L0 against the 2 bars after S. 0 unless the best match is
+    clearly a match (correlation >= .3 and .15 over the grid's own)."""
+    beat = 60 / bpm * SR
+    mag = np.log1p(100 * stft_mag(x[S - 2048:S + L0 + int(3 * 4 * beat)].mean(1), 1024, hop))
+    fl = np.maximum(np.diff(mag, axis=1), 0).sum(0)
+    fl = fl - signal.medfilt(fl, 21)
+    s0, e0 = 2048 // hop, (2048 + L0) // hop
+    A, span = int(8 * beat / hop), int(.5 * beat / hop)
+    a = fl[s0:s0 + A] - fl[s0:s0 + A].mean()
+    r = []
+    for k in range(-span, span + 1):
+        b = fl[e0 + k:e0 + k + A]
+        if len(b) < A:
+            r.append(-1); continue
+        b = b - b.mean()
+        r.append(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+    r = np.array(r); j = int(np.argmax(r))
+    return (j - span) * hop if r[j] >= .3 and r[j] - r[span] >= .15 else 0
+
+
 def cut(cue, x, verbose=True):
     spec = CUES[cue]
     beats, bpm, d = beat_grid(x, spec["bpm"])
@@ -257,9 +279,15 @@ def cut(cue, x, verbose=True):
     L0 = int(round(beats[i + nb])) - S
     # to the sample: the hits of the 2 beats after the end against those after the start
     tr = transients(x.mean(1))
+    # Lyria's tempo drifts a little through a take (fall pass: up to ~120 ms over 8 bars), so first
+    # the onset curve of the 2 bars after the end against those after the start, within half a beat;
+    # taken only where it stands out clearly over the grid's own guess
+    coarse = coarse_lag(x, S, L0, bpm)
+    L0 += coarse
     span, A = int(.02 * SR), int(2 * 60 / bpm * SR)
     lag = best_lag(tr[S:S + A] - tr[S:S + A].mean(), tr[S + L0 - span:S + L0 + span + A] - tr[S:S + A].mean(), span)
     L = L0 + lag
+    lag += coarse
     hp = signal.sosfilt(signal.butter(2, 150, "hp", fs=SR, output="sos"), x.mean(1))
     rho = np.corrcoef(hp[S:S + A], hp[S + L:S + L + A])[0, 1]
     F16 = int(min(60 / bpm / 4, .08) * SR)
@@ -292,6 +320,8 @@ def cut(cue, x, verbose=True):
 def build(cue, wav=False):
     spec = CUES[cue]
     x = load(os.path.join(SRC, cue + ".mp3"))
+    if spec.get("start"):                                # a take that opens on silence: start nearer its first hit
+        x = x[int(spec["start"] * SR):]
     pre, loop, info = cut(cue, x)
     g = 10 ** ((MASTER_LUFS - lufs(np.vstack([loop, loop]))) / 20)
     pre, loop = pre * g, loop * g

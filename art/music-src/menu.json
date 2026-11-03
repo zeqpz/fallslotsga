@@ -1,0 +1,29 @@
+{
+ "cue": "menu",
+ "model": "google/lyria-3-pro-preview",
+ "prompt": "Instrumental only. Key: G major (G, B, D). Tempo: 96 BPM. Strictly instrumental: no vocals, no singing, no humming, no shouts, no yee-haws, no spoken words. Mellow back-porch picking on a cool autumn evening: the same cartoon jug-band world, heard quietly while deciding something. 96 BPM, G major, 4/4. Soft fingerpicked acoustic guitar, a gentle banjo roll, a lazy upright bass, a soft blown jug on the low notes, a little brushed snare and a faint sustained accordion chord, a few soft glockenspiel twinkles. Calm, cosy and a little sleepy and lazy, low energy but still gently swinging, at a rock-steady tempo: the upright bass and jug on every beat and a brushed snare on 2 and 4 keep strict time throughout. The same relaxed groove from start to finish: no build-ups, no rubato, no fiddle solo, no big ending, no fade-out.",
+ "text": "[[A0]]\n[[B1]]\n[[C2]]\n[[D3]]\n[[C4]]\n[[E5]]",
+ "usage": {
+  "prompt_tokens": 207,
+  "completion_tokens": 12,
+  "total_tokens": 219,
+  "cost": 0.08,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.08,
+   "upstream_inference_prompt_cost": 0,
+   "upstream_inference_completions_cost": 0.08
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 0,
+   "audio_tokens": 12
+  }
+ }
+}
