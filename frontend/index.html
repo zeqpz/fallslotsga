@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Smukiez's City</title>
+<title>Tipsy Harvest</title>
 <style>
   :root {
     --bg: #141218;
@@ -16,7 +16,7 @@
     --spray-deep: #C42A63;
     --gold: #F5C518;
     /* the two free-spin scatters glow in their own paint, not in the UI palette */
-    --fs-green: #A8F000;
+    --fs-green: #F2B33D;
     --fs-purple: #C026D8;
     --purple: #A78BFA;
     --teal: #3FBFB2;
@@ -65,6 +65,8 @@
     --cell-h: 98px;
     --cell-gap: 7px;
   }
+  /* Tipsy Harvest sets everything in Fredoka, the round bubbly face that suits the cartoon: the graffiti
+     build's faces keep their family names (the rules still ask for them) but all load Fredoka now. */
   @font-face {
     font-family: "Fredoka";
     src: url("assets/fredoka.ttf") format("truetype");
@@ -72,51 +74,48 @@
   }
   @font-face {
     font-family: "Jraot Hollow";
-    src: url("assets/jraot-hollow.ttf") format("truetype");
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
   @font-face {
     font-family: "Timegoing";
-    src: url("assets/timegoing.ttf") format("truetype");
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
   @font-face {
     font-family: "BROMO";
-    src: url("assets/bromo.otf") format("opentype");
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
-  /* the lettered buttons: PLAY in the bonus buy panel, START in the auto play picker */
   @font-face {
     font-family: "LLambozy";
-    src: url("assets/llambozy.ttf") format("truetype");
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
-  /* the bonus screen's own three: YOU WON, the trigger line, and FREE SPINS (the fat cut) */
   @font-face {
     font-family: "Apocalypse Grunge";
-    src: url("assets/apocalypse_grunge.ttf") format("truetype");
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
   @font-face {
     font-family: "aaaiight";
-    src: url("assets/aaaiight.ttf") format("truetype");
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
   @font-face {
     font-family: "aaaiight fat";
-    src: url("assets/aaaiight-fat.ttf") format("truetype");
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
-  /* the trigger line: the fill cut and its outline cut, laid one over the other */
   @font-face {
     font-family: "Smashed Graffiti";
-    src: url("assets/smashed_graffiti_fill.otf") format("opentype");   /* the Fill cut: it shares the Outline cut's widths */
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
   @font-face {
     font-family: "Smashed Graffiti Outline";
-    src: url("assets/smashed_graffiti_outline.otf") format("opentype");
-    font-display: swap;
+    src: url("assets/fredoka.ttf") format("truetype");
+    font-weight: 300 700; font-display: swap;
   }
   * { box-sizing: border-box; }
   /* The game frame never scrolls: fitToScreen() scales #app to the window instead.
@@ -248,8 +247,7 @@
   .charfx canvas { z-index: 1; }
   /* --char-shift centres each character's own column on the union of its clips' content:
      char 1 reaches out to 40% of the frame width, char 2 stays around 49.7% */
-  #charfx  { right: var(--char-inset); --char-shift: 40%; --char-lift: 5%; --char-depth: calc(1 - sin(var(--scene-yaw)) * .3); }   /* the skull stands 5% lower than the boy */
-  #charfx2 { left: var(--char-inset);  --char-shift: 49.7%; --char-lift: 7%; --char-depth: calc(1 + sin(var(--scene-yaw)) * .3); }   /* the boy a little lower (owner, 2026-11-03) */
+  #charfx  { left: var(--char-inset); --char-lift: 7%; --char-depth: 1; }   /* the scarecrow, on the left of the board */
   /* same beat as the wall's bounce — they hop and shake it off on every spin */
   .charfx.bounce { animation: charbounce .7s cubic-bezier(.22,.9,.32,1.25); }
   /* on translate/scale/rotate (transform carries the scene's lean): the lift and the depth
@@ -285,7 +283,6 @@
       --char-height: clamp(26vh, calc((47vw - 43.5vh) / .6), 42.5vh);
       --char-inset: calc((50vw - 43.5vh - var(--char-height) * .94) / 2);
     }
-    #charfx { right: calc(var(--char-inset) - 3vw); }   /* the skull stands further in in its box: out a little more */
   }
   @media (max-width: 1080px) and (orientation: landscape) and (min-height: 501px) and (max-aspect-ratio: 3/2) {
     :root { --char-drop: -12vh; }
@@ -293,7 +290,7 @@
   /* Wider screens: the boy stands a little in, so the Bonus button in the corner is clear of his
      sneakers (2026-11-03 QA, 1920x1080) */
   @media (min-width: 1101px), (min-width: 1081px) and (orientation: landscape) {
-    #charfx2 { left: calc(var(--char-inset) + 6vw); --char-lift: 10%; }   /* lower (owner, 2026-11-03), so 2vw further in to keep clear of Bonus */
+    #charfx { left: calc(var(--char-inset) + 6vw); --char-lift: 10%; }   /* in from the corner, clear of the Bonus button */
   }
   /* Portrait phone: the scenery takes the top of the screen and the game the bottom. The pair
      stands BEHIND the board - head, body and hands above its top edge, legs behind it, cut off
@@ -310,7 +307,6 @@
      the landscape rules put the heads behind the board and the feet under the HUD there) */
   @media (max-width: 1100px) and (orientation: portrait) {
     :root { --char-height: min(22vh, 48vw); --char-inset: -4vw; --char-drop: -46vh; }
-    #charfx { right: -2vw; }   /* the skull's figure sits further out in its box than the boy's: this evens their margins */
     .charfx { clip-path: inset(0 0 var(--char-cut, 0px) 0); }
     .charshadow { display: none; }   /* their feet are behind the board here */
   }
@@ -448,7 +444,7 @@
   .bonusintro .bfs {
     font-family: "aaaiight fat", "aaaiight", var(--disp); letter-spacing: .04em;
     font-size: clamp(28px, 6.4vh, 60px);   /* a size up from YOU WON: it names what was won (2026-10-27) */
-    color: var(--fs-green); text-shadow: 0 4px 0 rgba(0,0,0,.8), 0 0 24px rgba(168,240,0,.6);
+    color: var(--fs-green); text-shadow: 0 4px 0 rgba(0,0,0,.8), 0 0 24px rgba(242, 179, 61,.6);
   }
   /* the figure: the sprayed numerals the win screen's amount is set in, on its purple sweep */
   .bonusintro .bnum {
@@ -486,7 +482,7 @@
   .bonusintro .bcont {
     position: relative; margin-top: 2.2vh; text-align: center; z-index: 2;
     font-family: var(--disp); font-size: clamp(14px, 2.3vh, 22px); letter-spacing: .12em; text-transform: uppercase;
-    color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.85), 0 0 14px rgba(108,252,84,.5);
+    color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.85), 0 0 14px rgba(255, 190, 70,.5);
     opacity: 0; transition: opacity .4s ease .9s; animation: bcont 1.5s ease-in-out infinite; pointer-events: none;
   }
   .bonusintro.up .bcont { opacity: 1; }
@@ -497,7 +493,7 @@
      won over a slowly turning burst of rays in the bonus's paint - lime, or violet for the
      Extreme Bonus (.x) - and land with a pop, FREE SPINS flickers on under them and the
      how-it-works box rises in last. Scale and opacity only: the pieces' wander keeps its translate. */
-  .bonusintro { --bglow: 108, 252, 84; }
+  .bonusintro { --bglow: 255, 190, 70;   /* harvest gold rays (fall) */ }
   .bonusintro.x { --bglow: 180, 84, 228; }
   .bonusintro .bstack { position: relative; }
   .bonusintro.up .blogo { animation: bslam .72s cubic-bezier(.2, 1.2, .3, 1) .3s both, bneon 1.1s steps(1) .3s both; }
@@ -722,8 +718,8 @@
 
   /* ---------- features screen ---------- */
   /* Before the game shows: three plates over the wall and nothing else - no board, no
-     characters, no bar. The Multi with its value climbing and warming, the Crew Leader and
-     the Phantom, and what each one does. They drift; the one under the mouse comes forward.
+     characters, no bar. The Multi with its value climbing and warming, the Golden Wishbone and
+     the Crow, and what each one does. They drift; the one under the mouse comes forward.
      The wall is the real one behind the game: the game itself is faded out beneath. */
   body.features-fade #app, body.features-fade .charfx, body.features-fade .charshadow { transition: opacity .7s ease; }
   body.features-up #app, body.features-up .charfx, body.features-up .charshadow { opacity: 0; }
@@ -761,7 +757,7 @@
   .fbox:hover {
     scale: 1.09; z-index: 2; animation-play-state: paused;
     /* the shadow slides away from the cursor as the plate tips: the raised side casts further */
-    filter: drop-shadow(calc(var(--mx) * -22px) calc(16px - var(--my) * 14px) 26px rgba(0,0,0,.75)) drop-shadow(0 0 22px rgba(108,252,84,.5));
+    filter: drop-shadow(calc(var(--mx) * -22px) calc(16px - var(--my) * 14px) 26px rgba(0,0,0,.75)) drop-shadow(0 0 22px rgba(255, 190, 70,.5));
   }
   @keyframes fdrift { 0%, 100% { translate: 0 0; rotate: -1.2deg; } 50% { translate: 0 -12px; rotate: 1.2deg; } }
   /* a sheen under the cursor that slides with it, clipped to the plate's own shape by the
@@ -841,8 +837,8 @@
       calc(var(--mx) * -2px) calc(1px - var(--my) * 2px) 0 #3a3a44,
       calc(var(--mx) * -4px) calc(2px - var(--my) * 4px) 0 #24242c,
       calc(var(--mx) * -6px) calc(3px - var(--my) * 6px) 0 #101014,
-      0 0 calc(var(--glare) * 14px) rgba(108, 252, 84, .95),
-      0 0 calc(var(--glare) * 30px) rgba(108, 252, 84, .55);
+      0 0 calc(var(--glare) * 14px) rgba(255, 190, 70, .95),
+      0 0 calc(var(--glare) * 30px) rgba(255, 190, 70, .55);
   }
   .features .fcont:has(.fhit:hover) { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) {
@@ -1191,7 +1187,7 @@
      the bar's rules). */
   html .infopanel {
     --ink: #f4f1f8; --ink-soft: #c4bcd2; --line: rgba(196, 188, 210, .16);
-    --gold: #ffd23c; --green: #B8F23A; --spray: #d2bff5; --panel: rgba(255, 255, 255, .05); --panel2: rgba(255, 255, 255, .08);
+    --gold: #ffd23c; --green: #F2B33D; --spray: #d2bff5; --panel: rgba(255, 255, 255, .05); --panel2: rgba(255, 255, 255, .08);
     background: var(--hud-fill); border: 2px solid var(--hud-line); border-image: none; border-radius: 22px;
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     box-shadow: 0 18px 44px rgba(0, 0, 0, .45);
@@ -1311,7 +1307,7 @@
     text-transform: uppercase; color: var(--hud-soft);
   }
   .autoopts button:hover:not(:disabled) { background: rgba(255, 255, 255, .1); border-color: var(--hud-hi); }
-  .autoopts button.on, .autoopts button.on:hover:not(:disabled) { border-color: var(--hud-on); background: rgba(184, 242, 58, .14); color: #fff; }
+  .autoopts button.on, .autoopts button.on:hover:not(:disabled) { border-color: var(--hud-on); background: rgba(242, 179, 61, .14); color: #fff; }
   .autoopts button.on small { color: var(--hud-on); }
   .autoopts button:active:not(:disabled) { transform: scale(.95); }
   .autoopts button:disabled { opacity: .4; cursor: default; }
@@ -1370,7 +1366,7 @@
   table.hist th { color: var(--ink-soft); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }
   table.hist td.win { color: var(--green); font-weight: 600; }
   table.hist td.zero { color: var(--ink-soft); }
-  .banner.mega .big { color: #9CE424; text-shadow: 0 4px 0 rgba(0,0,0,.75), 0 0 22px rgba(0,0,0,.9), 0 0 34px rgba(108,252,84,.55); }
+  .banner.mega .big { color: #F2B33D; text-shadow: 0 4px 0 rgba(0,0,0,.75), 0 0 22px rgba(0,0,0,.9), 0 0 34px rgba(255, 190, 70,.55); }
   .banner.epic .big { color: #fff; text-shadow: 0 4px 0 rgba(0,0,0,.75), 0 0 22px rgba(0,0,0,.9), 0 0 40px rgba(180,84,228,1), 0 0 70px rgba(180,84,228,.8); }
 
   /* main — slots front and center, info cards beneath */
@@ -1386,7 +1382,7 @@
   .board {
     position: relative; display: flex; gap: var(--cell-gap); padding: 36px 41px;   /* the frame's bands never touch an icon */
     user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;   /* the icons never highlight like text */
-    /* the lean-in for a third Crew Leader (boardZoom): a touch bigger, about a point part way
+    /* the lean-in for a third Golden Wishbone (boardZoom): a touch bigger, about a point part way
        toward the held column (--zx), reaching full size as that column's last icon lands
        (--zoomms, set per reveal) and letting go again in a beat, hit or miss */
     scale: 1; transform-origin: var(--zx, 50%) 50%;
@@ -1447,7 +1443,7 @@
   .reel { position: relative; display: flex; flex-direction: column; gap: var(--cell-gap); padding: 3px; border: 2px solid transparent; transition: border-color .3s, box-shadow .3s; }
   /* While tiles are on the move the reel clips what is above its top row and below its
      bottom one - but 24px out, not at its own edge, and not at the sides at all: a Crew
-     Leader's or Phantom's glow reaches ~20px past the reel, and clipping it at the edge cut
+     Leader's or Crow's glow reaches ~20px past the reel, and clipping it at the edge cut
      every glowing scatter into a hard-edged box for the length of each cascade. A falling
      tile shows for a frame or two in that 24px before it is "in"; the glow never gets cut. */
   .reel.spinning { clip-path: inset(0 -60px); }   /* the spin strip stays tight top and bottom */
@@ -1605,6 +1601,7 @@
     background: radial-gradient(circle, hsl(var(--hue) 100% 72% / .95) 0, hsl(var(--hue) 100% 56% / .55) 34%, hsl(var(--hue) 100% 50% / 0) 70%);
   }
   .spraylayer .spuff { width: 46px; height: auto; margin: -18px 0 0 -23px; }
+  .spraylayer .sleaf { width: 24px; height: 24px; margin: -12px 0 0 -12px; }   /* the fall reveal's leaves (harvestReveal) */
   /* it blows out: the Multi itself, then the four cells it hits */
   /* every part of a Multi's show - the spray, the blow-out, the value landing - runs
      --multi-rate times as fast as it was first timed (MULTI_RATE in the script) */
@@ -1703,15 +1700,15 @@
      would paint a booming or exploding tile that overhangs its neighbour UNDER that reel. */
   @media (prefers-reduced-motion: reduce) { .cell.boom, .cell.hit { animation: none; } }
   @keyframes scatglow {
-    0%, 100% { filter: drop-shadow(0 0 5px rgba(168, 240, 0, .9)) drop-shadow(0 0 14px rgba(168, 240, 0, .45)); }
-    50%      { filter: drop-shadow(0 0 9px rgba(168, 240, 0, 1)) drop-shadow(0 0 28px rgba(168, 240, 0, .8)); }
+    0%, 100% { filter: drop-shadow(0 0 5px rgba(242, 179, 61, .9)) drop-shadow(0 0 14px rgba(242, 179, 61, .45)); }
+    50%      { filter: drop-shadow(0 0 9px rgba(242, 179, 61, 1)) drop-shadow(0 0 28px rgba(242, 179, 61, .8)); }
   }
   @keyframes escatglow {
     0%, 100% { filter: drop-shadow(0 0 5px rgba(192, 38, 216, .9)) drop-shadow(0 0 14px rgba(192, 38, 216, .5)); }
     50%      { filter: drop-shadow(0 0 9px rgba(192, 38, 216, 1)) drop-shadow(0 0 28px rgba(192, 38, 216, .85)); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .cell.scat img  { animation: none; filter: drop-shadow(0 0 7px rgba(168, 240, 0, .95)); }
+    .cell.scat img  { animation: none; filter: drop-shadow(0 0 7px rgba(242, 179, 61, .95)); }
     .cell.escat img { animation: none; filter: drop-shadow(0 0 7px rgba(192, 38, 216, .95)); }
     .cell.scatland img { animation: none !important; }
   }
@@ -1819,8 +1816,8 @@
   .cell.winhit img, .cell.winhit .rigin { filter: drop-shadow(0 0 12px rgba(255, 255, 255, .5)) drop-shadow(0 3px 5px rgba(0, 0, 0, .6)); }
   /* the neon tiers glow in their own colours while lit (tools/make_tier_glow.py): the tube's light
      close in, the halo's further out, round the moving parts themselves */
-  .cell.t1.winhit img, .cell.t1.winhit .rigin { filter: drop-shadow(0 0 1.5px rgb(108, 252, 84)) drop-shadow(0 0 5px rgba(108, 252, 84, .9)) drop-shadow(0 0 14px rgba(180, 84, 228, .9)); }
-  .cell.t2.winhit img, .cell.t2.winhit .rigin { filter: drop-shadow(0 0 1.5px rgb(199, 125, 255)) drop-shadow(0 0 5px rgba(199, 125, 255, .9)) drop-shadow(0 0 14px rgba(108, 36, 180, .9)); }
+  .cell.t1.winhit img, .cell.t1.winhit .rigin { filter: drop-shadow(0 0 1.5px rgb(255, 236, 170)) drop-shadow(0 0 5px rgba(255, 190, 70, .9)) drop-shadow(0 0 14px rgba(232, 116, 42, .9)); }
+  .cell.t2.winhit img, .cell.t2.winhit .rigin { filter: drop-shadow(0 0 1.5px rgb(255, 214, 140)) drop-shadow(0 0 5px rgba(242, 150, 60, .9)) drop-shadow(0 0 14px rgba(163, 38, 58, .85)); }
   /* ...and the icon itself comes alive inside the punch: it lands squashed, springs up stretched
      and wobbles back to shape on its base, while its own win clip plays on its parts (rigPlay). */
   .cell.winhit .rigin, .cell.winhit .ico > img { animation: iconPop calc(.66s * var(--tempo, 1)) cubic-bezier(.3,.7,.4,1); transform-origin: 50% 88%; }
@@ -1985,7 +1982,7 @@
   .notice {
     position: fixed; left: 50%; bottom: max(15vh, 84px); z-index: 45;
     max-width: min(92vw, 520px); padding: 9px 18px 8px; border-radius: 12px;
-    background: rgba(10, 8, 14, .93); border: 2px solid #9CE424;
+    background: rgba(10, 8, 14, .93); border: 2px solid #F2B33D;
     box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
     font-family: var(--legible); font-size: clamp(11px, 2vh, 16px); line-height: 1.35; color: #f4f0ea;
     text-align: center; pointer-events: none;
@@ -2056,7 +2053,7 @@
   .banner.gold .big { color: var(--gold); text-shadow: 0 4px 0 rgba(0,0,0,.75), 0 0 22px rgba(0,0,0,.9), 0 0 34px rgba(245,197,24,.55); }
   .banner .muralimg { display: none; max-width: 94%; max-height: 46%; object-fit: contain; margin-top: 14px; border: 2px solid var(--gold); }
   .banner.muralshow .muralimg { display: block; }
-  .banner.purple .big { color: #9CE424; text-shadow: 0 4px 0 rgba(0,0,0,.75), 0 0 22px rgba(0,0,0,.9), 0 0 34px rgba(108,252,84,.55); }
+  .banner.purple .big { color: #F2B33D; text-shadow: 0 4px 0 rgba(0,0,0,.75), 0 0 22px rgba(0,0,0,.9), 0 0 34px rgba(255, 190, 70,.55); }
 
   /* info cards under the board */
   .rail { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; max-width: 920px; }
@@ -2088,7 +2085,7 @@
      (paintFsCount), and it drops away as the bonus ends (.leaving, from totalWinScreen). The
      plate wanders slightly on a random path of its own (hoverWin, started at boot); the jumps
      are on scale, so the two never fight. */
-  #fsCard { display: none; --acc: #9CE424; --glow: 108, 252, 84; text-align: center; }
+  #fsCard { display: none; --acc: #F2B33D; --glow: 255, 190, 70; text-align: center; }
   #fsCard.x { --acc: #B454E4; --glow: 180, 84, 228; }
   #fsCard.on { display: block; animation: fsIn .62s cubic-bezier(.2, 1.35, .35, 1) .35s both; }
   #fsCard.leaving { animation: fsOut .36s cubic-bezier(.5, 0, .9, .5) forwards; }
@@ -2213,7 +2210,7 @@
   .sidebtn:active:not(:disabled) { transform: scale(.93); }
   /* armed: the box brightens and the glyph lights up in its own paint */
   .sidebtn.on { filter: brightness(1.22) saturate(1.12); }
-  .sidebtn.on::before { filter: drop-shadow(0 0 8px rgba(168, 240, 0, .95)) drop-shadow(0 1.5px 0 rgba(0,0,0,.6)); }
+  .sidebtn.on::before { filter: drop-shadow(0 0 8px rgba(242, 179, 61, .95)) drop-shadow(0 1.5px 0 rgba(0,0,0,.6)); }
   /* greyed while a round runs, armed or not: the choice is kept, only the press is off */
   .sidebtn:disabled, .sidebtn.on:disabled { filter: grayscale(.95) brightness(.7); opacity: .6; cursor: default; }
   .sidebtn:disabled::before, .sidebtn.on:disabled::before { filter: grayscale(1) drop-shadow(0 1.5px 0 rgba(0,0,0,.6)); }
@@ -2380,7 +2377,7 @@
      like the symbols' .tglow and its halo breathes - and the other one is dimmed until the
      pointer is on it. The description stays in the markup for assistive tech, out of sight. */
   .bonuscard {
-    --acc: #9CE424; --acchi: #E4FC84; --accd: #3C6C0C; --glow: 108, 252, 84;
+    --acc: #F2B33D; --acchi: #FFE39A; --accd: #8A3E10; --glow: 255, 190, 70;
     container-type: inline-size;   /* the spins figure is sized to the card (cqw), so "10, 12, 15 or 17" always fits */
     position: relative; display: flex; flex-direction: column; align-items: center; gap: 7px; width: 100%;
     background: linear-gradient(180deg, rgba(58, 54, 66, .96), rgba(24, 22, 30, .97) 56%, rgba(14, 13, 18, .98));
@@ -2536,7 +2533,7 @@
   .wordbtn:active:not(:disabled) { transform: scale(.96); }
   .wordbtn:disabled { opacity: .6; cursor: default; }
   .bonusgo { width: min(100%, 330px); }
-  .bonusgo, #autoPop #autoYes { --b1: #E4FC84; --b2: #9CE424; --b3: #4a840a; --glow: 108, 252, 84; }
+  .bonusgo, #autoPop #autoYes { --b1: #FFE39A; --b2: #F2A33A; --b3: #9A4A12; --glow: 255, 190, 70; }
   .bonusgo.purple { --b1: #EBC9FF; --b2: #B454E4; --b3: #5a1c9c; --glow: 180, 84, 228; }
   /* PLAY (owner, 2026-10-27): a real button - a fat sticker slab in the chosen card's paint, lime
      for the Bonus and violet for the Extreme Bonus (paintBonus switches .purple), lit from the
@@ -2730,7 +2727,7 @@
     --hud-fill: rgba(38, 37, 41, .5);   /* a slightly greyish black, half see-through (owner, 2026-11-03) */
     --hud-line: #000;           /* the outline: black */
     --hud-hi: #fff;             /* the outline under the pointer, or with its pop-up open: white (owner, 2026-11-03) */
-    --hud-on: #B8F23A;          /* Rapid / Auto on, the chosen option (the spin's pressed ring is white) */
+    --hud-on: #F2B33D;          /* Rapid / Auto on, the chosen option (the spin's pressed ring is white) */
     --hud-ink: #f4f1f8;
     --hud-soft: #c4bcd2;
     --hud-font: "Fredoka", "Segoe UI", Roboto, Arial, sans-serif;
@@ -2790,11 +2787,11 @@
   /* Rapid armed, Auto running: the glyph and the outline in lime */
   .hudframe .sidebtn.on, .hudframe .sidebtn.on:disabled { color: var(--hud-on); }
   .hudframe .sidebtn.on .tabshape path { stroke: var(--hud-on); }
-  .hudframe .sidebtn.on::before { filter: drop-shadow(0 0 5px rgba(184, 242, 58, .75)); }
+  .hudframe .sidebtn.on::before { filter: drop-shadow(0 0 5px rgba(242, 179, 61, .75)); }
   /* nothing greys during a round: a button that cannot act simply does not act */
   .hudframe button:disabled, .hudframe .sidebtn:disabled, .hudframe .sidebtn.on:disabled, .hudframe .hudbtn:disabled { opacity: 1; cursor: default; filter: none; }
   .hudframe .sidebtn:disabled::before { filter: none; }
-  .hudframe .sidebtn.on:disabled::before { filter: drop-shadow(0 0 5px rgba(184, 242, 58, .75)); }
+  .hudframe .sidebtn.on:disabled::before { filter: drop-shadow(0 0 5px rgba(242, 179, 61, .75)); }
   .hud button:focus { outline: none; }
   .hud button:focus-visible { outline: none; }
   .hudframe :is(.hudbtn, .sidebtn):focus-visible .tabshape path { stroke: #fff; }
@@ -2830,7 +2827,7 @@
   .hudstat.bet { align-items: flex-end; }
   .hudstat.bet .val, #betVal { text-align: right; }
   /* the balance flashes green on the way up and red on the way down */
-  #balance.up   { color: var(--fs-green); text-shadow: 0 0 10px rgba(168, 240, 0, .55); }
+  #balance.up   { color: var(--fs-green); text-shadow: 0 0 10px rgba(242, 179, 61, .55); }
   #balance.down { color: #ff4d4d;         text-shadow: 0 0 10px rgba(255, 59, 59, .55); }
   .hudbar .chip.juris { background: rgba(255, 255, 255, .06); border: 1px solid var(--hud-line); box-shadow: none; padding: 4px 9px; }
   .hudbet { display: flex; align-items: center; gap: calc(12px * var(--hs, 1)); }
@@ -2921,7 +2918,7 @@
     transition: transform .12s ease, filter .15s ease, box-shadow .15s ease;
   }
   #autoPop #autoYes:not(:disabled)::before { content: none; animation: none; }
-  #autoPop #autoYes:hover:not(:disabled) { transform: none; filter: brightness(1.08); border-color: rgba(0, 0, 0, .35); box-shadow: 0 0 0 3px rgba(184, 242, 58, .25); }
+  #autoPop #autoYes:hover:not(:disabled) { transform: none; filter: brightness(1.08); border-color: rgba(0, 0, 0, .35); box-shadow: 0 0 0 3px rgba(242, 179, 61, .25); }
   #autoPop #autoYes:active:not(:disabled) { transform: scale(.97); box-shadow: none; }
   #autoPop #autoYes:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   /* The rules panel rises out of the bar too, standing just over the HUD's top edge (--hud-top,
@@ -2974,13 +2971,40 @@
     .bottom { padding-bottom: calc(6vh / max(var(--fit, 1), .2)); }
     .hud .bonusbtn { bottom: calc(3.5vh / max(var(--fit, 1), .2) - 37px * var(--hs, 1)); }
   }
+  /* ---- Tipsy Harvest (fall reskin, 2026-11-03) ----------------------------------------------------
+     The background is a painted Thanksgiving farm (assets/bonus_wall.webp), not the graffiti wall: no tag,
+     no neon, no drips (wallfx.js is not loaded), no lean, and it always fills the screen. */
+  :root {
+    --scene-yaw: 0deg; --wall-scale: cover;
+    /* harvest accents in place of the neon: pumpkin orange, gold for the bonus scatter, the crow's purple */
+    --spray: #E8742A; --spray-deep: #C4521C; --gold: #F2B33D; --fs-green: #F2B33D; --fs-purple: #9B5CF0;
+    --hud-on: #F2B33D; --hud-fill: rgba(46, 26, 14, .55); --hud-soft: #e2cfae; --hud-ink: #fbf3e4;
+  }
+  #walltag, .tagfx, #wallpaint, #walllight { display: none !important; }
+  /* the reels sit on a warm see-through shade of the field, not the graffiti build's grey plate */
+  .boardplate {
+    background: radial-gradient(ellipse at 50% 40%, rgba(58,32,16,.58), rgba(30,15,6,.74)); opacity: 1;
+    box-shadow: inset 0 0 40px rgba(20,8,0,.55);
+  }
+  /* The log frame (assets/frame.webp) is a picture whose opening is 81.6% x 77.8% of it, starting 9.4% in
+     and 11.9% down: sized from the board so that opening sits 18px inside the board's edge, round the icons,
+     and the logs, pumpkins and corn run outside it. */
+  #paintframe {
+    width: calc((100% - 36px) / .8164); height: calc((100% - 36px) / .7775);
+    left: calc(18px - (100% - 36px) * .11526); top: calc(18px - (100% - 36px) * .15254);
+  }
+  #bgwall {
+    background:
+      linear-gradient(rgba(40,18,6,.06), rgba(40,18,6,.26)),
+      url("assets/bonus_wall.webp") center / var(--wall-scale) no-repeat;
+    transform: none;
+  }
 </style>
 </head>
 <body>
 <div id="camfar" class="camlayer"><div id="bgwall"><div id="wallpaint" aria-hidden="true"></div><div id="tagspill" class="tagfx" aria-hidden="true"><i></i></div><img id="walltag" src="assets/wall_tag.webp" width="3303" height="1674" alt="" draggable="false"><div id="tagglow" class="tagfx" aria-hidden="true"><i></i><b class="sheen"><b><i></i></b></b></div></div>
 </div>
-<div id="camnear" class="camlayer"><div id="charfx" class="charfx" aria-hidden="true"></div>
-<div id="charfx2" class="charfx" aria-hidden="true"></div></div>
+<div id="camnear" class="camlayer"><div id="charfx" class="charfx" aria-hidden="true"></div></div>
 
 <div id="app">
 <div class="main">
@@ -3079,7 +3103,7 @@
           <img class="cardart" src="assets/flat/ES.webp" alt="" draggable="false">
           <span class="spins"><b>10, 12, 15 or 17</b> free spins</span>
           <span class="mult" id="bonusExtCost"></span>
-          <span class="desc" id="bonusExtDesc">10, 12, 15 or 17 free spins. Every Multi is worth x2 or more, walls drop in lines, and values stack across the feature.</span>
+          <span class="desc" id="bonusExtDesc">10, 12, 15 or 17 free spins. Every Multi is worth x2 or more, Multis drop in lines, and values stack across the feature.</span>
         </button>
       </div>
       <div class="bonusbet">
@@ -3101,7 +3125,7 @@
     <i class="introflash" aria-hidden="true"></i>
     <i class="introline" aria-hidden="true"></i>
     <i class="introspark" aria-hidden="true"></i>
-    <div class="introword" id="introWord" role="img" aria-label="Smukiez">
+    <div class="introword" id="introWord" role="img" aria-label="Tipsy Harvest">
       <img class="iwglow" src="assets/intro_wordmark_glow.webp" alt="" draggable="false">
       <img class="iwink" src="assets/intro_wordmark.webp" alt="" draggable="false">
       <i class="iwsheen" aria-hidden="true"><b></b></i>
@@ -3151,33 +3175,32 @@
 <script src="rgs.js"></script>
 <script src="rules.js"></script>
 <script src="sprayrim.js"></script>
-<script src="wallfx.js"></script>
 <script>
 "use strict";
 
 // a multiplier as the player should read it: 1.25, 5, 1000 - never 5.00
 const fmtMult = v => String(+(+v).toFixed(2));
 const SYM = {
-  M:  { label: "MULTI", sub: "",           cls: "booster", img: "assets/flat/M.webp" },   // the brick chunk, its value over it
-  BS: { label: "CREW",  sub: "BONUS",      cls: "scat",  img: "assets/flat/BS.webp" },
-  ES: { label: "PHNTM", sub: "EXTREME",    cls: "escat", img: "assets/flat/ES.webp" },
-  H1: { label: "CASH",  sub: "BAG",        cls: "high", img: "assets/flat/H1.webp" },
-  H2: { label: "GLOCK", sub: "CARTOON",    cls: "high", img: "assets/flat/H2.webp" },
-  H3: { label: "CHAIN", sub: "GOLD",       cls: "high", img: "assets/flat/H3.webp" },
-  H4: { label: "KICKS", sub: "FRESH",      cls: "high", img: "assets/flat/H4.webp" },
-  H5: { label: "BOOM",  sub: "BOX",        cls: "high", img: "assets/flat/H5.webp" },
-  L1: { label: "SPRAY", sub: "CAN",        cls: "low",  img: "assets/flat/L1.webp" },
-  L2: { label: "MRKR",  sub: "MARKERS",    cls: "low",  img: "assets/flat/L2.webp" },
-  L3: { label: "BEANIE",sub: "SMUKIEZ",    cls: "low",  img: "assets/flat/L3.webp" },
-  L4: { label: "TAG",   sub: "HANGTAG",    cls: "low",  img: "assets/flat/L4.webp" },
-  L5: { label: "DICE",  sub: "PAIR",       cls: "low",  img: "assets/flat/L5.webp" },
-  H6: { label: "SK8",   sub: "BOARD",      cls: "high", img: "assets/flat/H6.webp" },
-  H7: { label: "DROP",  sub: "LIMITED",    cls: "high", img: "assets/flat/H7.webp" },
-  L6: { label: "SHIRT", sub: "SMUKIEZ",    cls: "low",  img: "assets/flat/L6.webp" },
-  L7: { label: "HOODIE",sub: "SMUKIEZ",    cls: "low",  img: "assets/flat/L7.webp" },
-  L8: { label: "WEED",  sub: "BAG",        cls: "low",  img: "assets/flat/L8.webp" },
-  L9: { label: "TRAIN", sub: "FREIGHT",    cls: "low",  img: "assets/flat/L9.webp" },
-  L10:{ label: "LOW",   sub: "RIDER",      cls: "low",  img: "assets/flat/L10.webp" },
+  M:  { label: "CIDER", sub: "MULTI",      cls: "booster", img: "assets/flat/M.webp" },   // the hard cider bottle, its value over it
+  BS: { label: "WISH",  sub: "BONUS",      cls: "scat",  img: "assets/flat/BS.webp" },
+  ES: { label: "CROW",  sub: "EXTREME",    cls: "escat", img: "assets/flat/ES.webp" },
+  H1: { label: "TURKEY",sub: "ROAST",      cls: "high", img: "assets/flat/H1.webp" },
+  H2: { label: "PIE",   sub: "PUMPKIN",    cls: "high", img: "assets/flat/H2.webp" },
+  H3: { label: "HORN",  sub: "PLENTY",     cls: "high", img: "assets/flat/H3.webp" },
+  H4: { label: "HAT",   sub: "PILGRIM",    cls: "high", img: "assets/flat/H4.webp" },
+  H5: { label: "JUG",   sub: "XXX",        cls: "high", img: "assets/flat/H5.webp" },
+  L1: { label: "LEAF",  sub: "MAPLE",      cls: "low",  img: "assets/flat/L1.webp" },
+  L2: { label: "ACORN", sub: "",           cls: "low",  img: "assets/flat/L2.webp" },
+  L3: { label: "APPLE", sub: "GREEN",      cls: "low",  img: "assets/flat/L3.webp" },
+  L4: { label: "GRAPE", sub: "BUNCH",      cls: "low",  img: "assets/flat/L4.webp" },
+  L5: { label: "SUN",   sub: "FLOWER",     cls: "low",  img: "assets/flat/L5.webp" },
+  H6: { label: "CORN",  sub: "COB",        cls: "high", img: "assets/flat/H6.webp" },
+  H7: { label: "PMPKN", sub: "PUMPKIN",    cls: "high", img: "assets/flat/H7.webp" },
+  L6: { label: "CANDY", sub: "CORN",       cls: "low",  img: "assets/flat/L6.webp" },
+  L7: { label: "FTHR",  sub: "FEATHER",    cls: "low",  img: "assets/flat/L7.webp" },
+  L8: { label: "CRAN",  sub: "SAUCE",      cls: "low",  img: "assets/flat/L8.webp" },
+  L9: { label: "GRAVY", sub: "BOAT",       cls: "low",  img: "assets/flat/L9.webp" },
+  L10:{ label: "HAY",   sub: "BALE",       cls: "low",  img: "assets/flat/L10.webp" },
 };
 const FLAT = {};   // the flat icon pictures, kept: the paytable, the shards of a blown-out tile and the fallback all draw them
 for (const [k, def] of Object.entries(SYM)) {   // pre-warm icon cache
@@ -3404,7 +3427,9 @@ const RIM_RULES = [   // shadow: [down, blur, alpha], the drop shadow the art ha
   { sel: "#bonusBetDown", art: "hud_minus", fit: "contain", shadow: [2, 3, .5] },
 ];
 function startRims() {
-  if (!window.SprayFX || /[?&]norim\b/.test(location.search)) return;   // QA: ?norim shows the painted outlines
+  // The fall build wears its painted wood-and-rope frames: the graffiti build's live spray-paint rims stay off
+  // unless ?rim asks for them.
+  if (!window.SprayFX || !/[?&]rim\b/.test(location.search)) return;
   SprayFX.start({
     boxes: [{ sel: "#board", box: true, grow: 10, inset: .01, band: .03, radius: .022, flameK: 1.76, z: 3, cls: "framefx",
               flare: 1, onAttach: el => el.classList.add("livefx") }],   // stoked as a spin starts (playRound)
@@ -3815,8 +3840,10 @@ let sprayReady = null;
 // Fetches and decodes the can and the puff in every value's colour (two dozen small pictures,
 // decoded off the main thread) and holds them, so a can is whole on its first frame on the
 // board. Idempotent; a picture that will not load leaves its colour to the nearest one there is.
+const HARVEST_REVEAL = true;   // the fall build reveals a Multi's value with harvestReveal, not a spray can
 function prepareSpray() {
   if (sprayReady) return sprayReady;
+  if (HARVEST_REVEAL) return (sprayReady = Promise.resolve(false));   // no spray cans to fetch in the fall build
   sprayReady = (async () => {
     if (REDUCED_MOTION) return false;
     const hues = [...new Set(SPRAY.values.map(v => Math.round(heatHue(v))))];
@@ -3884,10 +3911,41 @@ function sprayMulti(cell) {
   sprayJobs.add(job);
   return job;
 }
+// The fall build's reveal (no spray can): the value pops onto the cider bottle - squashed in, overshooting,
+// settling - with the cork's fizz of a few autumn leaves bursting off it and fluttering down.
+const REVEAL_LEAVES = ["leaf_red", "leaf_orange", "leaf_gold"].map(n => `assets/fx/${n}.webp`);
+async function harvestReveal(m, mv, layer) {
+  const t = tempo() / MULTI_RATE, rnd = (a, b) => a + Math.random() * (b - a);
+  const [fx, fy] = boardXY(mv), w = mv.offsetWidth, h = mv.offsetHeight, cx = fx + w / 2, cy = fy + h / 2;
+  m.classList.remove("bare");
+  const anims = [mv.animate([
+    { transform: "scale(.15) rotate(-14deg)", opacity: 0 },
+    { offset: .5, transform: "scale(1.3) rotate(5deg)", opacity: 1 },
+    { offset: .78, transform: "scale(.92) rotate(-2deg)" },
+    { transform: "scale(1) rotate(0deg)", opacity: 1 },
+  ], { duration: 440 * t, easing: "cubic-bezier(.3,.7,.4,1)" })];
+  const els = [];
+  for (let i = 0; i < 6; i++) {
+    const e = document.createElement("img");
+    e.className = "sleaf"; e.alt = ""; e.draggable = false; e.src = REVEAL_LEAVES[i % 3];
+    layer.append(e); els.push(e);
+    const a = -Math.PI / 2 + rnd(-1.3, 1.3), d = rnd(34, 58), r0 = rnd(0, 360), spin = rnd(-260, 260);
+    const x1 = cx + Math.cos(a) * d, y1 = cy + Math.sin(a) * d, x2 = x1 + rnd(-14, 14), y2 = y1 + rnd(36, 60);
+    anims.push(e.animate([
+      { transform: `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) rotate(${r0}deg) scale(.3)`, opacity: 0 },
+      { offset: .25, transform: `translate(${x1.toFixed(1)}px, ${y1.toFixed(1)}px) rotate(${(r0 + spin * .3).toFixed(0)}deg) scale(1)`, opacity: 1 },
+      { transform: `translate(${x2.toFixed(1)}px, ${y2.toFixed(1)}px) rotate(${(r0 + spin).toFixed(0)}deg) scale(.8)`, opacity: 0 },
+    ], { duration: 900 * t, delay: 40 * i * t, fill: "both", easing: "cubic-bezier(.2,.7,.4,1)" }));
+  }
+  sfx("pop");
+  await Promise.all(anims.map(a => a.finished.catch(() => {})));
+  els.forEach(e => e.remove());
+}
 async function sprayRun(cell) {
   const m = cell.ico && cell.ico.querySelector(".multface"), mv = m && m.querySelector(".mv");
   const layer = $("sprayLayer");
   if (!mv || !layer || REDUCED_MOTION) return;
+  if (HARVEST_REVEAL) { if (!document.hidden && cell._spray === "on") await harvestReveal(m, mv, layer); return; }
   // the tints are made behind the loading screen; a page that skipped it waits a beat for them
   if (!Object.keys(sprayPics).length) await Promise.race([prepareSpray(), new Promise(r => setTimeout(r, 1500))]);
   const pics = sprayPicsFor(m._mult || 2);
@@ -4060,7 +4118,7 @@ function heatHue(v) {
 // The board's fire flashes colour with the moment (owner, 2026-11-03): a win steps it round the theme's
 // colours (lime, violet, pink, cyan) and blows on it; a multiplier flares it in that value's heat colour,
 // strobing with white. Fades back to its own colours by itself (SprayFX.flash).
-const FIRE_WIN = [[.72, .95, .23], [.62, .33, .98], [.98, .36, .62], [.3, .86, .98]];
+const FIRE_WIN = [[.95, .7, .24], [.91, .45, .16], [.64, .15, .23], [1, .9, .7]];   // fall: gold, pumpkin, cranberry, cream
 function hueRgb(h) {   // a fully saturated colour of hue h (degrees), as 0..1 rgb
   const f = n => { const k = (n + h / 30) % 12; return .5 - .5 * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
   return [f(0), f(8), f(4)];
@@ -4149,9 +4207,9 @@ const BURST_SWELL = 1.3;  // how big the tile has swollen by then: its pieces st
 const BURST_PX = 240;     // the pieces are cut with the icon this many px across (a tile is ~100 css px, at 2x DPR)
 // the light each symbol bursts in: its own colour; the grey ones take their tier's neon, or white
 const BURST_COLOUR = {
-  H1: "#45c46a", H2: "#6CFC54", H3: "#F5C518", H4: "#C77DFF", H5: "#C77DFF", H6: "#c8e83c", H7: "#C77DFF",
-  L1: "#3dff5a", L2: "#ff8a1c", L3: "#eeeeee", L4: "#eeeeee", L5: "#ff5a2a", L6: "#86a548", L7: "#d0d0d0",
-  L8: "#8bbf4a", L9: "#f2e34a", L10: "#7ec8f2", M: "#e07a4a", BS: "#9CE424", ES: "#B454E4",
+  H1: "#e8902f", H2: "#f0a040", H3: "#d9a441", H4: "#f2c94c", H5: "#b07a48", H6: "#f7d046", H7: "#ff8a1c",   // fall: each symbol's own colour
+  L1: "#e0452b", L2: "#b7713a", L3: "#9ccc3c", L4: "#9b5fc0", L5: "#ffc928", L6: "#ff9a2a", L7: "#3fb4b0",
+  L8: "#c2223f", L9: "#c9874a", L10: "#f0c757", M: "#f2b33d", BS: "#ffd24a", ES: "#9b5cf0",
 };
 const burstKits = {}, glowSprites = {};
 let smokeSprite = null, bursts = [], burstRaf = 0, burstLast = 0;
@@ -4527,7 +4585,7 @@ function stripsFor(gameType) {
 
 const FALLBACK_STRIP = ["L1", "H4", "L3", "H1", "L5", "H3", "L2", "H5", "L4", "H2"];
 
-// Two Crew Leaders down and a reel held for the third: the board leans in. It eases up a touch
+// Two Golden Wishbones down and a reel held for the third: the board leans in. It eases up a touch
 // bigger, about a point part way toward the held column, over the rest of the reveal - full
 // size as the last held icon lands - and lets go again when the reveal is over, hit or miss.
 function boardZoom(on, heldEls = [], ms = 1800) {
@@ -4865,8 +4923,8 @@ function dropReel(r, ev, wait, inExtra = 0, onCrewLeader = null, slow = 1) {
         c.classList.add("scatland");
         sfxGap("scatterLand", 140, 1 + r * .02);
         later(800 * tt, () => c.classList.remove("scatland"));
-        // only the Crew Leader counts towards the gold. The hold is set by two of those and
-        // never by a Phantom, so counting a Phantom would light the frame for a symbol that
+        // only the Golden Wishbone counts towards the gold. The hold is set by two of those and
+        // never by a Crow, so counting a Crow would light the frame for a symbol that
         // is not on the board yet - the very thing the gold is waiting for
         if (crew && onCrewLeader) onCrewLeader();
       }
@@ -4935,7 +4993,7 @@ async function renderReveal(ev) {
   }
   // The gold column is a tell, and lit at the top of the reveal it gives the near miss away
   // before a single symbol has landed - the frame announcing a bonus over an empty board. It
-  // waits for the second Crew Leader instead, the pair that holds the reel in the first place,
+  // waits for the second Golden Wishbone instead, the pair that holds the reel in the first place,
   // so the player reads the near miss off the board and the gold only confirms what is already
   // there. A held reel always lands after the two that hold it, so the gold is never late.
   const goldReels = reelEls.filter((_, r) => (ev.anticipation?.[r] || 0) > 0);
@@ -5208,7 +5266,7 @@ function paintFsCount(cur, total, quiet) {
     plus.textContent = "+" + (total - was.total);
     plate.append(plus);
     plus.addEventListener("animationend", () => plus.remove());
-    sparkBurst(plate, { n: 18, reach: .7, colors: ["#ffffff", getComputedStyle($("fsCard")).getPropertyValue("--acc").trim() || "#9CE424", "#F5C518"] });
+    sparkBurst(plate, { n: 18, reach: .7, colors: ["#ffffff", getComputedStyle($("fsCard")).getPropertyValue("--acc").trim() || "#F2B33D", "#F5C518"] });
     sfx("bell", 1.15);
   }
 }
@@ -5358,17 +5416,17 @@ let actx = null, sfxBus = null, musicBus = null;
 // Player's mix, 0-100 each, remembered per browser. The music bar is musicBus's gain, over
 // every cue (see the music section below).
 const vol = { music: 70, sfx: 80 };
-try { Object.assign(vol, JSON.parse(localStorage.getItem("smukiez.vol") || "{}")); } catch (e) { /* storage blocked */ }
+try { Object.assign(vol, JSON.parse(localStorage.getItem("tipsyharvest.vol") || "{}")); } catch (e) { /* storage blocked */ }
 // The old build carried a separate "mute everything" switch. Dragging a bar to zero is the
 // mute now, so anyone who had that switch on comes back silenced instead of losing the
 // setting. Write the migrated mix before dropping the old key, or the next load would read
 // a mix that was never saved and come back loud.
 try {
-  if (localStorage.getItem("smukiez.muted") === "1") {
+  if (localStorage.getItem("tipsyharvest.muted") === "1") {
     vol.music = 0; vol.sfx = 0;
-    localStorage.setItem("smukiez.vol", JSON.stringify(vol));
+    localStorage.setItem("tipsyharvest.vol", JSON.stringify(vol));
   }
-  localStorage.removeItem("smukiez.muted");
+  localStorage.removeItem("tipsyharvest.muted");
 } catch (e) { /* storage blocked */ }
 function applyVolumes() {
   if (sfxBus) sfxBus.gain.value = vol.sfx / 100;
@@ -5993,11 +6051,11 @@ const handlers = {
       // no banner over the board (owner, 2026-10-25): the board turning to walls is the announcement
       charReact("big_win");
       sfx("alertA");
-      tick(`<b>FULL WALL</b> \u2014 every cell is a Multi`);
+      tick(`<b>FULL HARVEST</b> \u2014 every cell is a Multi`);
       await hold(700 / MULTI_RATE);
     } else {
       sfx("alertB");
-      tick(`<b>WALL LINE</b> \u2014 ${cells.length} Multis in a row`);
+      tick(`<b>CIDER LINE</b> \u2014 ${cells.length} Multis in a row`);
       await hold(420 / MULTI_RATE);
     }
     for (const c of cells) c.classList.remove("pulse");
@@ -6891,7 +6949,7 @@ function setButtons(on) {
 }
 // The bet survives a reload within the same session only: a new session always opens on the
 // server's defaultBetLevel (Engine checks that), a refresh mid-session keeps what was chosen.
-const betKey = () => "smukiez.bet." + RGS.state.currency;
+const betKey = () => "tipsyharvest.bet." + RGS.state.currency;
 function rememberBet() {
   try { localStorage.setItem(betKey(), JSON.stringify({ s: RGS.sessionID, v: bet() })); } catch (e) { /* ignore */ }
 }
@@ -6902,7 +6960,7 @@ function recallBet() {
   } catch (e) { return 0; }
 }
 // last 50 rounds, per currency — no replay link because the RGS never returns the event id
-const histKey = () => "smukiez.hist." + RGS.state.currency;
+const histKey = () => "tipsyharvest.hist." + RGS.state.currency;
 function recordRound(mode, amount, payout, mult) {
   try {
     const h = JSON.parse(localStorage.getItem(histKey()) || "[]");
@@ -6945,16 +7003,11 @@ function refreshBet() {
 // ends on the idle's first pose, so a clip cuts in where the idle passes through that pose (its cues) and
 // hands straight back to the idle's first frame.
 const CHARACTERS = [
-  // #charfx is the right-hand slot, #charfx2 the left
+  // the drunk scarecrow on his pole, beside the board (#charfx; CSS stands him on the left)
   {
-    el: "charfx", name: "skull",
-    flavour: [["ash_break"]],
-    swap: { big_win: "win" },   // the skull's big-win clip is retired: its normal win plays for both
-    shadow: false,              // no shadow under his shoes (owner, 2026-11-03)
-  },
-  {
-    el: "charfx2", name: "boy",
-    flavour: [["cash_show"], ["cash_count"]],
+    el: "charfx", name: "scarecrow",
+    flavour: [["hiccup"], ["peck"]],   // idle breaks: three hiccups; the crow pecks his hat
+    shadow: false,                     // tied to a pole in the field: his grass patch is his footing
   },
 ];
 // The pair redraw at most about 60 times a second: on the owner's 165 Hz screen each figure - its
@@ -7620,7 +7673,7 @@ function fitToScreen() {
 // it and the stylesheet's values apply.
 let sceneryProbes = null;
 function placeScenery() {
-  const root = document.documentElement.style, chars = [$("charfx"), $("charfx2")].filter(Boolean);
+  const root = document.documentElement.style, chars = [$("charfx")].filter(Boolean);
   root.removeProperty("--char-height");   // the stylesheet's size first (an upright screen may cap it below)
   if (!matchMedia("(max-width: 1100px) and (orientation: portrait)").matches) {
     root.removeProperty("--char-drop"); root.removeProperty("--tag-top");
@@ -8175,7 +8228,7 @@ function rollNumerals(el, text, rolling) {
 // given paints, each on its own angle, speed and spin, dropping a little as they go and gone in
 // about a second. Plain elements, removed when they are done; nothing at all with reduced motion.
 // x, y: where in the host it bursts from (0..1); reach scales how far they fly.
-function sparkBurst(host, { x = .5, y = .5, n = 18, colors = ["#ffffff", "#E4FC84", "#B454E4"], reach = 1, size = 1 } = {}) {
+function sparkBurst(host, { x = .5, y = .5, n = 18, colors = ["#ffffff", "#FFE39A", "#E8742A"], reach = 1, size = 1 } = {}) {
   if (REDUCED_MOTION || !host) return;
   const box = document.createElement("div");
   box.className = "sparks";
@@ -8205,8 +8258,8 @@ function sparkBurst(host, { x = .5, y = .5, n = 18, colors = ["#ffffff", "#E4FC8
 // SMUKIEZ sign behind the board flares and buzzes with it (WallFX.surge; 1 = a big win's full flare).
 const HEAD_FX = [
   { scale: 1,    sparks: 16, reach: .95, knock: .7,  flash: 0,   surge: .55, glow: "180, 84, 228", colors: ["#ffffff", "#E4B4FC", "#B454E4", "#F5C518"] },
-  { scale: 1.07, sparks: 26, reach: 1.15, knock: 1,  flash: .28, surge: .75, glow: "108, 252, 84", colors: ["#E4FC84", "#9CE424", "#ffffff", "#B454E4"] },
-  { scale: 1.14, sparks: 40, reach: 1.4, knock: 1.5, flash: .42, surge: 1,   glow: "180, 84, 228", colors: ["#E4B4FC", "#B454E4", "#9CE424", "#ffffff"] },
+  { scale: 1.07, sparks: 26, reach: 1.15, knock: 1,  flash: .28, surge: .75, glow: "255, 190, 70", colors: ["#FFE39A", "#F2B33D", "#ffffff", "#E8742A"] },
+  { scale: 1.14, sparks: 40, reach: 1.4, knock: 1.5, flash: .42, surge: 1,   glow: "180, 84, 228", colors: ["#E4B4FC", "#B454E4", "#F2B33D", "#ffffff"] },
   { scale: 1.08, sparks: 34, reach: 1.3, knock: 1.1, flash: .3,  surge: .85, glow: "245, 197, 24", colors: ["#FFE58A", "#F5C518", "#ffffff", "#B454E4"] },
 ];
 function headFx(wrap, head, lvl) {
@@ -8565,7 +8618,7 @@ function totalWinScreen(amount, { total = true } = {}) {
 /* ---------- features screen ---------- */
 // Before the game shows: three plates over the wall and nothing else - no board, no
 // characters, no bar. The Multi with its value climbing the table and warming with it, the
-// Crew Leader and the Phantom, and what each one does. They drift; the one under the mouse
+// Golden Wishbone and the Crow, and what each one does. They drift; the one under the mouse
 // comes forward. It fades up as the opening screen goes, and a click (or Space / Enter)
 // fades the plates out and the game in. A replay is a viewer, so it never shows this.
 const FEATURE_VALUES = [1.25, 2, 3, 5, 10, 20, 50, 100, 250, 500, 1000];
@@ -8665,12 +8718,12 @@ function runFeatures() {
       box(`<img src="${SYM.M.img}" alt="${T("Multi")}" draggable="false"><div class="fmult" id="featMult">x${fmtMult(FEATURE_VALUES[0])}</div>`,
         T("Multi"),
         T(`Lands with a value from <b>x1.25</b> to <b>x1000</b> - sometimes in a line of 3 or 4, and once in a long while over the whole board. Every winning cluster is paid first; then it blows out and leaves its value on five cells, and a cluster on those cells is multiplied by the <b>sum</b> it covers. Winning clusters drop small multipliers under themselves too.`)) +
-      box(`<img src="${SYM.BS.img}" alt="${T("Crew Leader")}" draggable="false">`,
-        T("Crew Leader \u00b7 Bonus"),
+      box(`<img src="${SYM.BS.img}" alt="${T("Golden Wishbone")}" draggable="false">`,
+        T("Golden Wishbone \u00b7 Bonus"),
         T(`<b>3</b>, <b>4</b> or <b>5</b> anywhere award <b>10</b>, <b>12</b> or <b>15</b> free spins. Multis land more often and drop in lines, and every value - a Multi's or a cluster's drop - stays on the board for the whole bonus.`)) +
-      box(`<img src="${SYM.ES.img}" alt="${T("The Phantom")}" draggable="false">`,
-        T("The Phantom \u00b7 Extreme"),
-        T(`<b>2</b> anywhere award <b>17</b> free spins under Extreme rules: Multis land more often still, drop in lines, and every value is <b>x2</b> or more. A Crew Leader trigger with a Phantom on the same spin is upgraded to Extreme.`)) +
+      box(`<img src="${SYM.ES.img}" alt="${T("The Crow")}" draggable="false">`,
+        T("The Crow \u00b7 Extreme"),
+        T(`<b>2</b> anywhere award <b>17</b> free spins under Extreme rules: Multis land more often still, drop in lines, and every value is <b>x2</b> or more. A Golden Wishbone trigger with a Crow on the same spin is upgraded to Extreme.`)) +
     `</div>` +
     `<div class="fcont"><span class="fhit"><span class="ftxt">${T("Click to play")}</span></span></div>`;
   document.body.appendChild(wrap);
@@ -8722,14 +8775,14 @@ introDone = introDone.then(() => featuresDone);   // a resumed round waits for t
 // again, then the bonus board with its spin counter. It waits for the click - Rapid and
 // Skip quicken animations, they never skip a screen - though Space and Enter count as one.
 const MULTI_RANGE = ["x1.25", "x1000"];   // the Multi's values, as rules.js states them
-const EXTREME_DIRECT_SPINS = 17;          // two Phantoms, straight in (DESIGN.md, bonus rounds)
+const EXTREME_DIRECT_SPINS = 17;          // two Crows, straight in (DESIGN.md, bonus rounds)
 function bonusIntroHow(extreme) {
   return `<p><strong>${T("How the Multi works in here")}</strong></p>` +
     `<p>${T(`A Multi lands with a value from <b>${MULTI_RANGE[0]}</b> to <b>${MULTI_RANGE[1]}</b>. Every winning cluster is paid first; then it blows out, clearing itself and the four symbols beside it, and each of those five cells keeps its value. A cluster that lands on those cells is multiplied by the <strong>sum</strong> of the values it covers, and values that meet add together.`)}</p>` +
     `<p>${T(extreme
       ? `In the Extreme Bonus every value stays on the board for the whole feature, Multis land more often, and every value is <b>x2</b> or more.`
       : `In the bonus every value stays on the board for the whole feature: nothing is wiped between spins, so the board only gets richer.`)}</p>` +
-    `<p>${T(`Walls drop in lines of <b>3</b> or <b>4</b> far more often in here, and every winning cluster drops a small multiplier under itself - all of it stays for the rest of the bonus.`)}</p>`;
+    `<p>${T(`Multis drop in lines of <b>3</b> or <b>4</b> far more often in here, and every winning cluster drops a small multiplier under itself - all of it stays for the rest of the bonus.`)}</p>`;
 }
 function bonusIntro(spins, extreme) {
   musicTo("intro", .6);   // the base game's loop gives way to the intro's impact and build
@@ -8804,7 +8857,7 @@ function bonusIntro(spins, extreme) {
       // stylesheet), throwing sparks as it lands; then the spins count up to what was won,
       // ticking, and the figure lands with a pop and a second burst; FREE SPINS flickers on.
       if (REDUCED_MOTION) return;
-      const sparkPaint = extreme ? ["#E4B4FC", "#B454E4", "#ffffff", "#9CE424"] : ["#E4FC84", "#9CE424", "#ffffff", "#B454E4"];
+      const sparkPaint = extreme ? ["#E4B4FC", "#B454E4", "#ffffff", "#F2B33D"] : ["#FFE39A", "#F2B33D", "#ffffff", "#E8742A"];
       const logo = wrap.querySelector(".blogo"), fig = wrap.querySelector(".bfig"), num = wrap.querySelector(".bnum");
       setTimeout(() => {
         if (!wrap.isConnected || !stack.offsetHeight) return;
@@ -8900,7 +8953,7 @@ const BUSES = [   // both live in the one volume panel over the speaker tab (HUD
   { key: "sfx",   btn: "audioBtn", pop: "volPop", bar: "sfxBar",   num: "sfxNum" },
   { key: "music", btn: "audioBtn", pop: "volPop", bar: "musicBar", num: "musicNum" },
 ];
-function saveVol() { try { localStorage.setItem("smukiez.vol", JSON.stringify(vol)); } catch (e) { /* ignore */ } }
+function saveVol() { try { localStorage.setItem("tipsyharvest.vol", JSON.stringify(vol)); } catch (e) { /* ignore */ } }
 // The liquid rushes up over a longer beat than it drains, and a change big enough to see
 // sets the surface swelling and the capsule rocking. A drag is exempt: it tracks the finger.
 const volShown = {};
@@ -9123,12 +9176,12 @@ function setRapid(on) {
     btn.setAttribute("aria-pressed", on ? "true" : "false");
     btn.title = btn.getAttribute("aria-label");
   }
-  try { localStorage.setItem("smukiez.rapid", on ? "1" : "0"); } catch (e) { /* storage blocked */ }
+  try { localStorage.setItem("tipsyharvest.rapid", on ? "1" : "0"); } catch (e) { /* storage blocked */ }
   syncTempo();
 }
 $("rapidBtn").addEventListener("click", () => { setRapid(!$("turbo").checked); sfx("toggle"); });
 let rapidWas = false;
-try { rapidWas = localStorage.getItem("smukiez.rapid") === "1"; } catch (e) { /* storage blocked */ }
+try { rapidWas = localStorage.getItem("tipsyharvest.rapid") === "1"; } catch (e) { /* storage blocked */ }
 setRapid(rapidWas);
 if (SOCIAL) {   // restricted vocabulary: every static word on the page goes through T() too -
                 // labels, buttons, the chooser, the loading screen - and so do the names

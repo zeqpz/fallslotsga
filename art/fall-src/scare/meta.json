@@ -1,0 +1,16 @@
+{
+ "size": [
+  1024,
+  1536
+ ],
+ "faces": [
+  "neutral",
+  "blink",
+  "cheer",
+  "happy",
+  "hiccup",
+  "sad",
+  "shock",
+  "smug"
+ ]
+}

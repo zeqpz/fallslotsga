@@ -28,3 +28,8 @@ art/blender/chars/*/renders/
 art/blender/chars/*/qa/
 # QA review screenshots (local notes)
 qa-review/
+
+# the local mock RGS decompresses the books here (frontend/mock_rgs.py)
+math-sdk/games/*/library/beta_cache/
+# the 4x Real-ESRGAN intermediate of the background (tools/fall: rebuilt from art/fall-src/bg_v1.png)
+art/fall-src/hires/

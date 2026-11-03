@@ -5,7 +5,7 @@ bet/event) over the game's real optimized books, and serves the frontend from th
 origin so no CORS is involved.
 
     .venv/Scripts/python.exe frontend/mock_rgs.py
-    ->  http://localhost:8733/index.html?sessionID=test&rgs_url=http://localhost:8733&lang=en&device=desktop
+    ->  http://localhost:8744/index.html?sessionID=test&rgs_url=http://localhost:8744&lang=en&device=desktop
 
 Money follows the spec: integers with six decimal places, 1_000_000 == 1.00.
 This is a test harness, not a wallet — balances live in memory and reset on restart.
@@ -28,7 +28,7 @@ GAME = os.path.join(ROOT, "math-sdk", "games", "smukiez_tag_run")
 PUBLISH = os.path.join(GAME, "library", "publish_files")
 CACHE = os.path.join(GAME, "library", "beta_cache")
 
-PORT = 8733
+PORT = 8744                     # its own port, so it can run beside the graffiti build (8733)
 UNIT = 1_000_000
 ID_RE = re.compile(rb'"id":\s*(\d+)')
 
