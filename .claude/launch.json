@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "mock-rgs",
-      "runtimeExecutable": "C:\Users\CooperHinkel\Documents\ClaudeRoblox\smukiez-slot\.venv\Scripts\python.exe",
+      "runtimeExecutable": "C:/Users/CooperHinkel/Documents/fallslotsga/.venv/Scripts/python.exe",
       "runtimeArgs": ["frontend/mock_rgs.py"],
-      "port": 8733
+      "port": 8744,
+      "url": "http://localhost:8744"
     }
   ]
 }

@@ -1,1 +1,98 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "body",
+   "png": "body.png",
+   "pivot": [
+    500,
+    930
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "body_rim",
+   "png": "body_rim.png",
+   "pivot": [
+    500,
+    930
+   ],
+   "parent": "body",
+   "order": 1
+  },
+  {
+   "name": "top",
+   "png": "top.png",
+   "pivot": [
+    500,
+    930
+   ],
+   "parent": "body",
+   "order": 2
+  },
+  {
+   "name": "vine",
+   "png": "vine.png",
+   "pivot": [
+    535,
+    200
+   ],
+   "parent": "stem",
+   "order": 3
+  },
+  {
+   "name": "vine_rim",
+   "png": "vine_rim.png",
+   "pivot": [
+    535,
+    200
+   ],
+   "parent": "vine",
+   "order": 4
+  },
+  {
+   "name": "leaf",
+   "png": "leaf.png",
+   "pivot": [
+    625,
+    225
+   ],
+   "parent": "stem",
+   "order": 5
+  },
+  {
+   "name": "leaf_rim",
+   "png": "leaf_rim.png",
+   "pivot": [
+    625,
+    225
+   ],
+   "parent": "leaf",
+   "order": 6
+  },
+  {
+   "name": "stem",
+   "png": "stem.png",
+   "pivot": [
+    530,
+    350
+   ],
+   "parent": "body",
+   "order": 7
+  },
+  {
+   "name": "stem_rim",
+   "png": "stem_rim.png",
+   "pivot": [
+    530,
+    350
+   ],
+   "parent": "stem",
+   "order": 8
+  }
+ ]
+}

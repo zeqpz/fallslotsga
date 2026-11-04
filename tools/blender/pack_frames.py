@@ -6,7 +6,8 @@ box sits on the icon and how the clip runs.
 Densities are atlas px per rig unit, as the old rigs' (an icon is 100 units across its longer side): 1.6 for a
 1080p screen or a phone, 2.4 between, 3.2 for a 2x screen - the game loads the one that suits the screen.
 usage: python tools/blender/pack_frames.py <ID,ID..|all> [densities, default 1.6,2.4,3.2]
-       python tools/blender/pack_frames.py fit   (re-apply FIT_TO_ART to the manifest only)"""
+       python tools/blender/pack_frames.py fit   (re-apply FIT_TO_ART to the manifest only)
+       python tools/blender/pack_frames.py big M (the Multi's big bottle, symanim.py render_big)"""
 import glob, json, math, os, sys
 from concurrent.futures import ProcessPoolExecutor
 import numpy as np
@@ -17,6 +18,8 @@ REN = os.path.join(ROOT, "art", "blender", "renders")
 OUT = os.path.join(ROOT, "frontend", "assets", "sym")
 CLIPS = ("idle", "land", "hit", "multi")
 FRAME_UNITS = 13.0                      # the camera's view, in Blender units (10 = a 1000 px icon)
+VIEW = {"M": 20.0}                      # symbols filmed wider (tools/fall/blender/symanim.py VIEW): the Multi's fountain
+HOLD = {("M", "multi")}                 # clips the game holds on their last frame instead of returning to rest
 FPS = 30
 
 
@@ -87,7 +90,7 @@ def pack(sid, densities):
     for c, files in clips.items():
         fs = [dehaze(Image.open(f).convert("RGBA")) for f in files]
         S = fs[0].size[0]
-        u = S / FRAME_UNITS                                    # master px per Blender unit
+        u = S / VIEW.get(sid, FRAME_UNITS)                     # master px per Blender unit
         alpha = np.zeros((S, S), bool)
         for im in fs:
             alpha |= np.asarray(im.getchannel("A")) > 0
@@ -95,7 +98,7 @@ def pack(sid, densities):
         x0, x1, y0, y1 = max(0, xs.min() - 4), min(S, xs.max() + 5), max(0, ys.min() - 4), min(S, ys.max() + 5)
         crops = [im.crop((x0, y0, x1, y1)) for im in fs]
         # where the clip's box sits: its top-left from the icon's centre, and its size, in Blender units (y down)
-        entry["clips"][c] = {"frames": len(fs), "fps": FPS, "loop": c == "idle",
+        entry["clips"][c] = {"frames": len(fs), "fps": FPS, "loop": c == "idle", **({"hold": True} if (sid, c) in HOLD else {}),
                              "box": [round((x0 - S / 2) / u, 4), round((y0 - S / 2) / u, 4), round((x1 - x0) / u, 4), round((y1 - y0) / u, 4)]}
         for d in densities:
             px_per_unit = d * 10                               # rig units: an icon's 10 Blender units = 100
@@ -117,7 +120,59 @@ def pack(sid, densities):
     return sid, apply_fit(sid, entry), f"{sid}: " + " | ".join(f"{dd} {t / 1e6:.2f} MB" for dd, t in totals.items())
 
 
+def pack_big(sid, density=5.0):
+    """The Multi's big bottle (symanim.py render_big): its frames cropped to their union and laid in one sheet at
+    `density` px per rig unit (as the board sheets: an icon is 100 across) -> frontend/assets/sym/big/<ID>_multi.webp, and manifest["big"][<ID>]."""
+    files = sorted(glob.glob(os.path.join(REN, sid, "big", "*.png")))
+    fs = [dehaze(Image.open(f).convert("RGBA")) for f in files]
+    S = fs[0].size[0]
+    u = S / VIEW.get(sid, FRAME_UNITS)
+    alpha = np.zeros((S, S), bool)
+    for im in fs:
+        alpha |= np.asarray(im.getchannel("A")) > 0
+    ys, xs = np.nonzero(alpha)
+    x0, x1, y0, y1 = max(0, xs.min() - 4), min(S, xs.max() + 5), max(0, ys.min() - 4), min(S, ys.max() + 5)
+    cw, ch = round((x1 - x0) / u * density * 10), round((y1 - y0) / u * density * 10)   # rig units: 10 Blender units = 100
+    cols = max(1, min(len(fs), 4096 // cw))
+    rows = math.ceil(len(fs) / cols)
+    sheet = Image.new("RGBA", (cols * cw, rows * ch), (0, 0, 0, 0))
+    for i, im in enumerate(fs):
+        sheet.paste(resize(im.crop((x0, y0, x1, y1)), (cw, ch)), ((i % cols) * cw, (i // cols) * ch))
+    os.makedirs(os.path.join(OUT, "big"), exist_ok=True)
+    path = os.path.join(OUT, "big", f"{sid}_multi.webp")
+    sheet.save(path, "WEBP", quality=84, method=6)
+    meta = os.path.join(REN, sid, "big", "meta.json")       # where the cork sits as it pops (symanim.py render_big)
+    entry = {"frames": len(fs), "fps": FPS, "w": cw, "h": ch, "cols": cols,
+             **(json.load(open(meta)) if os.path.exists(meta) else {}),
+             "box": [round((x0 - S / 2) / u, 4), round((y0 - S / 2) / u, 4), round((x1 - x0) / u, 4), round((y1 - y0) / u, 4)]}
+    man_path = os.path.join(OUT, "manifest.json")
+    manifest = json.load(open(man_path))
+    manifest.setdefault("big", {})[sid] = entry
+    json.dump(manifest, open(man_path, "w"), indent=1)
+    print(f"{sid} big: {len(fs)} frames {cw}x{ch}, {os.path.getsize(path) / 1e6:.2f} MB ->", path)
+
+
+def pack_cork(sid, px=160):
+    """The tumbling cork (symanim.py render_cork): its frames in one strip, px square -> assets/sym/big/<ID>_cork.webp
+    and manifest["big"][<ID>]["cork"]."""
+    files = sorted(glob.glob(os.path.join(REN, sid, "cork", "*.png")))
+    strip = Image.new("RGBA", (px * len(files), px), (0, 0, 0, 0))
+    for i, f in enumerate(files):
+        strip.paste(resize(dehaze(Image.open(f).convert("RGBA")), (px, px)), (i * px, 0))
+    path = os.path.join(OUT, "big", f"{sid}_cork.webp")
+    strip.save(path, "WEBP", quality=88, method=6)
+    man_path = os.path.join(OUT, "manifest.json")
+    manifest = json.load(open(man_path))
+    manifest["big"][sid]["cork"] = {"frames": len(files), "px": px}
+    json.dump(manifest, open(man_path, "w"), indent=1)
+    print(f"{sid} cork: {len(files)} frames, {os.path.getsize(path) / 1e3:.0f} kB ->", path)
+
+
 if __name__ == "__main__":
+    if sys.argv[1] == "big":   # python tools/blender/pack_frames.py big M [density]
+        pack_big(sys.argv[2], *(float(v) for v in sys.argv[3:4]))
+        pack_cork(sys.argv[2])
+        sys.exit()
     if sys.argv[1] == "fit":   # re-apply FIT_TO_ART to the manifest as it stands, without re-encoding any sheet
         man_path = os.path.join(OUT, "manifest.json")
         manifest = json.load(open(man_path))

@@ -1,1 +1,88 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "platter",
+   "png": "platter.png",
+   "pivot": [
+    500,
+    760
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "body",
+   "png": "body.png",
+   "pivot": [
+    470,
+    700
+   ],
+   "parent": "root",
+   "order": 1
+  },
+  {
+   "name": "leg_back",
+   "png": "leg_back.png",
+   "pivot": [
+    590,
+    330
+   ],
+   "parent": "body",
+   "order": 2
+  },
+  {
+   "name": "wing",
+   "png": "wing.png",
+   "pivot": [
+    540,
+    590
+   ],
+   "parent": "body",
+   "order": 3
+  },
+  {
+   "name": "leg_front",
+   "png": "leg_front.png",
+   "pivot": [
+    650,
+    560
+   ],
+   "parent": "body",
+   "order": 4
+  },
+  {
+   "name": "garnish_l",
+   "png": "garnish_l.png",
+   "pivot": [
+    250,
+    720
+   ],
+   "parent": "platter",
+   "order": 5
+  },
+  {
+   "name": "garnish_m",
+   "png": "garnish_m.png",
+   "pivot": [
+    570,
+    760
+   ],
+   "parent": "platter",
+   "order": 6
+  },
+  {
+   "name": "garnish_r",
+   "png": "garnish_r.png",
+   "pivot": [
+    760,
+    700
+   ],
+   "parent": "platter",
+   "order": 7
+  }
+ ]
+}

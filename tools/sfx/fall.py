@@ -5,6 +5,7 @@
   python tools/sfx/fall.py pick  [name ...]   # best + most alike `keep` per sound (pick_takes' scoring) -> picks.json
   python tools/sfx/fall.py build [name ...]   # clean3's strict clean + master from the raw take -> frontend/assets
   python tools/sfx/fall.py all   [name ...]
+  python tools/sfx/fall.py texture name ...   # a slosh / fizz / gush the strict clean turns away: level + fade only
 
 The prompts and where each sound goes are in fall_spec.py. The work files stay in %TEMP%/fall_sfx (rebuildable);
 build writes the WAVs into frontend/assets and the list of them to %TEMP%/fall_sfx/written.txt, which
@@ -242,6 +243,36 @@ def build(names):
         if len(res) < len(fns):
             print(f"  !! {name}: {len(res)} of {len(fns)} files")
     open(wl, "w").write("\n".join(written) + "\n")
+
+
+def texture(names):
+    """For the sounds that ARE a texture - a slosh, a rising fizz, a gush - which build's noise-bed guard turns
+    away by design (their 'bed' is the sound itself): the picked candidates as process2 cut them, high-passed,
+    brought to the loudness target (momentary max), held under -1.5 dBFS, with a soft start and end."""
+    db = json.load(open(os.path.join(W, "cand.json")))
+    picks = json.load(open(os.path.join(W, "picks.json")))
+    from audiolib import read_wav
+    for name in names:
+        _, _, kind, (mn, mx, keep, _), out = FS.S[name]
+        tgt = out[2]
+        fns = [f"sfx_{out[1]}_{i}.wav" for i in range(1, keep + 1)] if out[0] == "set" else out[1]
+        files = picks[name] + [c["file"] for c in sorted(db[name], key=lambda c: c.get("pen", 99)) if c["file"] not in picks[name]]
+        for fn, f in zip(fns, files):
+            y, sr, _ = read_wav(os.path.join(CAND, name, f))
+            if sr != SR:
+                y = signal.resample_poly(y, SR, sr, axis=0)
+            if y.shape[1] == 1:
+                y = np.repeat(y, 2, axis=1)
+            y = signal.sosfiltfilt(signal.butter(2, 80, "hp", fs=SR, output="sos"), y, axis=0)
+            y = y[:int(mx * SR)]
+            _, M = lufs(y, SR)
+            y *= 10 ** (min(tgt - M, -1.5 - 20 * np.log10(np.abs(y).max() + 1e-12)) / 20)
+            fi, fo = int(.012 * SR), int(.09 * SR)
+            y[:fi] *= np.linspace(0, 1, fi)[:, None]
+            y[-fo:] *= (.5 + .5 * np.cos(np.linspace(0, np.pi, fo)))[:, None]
+            write_wav(os.path.join(ASSETS, fn), y, SR)
+            I, M = lufs(y, SR)
+            print(f"{fn:28s} {name}:{f:7s} dur {len(y) / SR:5.2f}s pk {20 * np.log10(np.abs(y).max() + 1e-12):5.1f} M {M:6.1f}")
 
 
 def main():

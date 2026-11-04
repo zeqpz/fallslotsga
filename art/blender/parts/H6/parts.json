@@ -1,1 +1,148 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "husks_back",
+   "png": "husks_back.png",
+   "pivot": [
+    300,
+    760
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "husk_r",
+   "png": "husk_r.png",
+   "pivot": [
+    665,
+    650
+   ],
+   "parent": "root",
+   "order": 1
+  },
+  {
+   "name": "husk_r_rim",
+   "png": "husk_r_rim.png",
+   "pivot": [
+    665,
+    650
+   ],
+   "parent": "husk_r",
+   "order": 2
+  },
+  {
+   "name": "husk_lt",
+   "png": "husk_lt.png",
+   "pivot": [
+    300,
+    520
+   ],
+   "parent": "root",
+   "order": 3
+  },
+  {
+   "name": "husk_lt_rim",
+   "png": "husk_lt_rim.png",
+   "pivot": [
+    300,
+    520
+   ],
+   "parent": "husk_lt",
+   "order": 4
+  },
+  {
+   "name": "husk_ll",
+   "png": "husk_ll.png",
+   "pivot": [
+    265,
+    770
+   ],
+   "parent": "root",
+   "order": 5
+  },
+  {
+   "name": "husk_ll_rim",
+   "png": "husk_ll_rim.png",
+   "pivot": [
+    265,
+    770
+   ],
+   "parent": "husk_ll",
+   "order": 6
+  },
+  {
+   "name": "cob",
+   "png": "cob.png",
+   "pivot": [
+    400,
+    730
+   ],
+   "parent": "root",
+   "order": 7
+  },
+  {
+   "name": "cob_rim",
+   "png": "cob_rim.png",
+   "pivot": [
+    400,
+    730
+   ],
+   "parent": "cob",
+   "order": 8
+  },
+  {
+   "name": "cob_fill",
+   "png": "cob_fill.png",
+   "pivot": [
+    400,
+    730
+   ],
+   "parent": "cob",
+   "order": 9
+  },
+  {
+   "name": "husk_front",
+   "png": "husk_front.png",
+   "pivot": [
+    340,
+    790
+   ],
+   "parent": "root",
+   "order": 10
+  },
+  {
+   "name": "husk_front_rim",
+   "png": "husk_front_rim.png",
+   "pivot": [
+    340,
+    790
+   ],
+   "parent": "husk_front",
+   "order": 11
+  },
+  {
+   "name": "stalk",
+   "png": "stalk.png",
+   "pivot": [
+    310,
+    800
+   ],
+   "parent": "root",
+   "order": 12
+  },
+  {
+   "name": "stalk_rim",
+   "png": "stalk_rim.png",
+   "pivot": [
+    310,
+    800
+   ],
+   "parent": "stalk",
+   "order": 13
+  }
+ ]
+}

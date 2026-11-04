@@ -455,12 +455,12 @@
   .bonusintro .bnum::before, .bonusintro .bnum::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; }
   .bonusintro .bnum::before {
     background: url("assets/total_bg.webp") center / 100% 100% no-repeat;
-    animation: splashBoil .5s steps(1) infinite, splashHue 3.6s ease-in-out infinite;
+    animation: splashHue 3.6s ease-in-out infinite;
   }
   .bonusintro .bnum::after {
     background: linear-gradient(108deg, transparent 32%, rgba(255,255,255,.62) 46%, rgba(214,160,255,.38) 51%, transparent 60%) 0 0 / 260% 100% no-repeat;
     -webkit-mask: url("assets/total_bg.webp") center / 100% 100% no-repeat; mask: url("assets/total_bg.webp") center / 100% 100% no-repeat;
-    mix-blend-mode: screen; animation: splashSheen 2.6s cubic-bezier(.45,0,.55,1) infinite, splashBoil .5s steps(1) infinite;
+    mix-blend-mode: screen; animation: splashSheen 2.6s cubic-bezier(.45,0,.55,1) infinite;
   }
   @media (prefers-reduced-motion: reduce) { .bonusintro .bnum::before, .bonusintro .bnum::after { animation: none !important; } }
   .bonusintro .bnum img { height: clamp(64px, 15.5vh, 156px); width: auto; display: block; }   /* the hero of the screen */
@@ -496,14 +496,14 @@
   .bonusintro { --bglow: 255, 190, 70;   /* harvest gold rays (fall) */ }
   .bonusintro.x { --bglow: 180, 84, 228; }
   .bonusintro .bstack { position: relative; }
-  .bonusintro.up .blogo { animation: bslam .72s cubic-bezier(.2, 1.2, .3, 1) .3s both, bneon 1.1s steps(1) .3s both; }
+  .bonusintro.up .blogo { animation: bslam .72s cubic-bezier(.2, 1.2, .3, 1) .3s both, bneon 1.1s ease-out .3s both; }
   .bonusintro.up .byou { animation: bpop .5s cubic-bezier(.2, 1.35, .3, 1) .75s both; }
   .bonusintro.up .bnum { animation: bpop .5s cubic-bezier(.2, 1.35, .3, 1) .88s both; }
   .bonusintro .bnum.landed .bfig { animation: bland .55s cubic-bezier(.2, 1.4, .3, 1); }
-  .bonusintro.up .bfs { animation: bneon 1s steps(1) 1.9s both; }
+  .bonusintro.up .bfs { animation: bneon 1s ease-out 1.9s both; }
   .bonusintro.up .bhow { animation: brise .6s cubic-bezier(.2, 1, .3, 1) 1.35s both; }
   @keyframes bslam { 0% { scale: 2.5; } 42% { scale: .9; } 66% { scale: 1.05; } 100% { scale: 1; } }
-  @keyframes bneon { 0% { opacity: 0; } 12% { opacity: 1; } 18% { opacity: .2; } 25% { opacity: 1; } 32% { opacity: .45; } 40%, 100% { opacity: 1; } }
+  @keyframes bneon { 0% { opacity: 0; } 100% { opacity: 1; } }
   @keyframes bpop { 0% { scale: .3; opacity: 0; } 65% { scale: 1.12; opacity: 1; } 100% { scale: 1; opacity: 1; } }
   @keyframes bland { 0% { scale: 1; } 30% { scale: 1.28; } 100% { scale: 1; } }
   @keyframes brise { 0% { opacity: 0; scale: .94; } 100% { opacity: 1; scale: 1; } }
@@ -566,7 +566,7 @@
     content: ""; position: absolute; inset: 0; z-index: -1;
     background: url("assets/tier_bg.webp") center / 100% 100% no-repeat;
     translate: var(--px, 0) var(--py, 0); rotate: var(--pr, 0deg); scale: var(--ps, 1);
-    animation: splashBoil .5s steps(1) infinite, splashHue 3.2s ease-in-out infinite;
+    animation: splashHue 3.2s ease-in-out infinite;
   }
   /* The splashes are alive: the paint boils (its edge redrawn a few times a second, the way a
      cartoon's line does), its colours shimmer, and a sheen of light sweeps across it, clipped to
@@ -578,7 +578,7 @@
     mask: url("assets/tier_bg.webp") center / 100% 100% no-repeat;
     mix-blend-mode: screen;
     translate: var(--px, 0) var(--py, 0); rotate: var(--pr, 0deg); scale: var(--ps, 1);
-    animation: splashSheen 2.6s cubic-bezier(.45,0,.55,1) infinite, splashBoil .5s steps(1) infinite;
+    animation: splashSheen 2.6s cubic-bezier(.45,0,.55,1) infinite;
   }
   .totalwin .twamount::after {
     -webkit-mask-image: url("assets/total_bg.webp"); mask-image: url("assets/total_bg.webp");
@@ -614,7 +614,7 @@
      and the headline itself a size bigger (--lvl and --hs, from headFx) */
   .totalwin .twhead { scale: var(--hs, 1); transform-origin: 50% 70%; transition: scale .35s cubic-bezier(.2, 1.3, .3, 1); }
   .totalwin .twhead.hit { animation: twslam calc(.56s + var(--lvl, 0) * .06s) cubic-bezier(.2, 1.15, .3, 1); }
-  .totalwin .twhead.hit .twlogo.on { animation: twneon calc(.9s + var(--lvl, 0) * .12s) steps(1) both; }
+  .totalwin .twhead.hit .twlogo.on { animation: twneon calc(.9s + var(--lvl, 0) * .12s) ease-out both; }
   /* nothing is announced until the figure earns it, so the headline starts hidden */
   .totalwin .twhead.blank { visibility: hidden; }
   /* the swap between the two screens: the first fades out, the second fades in */
@@ -627,7 +627,7 @@
     100% { transform: none; filter: none; }
   }
   @keyframes twneon {   /* the tube catching: dark, a stutter of flashes, then lit for good */
-    0% { opacity: 0; } 10% { opacity: 1; } 15% { opacity: .25; } 21% { opacity: 1; } 27% { opacity: .45; } 33%, 100% { opacity: 1; }
+    0% { opacity: 0; } 100% { opacity: 1; }
   }
   /* the lettering glows in its tier's paint; the light is cut to the lettering and brightens its
      paint without lifting the black line (overlay), riding the lettering's own wander */
@@ -690,7 +690,7 @@
     content: ""; position: absolute; inset: 0; z-index: -1;
     background: url("assets/total_bg.webp") center / 100% 100% no-repeat;
     translate: var(--px, 0) var(--py, 0); rotate: var(--pr, 0deg); scale: var(--ps, 1);
-    animation: splashBoil .5s steps(1) -.25s infinite, splashHue 3.6s ease-in-out -1.4s infinite;
+    animation: splashHue 3.6s ease-in-out -1.4s infinite;
   }
   .totalwin .twfig {
     display: flex; align-items: flex-end; justify-content: center; gap: .4vw;
@@ -752,6 +752,21 @@
     --mx: 0; --my: 0; --glare: 0;
     transform: perspective(900px) rotateX(calc(var(--my) * -24deg)) rotateY(calc(var(--mx) * 24deg));
   }
+  /* the Tipsy Harvest wordmark from the opening screen, floating over the top of the three
+     plates: it overlaps their upper edge, bobs on its own path and breathes its glow */
+  .flogo {
+    --lw: min(60vw, 620px, 58vh);
+    position: relative; z-index: 5; flex: none; width: var(--lw); aspect-ratio: 2736 / 1160;
+    margin-bottom: calc(var(--lw) * -.1); pointer-events: none; user-select: none;
+    filter: drop-shadow(0 12px 18px rgba(0,0,0,.6));
+    animation: flogofloat 5.2s ease-in-out infinite;
+  }
+  .flogo img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .flogo .iwglow { opacity: .6; animation: introGlowBreathe 3.2s ease-in-out infinite alternate; }
+  .flogo .iwink { opacity: .94; }
+  .features .flogo { translate: 0 -22px; scale: .85; opacity: 0; transition: translate .9s cubic-bezier(.2,1.2,.3,1) .5s, scale .9s cubic-bezier(.2,1.2,.3,1) .5s, opacity .6s ease .5s; }
+  .features.up .flogo { translate: 0 0; scale: 1; opacity: 1; }
+  @keyframes flogofloat { 0%, 100% { transform: translateY(0) rotate(-.6deg); } 50% { transform: translateY(-9px) rotate(.6deg); } }
   .fbox:nth-child(2) { animation-delay: -1.5s; }
   .fbox:nth-child(3) { animation-delay: -3s; }
   .fbox:hover {
@@ -842,7 +857,8 @@
   }
   .features .fcont:has(.fhit:hover) { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) {
-    .fbox, .fbox .fmult, .features .fcont { animation: none !important; }
+    .fbox, .fbox .fmult, .features .fcont, .flogo, .flogo .iwglow { animation: none !important; }
+    .features .flogo { transition: none !important; }
     .fbox, .features .fcont .ftxt { transform: none !important; }   /* flat: tiltPlates does not run either */
     .fbox::after { display: none; }
     body.features-fade #app, body.features-fade .charfx, .features { transition: none !important; }
@@ -983,6 +999,7 @@
     .features { padding: 2.5vh 3vw; gap: 1.5vh; overflow: hidden; justify-content: center; }
     .fboxes { flex-wrap: nowrap; gap: 1.8vw; }
     .fbox { width: min(30vw, calc((100vh - 15vh - 44px) * 560 / 716)); }
+    .flogo { --lw: min(34vw, 36vh); position: absolute; top: 1vh; left: 50%; margin: 0 0 0 calc(var(--lw) / -2); }
     .features .fcont { position: static; font-size: clamp(11px, 4.2vh, 20px); }
     .features .fcont .fhit { padding: .35em 1.2em; }
     .intro { padding: 3vh 6vw; }
@@ -2986,12 +3003,12 @@
     background: radial-gradient(ellipse at 50% 40%, rgba(58,32,16,.58), rgba(30,15,6,.74)); opacity: 1;
     box-shadow: inset 0 0 40px rgba(20,8,0,.55);
   }
-  /* The log frame (assets/frame.webp) is a picture whose opening is 81.6% x 77.8% of it, starting 9.4% in
-     and 11.9% down: sized from the board so that opening sits 18px inside the board's edge, round the icons,
+  /* The log frame (assets/frame.webp) is a picture whose opening is 75.3% x 71.2% of it, starting 12.1% in
+     and 14.9% down (2026-11-03: the corner pumpkins and corn sit outside the logs, never over the icons): sized from the board so that opening sits 18px inside the board's edge, round the icons,
      and the logs, pumpkins and corn run outside it. */
   #paintframe {
-    width: calc((100% - 36px) / .8164); height: calc((100% - 36px) / .7775);
-    left: calc(18px - (100% - 36px) * .11526); top: calc(18px - (100% - 36px) * .15254);
+    width: calc((100% - 36px) / .7528); height: calc((100% - 36px) / .7119);
+    left: calc(18px - (100% - 36px) * .1612); top: calc(18px - (100% - 36px) * .2098);
   }
   #bgwall {
     background:
@@ -2999,6 +3016,80 @@
       url("assets/bonus_wall.webp") center / var(--wall-scale) no-repeat;
     transform: none;
   }
+
+  /* ---------- the bonus screens in the HUD's paint (owner, 2026-11-03) ----------
+     No painted frames, no neon tubes, no flicker: the bonus panel, its cards, its - and +, the
+     free-spin counter and the how-it-works box are all the HUD's own slab - half see-through, a
+     thin black outline, Fredoka figures - and the board's frame keeps its corner ornaments outside the opening. */
+  .main { padding-top: 92px; }   /* room above the board for the frame's corner ornaments, which now sit outside the logs */
+  .bonusbtn .bglow, .bonuspanel h3 .bglow { display: none; }
+  .fxsim { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; z-index: 58; pointer-events: none; }
+  /* the Multi's big bottle (bigBottle): Blender's frames on a canvas at the right of the screen, the bottle lying
+     over with its neck at the board; it swings in from off the edge, turns to aim, and swings back out */
+  .bigbottle {
+    position: fixed; right: 0; bottom: 3vh; z-index: 57; pointer-events: none;
+    height: min(66vh, 680px); aspect-ratio: var(--bw) / var(--bh); transform-origin: 62% 62%;   /* about the bottle's body */
+    translate: 120% 8%; rotate: 14deg;
+  }
+  .bigbottle canvas { display: block; width: 100%; height: 100%; filter: drop-shadow(0 18px 26px rgba(0, 0, 0, .5)); }
+  .bigbottle .neck { position: absolute; width: 0; height: 0; }   /* the neon tube round the Bonus lettering */
+  .bonuspanel {
+    background: rgba(46, 26, 14, .8); border: 3px solid var(--hud-line); border-radius: 22px;
+    padding: 22px 26px 26px; filter: none; box-shadow: 0 18px 44px rgba(0, 0, 0, .5); animation: none;
+  }
+  .bonuspanel h3 { width: min(210px, 52vw); height: 88px; margin: 0 auto 10px; }
+  .bonuspanel h3::before { display: none; }
+  .bonuspanel h3::after { inset: 0; }
+  .bonuscard {
+    background: rgba(255, 255, 255, .05); border: 3px solid var(--hud-line); border-radius: 16px; box-shadow: none;
+  }
+  .bonuscard.on { border-color: var(--acc); }
+  .bonuscard .ntube, .bonuscard .nhalo { display: none; }
+  .bonusbet {
+    background: rgba(255, 255, 255, .05); border: 3px solid var(--hud-line); border-radius: 16px; box-shadow: none;
+  }
+  /* the HUD's own - and + : a rounded plate, a thin black outline, the glyph in the page's white */
+  .bonusbet button {
+    width: 46px; height: 46px; border: 2px solid var(--hud-line); border-radius: 12px; color: var(--hud-ink);
+    background: rgba(255, 255, 255, .05); filter: none;
+    transition: transform .12s cubic-bezier(.3, .8, .4, 1), background-color .15s ease, border-color .15s ease;
+  }
+  #bonusBetUp, #bonusBetDown { background-image: none; }
+  #bonusBetUp   { --icon: var(--i-plus); }
+  #bonusBetDown { --icon: var(--i-minus); }
+  .bonusbet button::before {
+    content: ""; position: absolute; left: 22%; top: 22%; width: 56%; height: 56%; background: currentColor;
+    -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat;
+  }
+  .bonusbet button:hover:not(:disabled) { background: rgba(255, 255, 255, .12); border-color: var(--hud-hi); transform: none; filter: none; }
+  .bonusbet button:active:not(:disabled) { transform: scale(.9); }
+  .bonusbet button:disabled { filter: none; opacity: .5; }
+  .bonusintro .bhow {
+    border: 3px solid var(--hud-line); border-image: none; border-radius: 18px; background: rgba(46, 26, 14, .8);
+    padding: 1.6vh 2vw; box-shadow: 0 14px 34px rgba(0, 0, 0, .45);
+  }
+  /* the free-spin counter: the HUD's slab, the figures well inside it */
+  .fsplate {
+    height: 76px; padding: 0 12px; border: 3px solid var(--hud-line); border-image: none; border-radius: 18px;
+    background: var(--hud-fill); box-shadow: 0 6px 14px rgba(0, 0, 0, .35);
+  }
+  .fswinbox { border-left: 2px solid rgba(255, 255, 255, .14); }
+  @media (max-width: 760px) and (orientation: portrait) {
+    .fsplate { height: 150px; padding: 0 24px; border-width: 6px; border-radius: 36px; }
+  }
+  /* the figures on the plank (the win screens' amount and the bonus intro's spins): the plank is cut
+     to the figure instead of the figure to the plank - the parchment is the figure's own box
+     (the art's opening: 15.5-85.5% across, 42.5-73.5% down), so the digits sit in it, never on the rope */
+  .bonusintro .bnum, .totalwin .twamount {
+    --nh: clamp(36px, 7vh, 84px);
+    display: flex; align-items: center; justify-content: center; box-sizing: content-box;
+    min-width: calc(var(--nh) * 5.2); height: var(--nh); padding: 0; margin: calc(var(--nh) * 1.1) 0 calc(var(--nh) * .7);
+  }
+  .bonusintro .bnum::before, .bonusintro .bnum::after, .totalwin .twamount::before, .totalwin .twamount::after {
+    inset: -131% -22.1% -85.5% -22.1%;
+  }
+  .bonusintro .bnum img, .totalwin .twamount img { height: var(--nh); }
+  .totalwin .twamount .sym { font-size: calc(var(--nh) * .72); }
 </style>
 </head>
 <body>
@@ -3506,15 +3597,32 @@ function fillCell(cell, sym) {
     el.append(main, sub);
   }
 }
+// The Multi never shows on the board (owner, 2026-11-03): its cell drops a plain low symbol instead - one that
+// matches none of the icons next to it, so it never seems to belong to a cluster it is not in - and the Multi
+// shows itself as the big bottle when it goes off (bigBottle). The pick is kept on the symbol, so the same
+// Multi keeps the same face as it falls in a tumble.
+const STAND_INS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10"];
+function shownAs(sym, near = []) {
+  if (!sym || (SYM[sym.name] || {}).cls !== "booster") return sym;
+  if (!sym._stand) {
+    const avoid = new Set(near.filter(Boolean).map(s => (s._stand || s).name));
+    const ok = STAND_INS.filter(n => !avoid.has(n));
+    sym._stand = { name: ok[Math.floor(Math.random() * ok.length)] || "L1" };
+  }
+  return sym._stand;
+}
 // mirrors what each cell currently displays — the next spin starts on these symbols,
-// so the reel begins moving from the board the player is already looking at
+// so the reel begins moving from the board the player is already looking at (a Multi's own symbol is
+// kept here; shownAs gives its face)
 const shownSym = [];
-function setCell(r, y, sym) {
+const showSym = (r, y) => shownAs(shownSym[r] && shownSym[r][y]);
+function setCell(r, y, sym, near) {
   const el = cellEls[r][y];
   el._spray = null;   // a new symbol: any spray this cell was waiting for was for the old one
-  el.className = cellClass(sym);
-  fillCell(el, sym);
-  smearOn(el, sym.name);
+  const face = shownAs(sym, near || [[r - 1, y], [r + 1, y], [r, y - 1], [r, y + 1]].map(([a, b]) => shownSym[a] && shownSym[a][b]));
+  el.className = cellClass(face);
+  fillCell(el, face);
+  smearOn(el, face.name);
   (shownSym[r] || (shownSym[r] = []))[y] = sym;
 }
 
@@ -3617,13 +3725,14 @@ function loadSymFrames() {
     SYMF.man = man;
     SYMF.density = symWantDensity();
     SYMF.k = symHoldScale();
-    const ids = Object.keys(man.symbols);
+    const ids = Object.keys(man.symbols).filter(id => (SYM[id] || {}).cls !== "booster");   // the Multi is never on the board
     // the landings hold the rest pose and play as every tile drops in: the board waits on them. The wins
     // follow behind the loading screen, then the idles every resting symbol loops, then the multipliers - a
     // clip at a time, every symbol's at once.
     await Promise.all(ids.map(id => symSheet(id, "land")));
     (async () => {
       for (const clip of ["hit", "idle", "multi"]) await Promise.all(ids.map(id => symSheet(id, clip).catch(() => {})));
+      bigBottleLoad();
     })();
     return ids.length > 0;
   })().catch(e => { console.warn("animated symbols unavailable:", e); return false; });
@@ -3689,6 +3798,11 @@ function symStep(now) {
     let f = Math.floor((now - el._t0) * el._rate / 1000 * c.fps);
     if (f >= c.frames) {
       if (el._loop) f %= c.frames;
+      else if (c.hold) {   // a clip that does not end on the rest pose (the Multi's popped bottle): it stays as it ends
+        symDraw(el, el._clip, c.frames - 1);
+        symPlaying.delete(el); el._clip = null; el._held = true;
+        continue;
+      }
       else if (SYMF.sheets.get(el._name + "_idle")?.ok) {
         // straight back into the idle from the very moment the clip ended (both meet on the rest pose): a
         // symbol never stands still between a landing, a hit or a Multi and its idle
@@ -3722,11 +3836,303 @@ function rigPlay(cell, clip, { loop = false, speed = 1 } = {}) {
   clip = CLIP_OF[clip] || clip;
   const c = el._m.clips[clip], s = SYMF.sheets.get(el._name + "_" + clip);
   if (!c || !s || !s.ok) { if (c && !s) symSheet(el._name, clip).catch(() => {}); return null; }
-  Object.assign(el, { _clip: clip, _t0: performance.now(), _rate: speed / tempo(), _loop: loop });
+  Object.assign(el, { _clip: clip, _t0: performance.now(), _rate: speed / tempo(), _loop: loop, _held: false });
   symDraw(el, clip, 0);
   symPlaying.add(el);
   if (!symRaf) symRaf = requestAnimationFrame(symStep);
   return el;
+}
+// The Multi going off (owner, 2026-11-03): the bottle is never on the board - its cell drops a plain symbol
+// (shownAs) - but a big cider bottle swings in from the right of the screen, lying over with its neck at the
+// board, its cider sloshing; it turns to aim at the Multi's cell, shakes, fizzes up and pops its cork onto it -
+// one bottle for each Multi, the next swinging in as the last one goes. The bottle is Blender's: the Multi's
+// "multi" clip rendered big at every frame, without its cork (tools/fall/blender/symanim.py render_big,
+// tools/blender/pack_frames.py big M), drawn on a canvas that swings in and out. The cork, the spray and the
+// splash are simulated here (fxSim): real throws under gravity, drawn every screen frame, so they move as
+// smoothly as the screen can show. The spray out of the neck is Blender's (metaball cider in the bottle's frames).
+const CORK_POP = 48 / 30;    // s into the bottle's clip at tempo 1: the frame its cork leaves (symanim.py M_POP)
+const CORK_FLIGHT = 950;     // ms at tempo 1: about how long the cork is in the air
+const CORK_UNITS = 2.1;      // the cork's drawing, Blender units (symanim.py render_cork), as the seated cork's
+const AIM_MAX = 18;          // deg the bottle turns, at most, to point its neck at the cell it will hit
+const BOTTLES_MAX = 4;       // Multis that get a bottle each; the rest of a board cover go off in a ripple after them
+const BIGF = { img: null, ok: false };
+function bigBottleLoad() {
+  const e = SYMF.man && SYMF.man.big && SYMF.man.big.M;
+  if (!e || BIGF.img) return;
+  BIGF.img = new Image();
+  BIGF.img.src = "assets/sym/big/M_multi.webp";
+  BIGF.img.decode().then(() => { BIGF.ok = true; }, () => { BIGF.img = null; });
+  for (const n of ["cork_up", "fizz_drop", "fizz_bubble", "foam_puff"]) fxPic(n);
+}
+
+/* ---------- the splash simulation ---------- */
+// Particles on one canvas over the whole screen, stepped every screen frame (dt follows Rapid / Skip):
+//   drop    a drop of cider: thrown, pulled down by gravity, slowed by the air, stretched along the way it flies
+//   bubble  wobbles up, swelling, and pops at the end of its life
+//   foam    a blob of foam that swells and fades
+//   ring    a ripple of foam spreading from an impact
+//   cork    the cork (tick): its own flight, below
+// The pictures are the art's own (Blender's drop and bubble, the generated foam and cork).
+const FXS = { cv: null, g: null, parts: [], raf: 0, last: 0, imgs: {} };
+function fxPic(name) {
+  let im = FXS.imgs[name];
+  if (!im) { im = FXS.imgs[name] = new Image(); im.src = `assets/fx/${name}.webp`; }
+  return im;
+}
+function fxCanvas() {
+  if (FXS.cv) return;
+  const cv = FXS.cv = document.createElement("canvas");
+  cv.className = "fxsim"; cv.setAttribute("aria-hidden", "true");
+  document.body.append(cv);
+  FXS.g = cv.getContext("2d");
+  const size = () => { const d = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * d; cv.height = innerHeight * d; FXS.g.setTransform(d, 0, 0, d, 0, 0); };
+  size();
+  addEventListener("resize", size);
+}
+function fxAdd(p) {
+  if (REDUCED_MOTION) return null;
+  fxCanvas();
+  const q = Object.assign({ age: 0, life: 1, vx: 0, vy: 0, g: 0, drag: 0, rot: 0, spin: 0, size: 10 }, p);
+  FXS.parts.push(q);
+  if (!FXS.raf) { FXS.last = performance.now(); FXS.raf = requestAnimationFrame(fxStep); }
+  return q;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+function fxStep(now) {
+  const dt = Math.min(.05, (now - FXS.last) / 1000) / tempo(), g = FXS.g;
+  FXS.last = now;
+  g.clearRect(0, 0, innerWidth, innerHeight);
+  FXS.parts = FXS.parts.filter(p => {
+    p.age += dt;
+    if (p.tick) { if (p.tick(p, dt) === false) return false; }
+    else {
+      p.vy += p.g * dt;
+      const k = Math.exp(-p.drag * dt);
+      p.vx *= k; p.vy *= k;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt;
+    }
+    if (p.age >= p.life) return false;
+    fxDraw(g, p);
+    return true;
+  });
+  FXS.raf = FXS.parts.length ? requestAnimationFrame(fxStep) : 0;
+  if (!FXS.raf) g.clearRect(0, 0, innerWidth, innerHeight);
+}
+function fxDraw(g, p) {
+  const u = p.age / p.life;
+  g.save();
+  g.translate(p.x, p.y);
+  if (p.kind === "ring") {
+    const e = 1 - (1 - u) * (1 - u);
+    g.globalAlpha = (1 - u) * .85;
+    g.lineWidth = p.size * .16 * (1 - u) + 1;
+    g.strokeStyle = "#FFF2CF";
+    g.scale(1, .55);   // a ripple on the icon's face, seen at a slant
+    g.beginPath(); g.arc(0, 0, p.size * (.3 + 1.1 * e), 0, Math.PI * 2); g.stroke();
+    g.restore();
+    return;
+  }
+  const im = fxPic(p.pic);
+  if (!im.complete || !im.naturalWidth) { g.restore(); return; }
+  let sx = 1, sy = 1, a = 1;
+  if (p.kind === "drop") {   // stretched along its flight, the faster the longer
+    const v = Math.hypot(p.vx, p.vy), st = 1 + Math.min(1.7, v / 650);
+    g.rotate(Math.atan2(p.vy, p.vx) + Math.PI / 2);
+    sx = 1 / Math.sqrt(st); sy = st;
+    a = u < .75 ? 1 : 1 - (u - .75) / .25;
+  } else if (p.kind === "bubble") {   // swells as it rises, pops at the end
+    g.translate(Math.sin(p.age * p.wob + p.ph) * p.size * .35, 0);
+    const popU = .82;
+    sx = sy = u < popU ? .7 + .4 * u / popU : 1.1 + 1.2 * (u - popU) / (1 - popU);
+    a = u < popU ? 1 : 1 - (u - popU) / (1 - popU);
+  } else if (p.kind === "foam") {
+    sx = sy = .5 + .7 * (1 - (1 - Math.min(1, u * 1.6)) ** 2);
+    g.rotate(p.rot);
+    a = u < .5 ? 1 : 1 - (u - .5) / .5;
+  } else if (p.kind === "cork") {
+    g.rotate(p.rot);
+    sx = .62 + .38 * Math.abs(Math.cos(p.flip));   // it tumbles end over end: end-on it is narrower
+    sx *= 1 + .4 * p.sq; sy = 1 - .45 * p.sq;      // squashed by the hit
+    a = p.fade == null ? 1 : p.fade;
+  }
+  g.globalAlpha = Math.max(0, a);
+  const w = p.size, h = w * im.naturalHeight / im.naturalWidth;
+  g.scale(sx, sy);
+  g.drawImage(im, -w / 2, -h / 2, w, h);
+  g.restore();
+}
+// The splash where the cork (or a pop) hits a cell: a ring spreading over the icon, a crown of drops thrown up
+// and out that fall back, foam swelling, bubbles fizzing up and popping, and drips running down off the icon.
+// k scales it (1 the cork's hit, less for the cells round it).
+function fxSplash(cell, k = 1) {
+  const b = cell.getBoundingClientRect();
+  if (!b.width) return;
+  // its sounds: the cork's hit gets the splash, its fizz and the drips after; a neighbour, a bubble's pop
+  if (k >= .9) { sfx("ciderSplash"); setTimeout(() => sfx("ciderFizz"), 120); setTimeout(() => sfx("ciderDrip"), 480); }
+  else setTimeout(() => sfx("bubblePop", .9 + Math.random() * .3), Math.random() * 90);
+  const u = b.width, x = b.left + u / 2, y = b.top + b.height * .45;
+  fxAdd({ kind: "ring", x, y, size: u * .7 * k, life: .55 });
+  for (let i = 0; i < Math.round(26 * k); i++) {
+    const a = -Math.PI / 2 + rnd(-1.35, 1.35), v = rnd(3.5, 8.5) * u * (.6 + .4 * k);
+    fxAdd({ kind: "drop", pic: "fizz_drop", x: x + rnd(-.15, .15) * u, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+            g: 22 * u, drag: .8, size: u * rnd(.08, .17), life: rnd(.55, .95) });
+  }
+  for (let i = 0; i < Math.round(3 * k); i++)
+    fxAdd({ kind: "foam", pic: "foam_puff", x: x + rnd(-.25, .25) * u, y: y + rnd(-.15, .1) * u, size: u * rnd(.5, .8) * k,
+            life: rnd(.4, .6), rot: rnd(-.5, .5), spin: rnd(-1.5, 1.5) });
+  for (let i = 0; i < Math.round(9 * k); i++)
+    fxAdd({ kind: "bubble", pic: "fizz_bubble", x: x + rnd(-.35, .35) * u, y: y + rnd(-.1, .25) * u, vy: -rnd(.8, 2) * u,
+            g: -1.2 * u, drag: 1.5, size: u * rnd(.07, .14), life: rnd(.7, 1.3), wob: rnd(7, 13), ph: rnd(0, 6) });
+  for (let i = 0; i < Math.round(4 * k); i++)   // drips: slow off the bottom of the icon, then they let go
+    fxAdd({ kind: "drop", pic: "fizz_drop", x: x + rnd(-.3, .3) * u, y: b.top + b.height * .8, vy: rnd(.1, .4) * u,
+            g: rnd(2, 5) * u, drag: .5, size: u * rnd(.08, .12), life: rnd(.9, 1.4) });
+}
+// The cork: it leaves the neck along the bottle (its place, size and lean as the seated cork's) at the speed
+// that lands it on the cell under gravity, spinning and tumbling end over end, shedding drops; it grows from the
+// bottle's size to the icon's as it comes at the board. On the cell: it squashes, the cell splashes, and it
+// ricochets up and away, spinning the other way, and falls off. `hit` is called as it lands.
+function corkFly({ x, y, ang, size }, to, hit) {
+  const b = to.getBoundingClientRect();
+  const tx = b.left + b.width / 2, ty = b.top + b.height * .42, dx = tx - x, dy = ty - y;
+  let gg = innerHeight * 1.1, T = CORK_FLIGHT / 1000;   // a light pull: a long, floating arc
+  // the throw along the neck that comes down on the cell: x = s cos(a) t, y = s sin(a) t + g t^2 / 2
+  const c = Math.cos(ang), sn = Math.sin(ang);
+  let vx, vy;
+  const reach = Math.abs(c) > .05 ? dx / c : -1;   // s * T
+  const T2 = reach > 0 ? 2 * (dy - sn * reach) / gg : -1;
+  if (T2 > 0) {
+    T = Math.min(1.4, Math.max(.85, Math.sqrt(T2)));
+    gg = 2 * (dy - sn * reach) / (T * T);                     // the throw's own pull, held to the time it takes
+    vx = c * reach / T; vy = sn * reach / T;
+  } else { vx = dx / T; vy = (dy - gg * T * T / 2) / T; }  // the cell is above the neck's line: lob it
+  const spin = (vx < 0 ? -1 : 1) * rnd(560, 760);
+  fxAdd({
+    kind: "cork", pic: "cork_up", x, y, size, life: Infinity, rot: ang + Math.PI / 2, flip: 0, sq: 0, t: 0, acc: 0,
+    tick(p, dt) {
+      p.t += dt;
+      if (!p.hit) {
+        const t = Math.min(p.t, T), e = t / T;
+        p.x = x + vx * t; p.y = y + vy * t + gg * t * t / 2;
+        p.vx = vx; p.vy = vy + gg * t;
+        p.size = size + (b.width * .95 - size) * e * e * (3 - 2 * e);
+        p.rot += spin * Math.PI / 180 * dt * Math.min(1, p.t / .12);   // it leaves the neck straight, then spins
+        p.flip += 9 * dt * Math.min(1, p.t / .15);
+        for (p.acc += dt; p.acc > .03; p.acc -= .03)
+          fxAdd({ kind: "drop", pic: "fizz_drop", x: p.x + rnd(-.2, .2) * p.size, y: p.y + rnd(-.2, .2) * p.size,
+                  vx: p.vx * .12 + rnd(-40, 40), vy: p.vy * .12 + rnd(-20, 40), g: gg * .8, drag: 1,
+                  size: p.size * rnd(.09, .17), life: rnd(.4, .7) });
+        if (p.t >= T) {
+          p.hit = p.t; p.sq = 1;
+          hit();
+          // off it bounces: back the way it came a little, up, spinning the other way
+          p.vx = -vx * .28 + (vx < 0 ? 1 : -1) * b.width * 1.2; p.vy = -Math.abs(p.vy) * .3 - b.height * 3.2;
+          p.spinB = -spin * .8;
+        }
+      } else {
+        const t = p.t - p.hit;
+        p.sq = Math.max(0, 1 - t / .14);
+        p.vy += gg * .9 * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        p.rot += p.spinB * Math.PI / 180 * dt; p.flip += 8 * dt;
+        p.fade = t < .55 ? 1 : Math.max(0, 1 - (t - .55) / .35);
+        if (t > .9 || p.y > innerHeight + 200) return false;
+      }
+    },
+  });
+}
+// The icon the cork hits takes the knock before it pops: squashed down by the blow, it springs up, wobbles and
+// settles, playing its own win reaction (Blender's), with a ring of stars. Resolves as it is ready to pop.
+function corkBonk(cell) {
+  if (REDUCED_MOTION) return Promise.resolve();
+  const ico = cell.ico || cell, t = tempo();
+  ico.animate([
+    { transform: "none" },
+    { transform: "translateY(10%) scale(1.25, .7)", offset: .1 },
+    { transform: "translateY(-12%) scale(.88, 1.16) rotate(-11deg)", offset: .3 },
+    { transform: "translateY(0) scale(1.06, .95) rotate(8deg)", offset: .5 },
+    { transform: "rotate(-4deg)", offset: .7 },
+    { transform: "rotate(1.5deg)", offset: .85 },
+    { transform: "none" },
+  ], { duration: 620 * t, easing: "ease-out", composite: "add" });
+  rigPlay(cell, "hit", { speed: 1.4 });
+  sparkBurst(cell, { n: 12, reach: .5, colors: ["#ffffff", "#FFE39A", "#F2B33D"] });
+  sfx("corkBonk");
+  return hold(380);
+}
+// One bottle's show: it swings in from the right, its cider sloshing, turns to aim its neck at `target`, shakes,
+// fizzes up and pops: the cork flies onto the cell, a spray of cider bursts from the neck. Returns { landed, gone }
+// - the cork's hit and the bottle off the screen again - or null when the bottle cannot play (reduced motion, its
+// frames not in yet): the board then pops the cells by itself.
+function bigBottle(target) {
+  const e = SYMF.man && SYMF.man.big && SYMF.man.big.M;
+  if (REDUCED_MOTION || !e || !BIGF.ok || !target || !e.seat) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "bigbottle";
+  wrap.style.setProperty("--bw", e.box[2]); wrap.style.setProperty("--bh", e.box[3]);
+  const cv = document.createElement("canvas");
+  cv.width = e.w; cv.height = e.h;
+  const neck = document.createElement("i");   // the seated cork's middle (it turns with the bottle)
+  neck.className = "neck";
+  neck.style.left = ((e.seat[0] - e.box[0]) / e.box[2] * 100).toFixed(2) + "%";
+  neck.style.top = ((-e.seat[1] - e.box[1]) / e.box[3] * 100).toFixed(2) + "%";
+  wrap.append(cv, neck);
+  document.body.append(wrap);
+  const g = cv.getContext("2d");
+  let shown = -1;
+  const draw = f => { if (f === shown) return; shown = f; g.clearRect(0, 0, e.w, e.h); g.drawImage(BIGF.img, (f % e.cols) * e.w, Math.floor(f / e.cols) * e.h, e.w, e.h, 0, 0, e.w, e.h); };
+  draw(0);
+  let hit;
+  const landed = new Promise(r => { hit = r; });
+  const t = tempo(), rate = MULTI_RATE / t;
+  // the neck's direction on the screen (y down) for a turn of the whole bottle by `turn` deg (clockwise)
+  const lean = e.seat[2] * Math.PI / 180, neckAng = turn => Math.atan2(-Math.cos(lean), -Math.sin(lean)) + turn * Math.PI / 180;
+  const at = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+  // its sounds, on the frames of its clip they belong to (symanim.py: the shake from 14, the fizz-up from 26,
+  // the pop at 48): [frame, sound, pitch]
+  const CUES = [[0, "bottleWhoosh", 1], [9, "gloveGrip", 1], [14, "bottleSlosh", 1], [30, "bottleSlosh", 1.08],
+                [27, "bottleFizz", 1], [48, "bottlePop", 1], [48, "bottleGush", 1]].sort((a, b) => a[0] - b[0]);
+  let cue = 0;
+  const gone = (async () => {
+    const dur = e.frames / e.fps / rate * 1000, popAt = CORK_POP / rate * 1000;
+    let popped = false, aimed = false, aim = 0, t0 = 0;   // its clock starts on its first drawn frame
+    await new Promise(res => {
+      wrap.animate([{ translate: "120% 8%", rotate: "14deg" }, { translate: "0 0", rotate: "0deg" }],
+                   { duration: 600 * t, easing: "cubic-bezier(.2, 1.2, .4, 1)", fill: "forwards" });
+      const step = now => {
+        if (!t0) t0 = now;
+        const ms = now - t0;
+        draw(Math.min(e.frames - 1, Math.floor(ms / 1000 * e.fps * rate)));
+        for (; cue < CUES.length && ms >= CUES[cue][0] / e.fps / rate * 1000; cue++) sfx(CUES[cue][1], CUES[cue][2]);
+        // as it starts to shake it swings round to point its neck a little above the cell (where a throw that
+        // lands on it would leave), as far as AIM_MAX
+        if (!aimed && ms >= 640 * t) {
+          aimed = true;
+          const n = at(neck), c = at(target), dx = c.x - n.x, dy = c.y - n.y;
+          const want = Math.atan2(dy - .8 * Math.abs(dx), dx);
+          let d = (want - neckAng(0)) * 180 / Math.PI;
+          d = ((d + 540) % 360) - 180;
+          aim = Math.max(-AIM_MAX, Math.min(AIM_MAX, d));
+          wrap.animate([{ translate: "0 0", rotate: "0deg" }, { translate: "0 0", rotate: `${aim.toFixed(1)}deg` }],
+                       { duration: Math.max(120, popAt - ms - 60), easing: "cubic-bezier(.45, 0, .3, 1)", fill: "forwards" });
+        }
+        if (!popped && ms >= popAt) {
+          popped = true;
+          const n = at(neck), u = wrap.offsetHeight / e.box[3], ang = neckAng(aim);
+          sfx("corkWhirr", .95 + Math.random() * .1);
+          corkFly({ x: n.x, y: n.y, ang, size: u * CORK_UNITS }, target, hit);
+        }
+        if (ms < dur) requestAnimationFrame(step); else res();
+      };
+      requestAnimationFrame(step);
+    });
+    await landed;
+    await hold(120);
+    sfx("bottleWhooshOut");
+    await wrap.animate([{ translate: "0 0", rotate: `${aim.toFixed(1)}deg` }, { translate: "120% 10%", rotate: `${(aim + 16).toFixed(1)}deg` }],
+                       { duration: 460 * t, easing: "cubic-bezier(.5, 0, .8, .4)", fill: "forwards" }).finished;
+    wrap.remove();
+  })();
+  return { landed, gone };
 }
 function rigStop(el) {
   if (!el) return;
@@ -3766,7 +4172,7 @@ function symIdleTick() {
   const now = performance.now();
   for (let r = 0; r < REELS; r++) for (let y = 0; y < ROWS; y++) {
     const cell = cellEls[r][y], el = rigOf(cell);
-    if (!el || symPlaying.has(el) || !SYMF.sheets.get(el._name + "_idle")?.ok) continue;
+    if (!el || el._held || symPlaying.has(el) || !SYMF.sheets.get(el._name + "_idle")?.ok) continue;
     if (!el._idleAt) el._idleAt = now + Math.random() * SYM_IDLE_STAGGER;
     else if (now >= el._idleAt) { el._idleAt = 0; rigPlay(cell, "idle", { loop: true }); }
   }
@@ -3809,7 +4215,7 @@ function startRigs() {
     measureRigBox();
     // the board is already showing flat icons: swap every cell for its animated self
     for (let r = 0; r < REELS; r++) for (let y = 0; y < ROWS; y++) {
-      const sym = shownSym[r] && shownSym[r][y];
+      const sym = showSym(r, y);
       if (sym && SYMF.man.symbols[sym.name]) fillCell(cellEls[r][y], sym);
     }
     symIdleTick();
@@ -4345,7 +4751,7 @@ function makeSmears() {
         return pic.decode().catch(() => {}).then(() => {   // decoded before a cell shows it, and held so it stays so
           smearPics.push(pic);
           SMEARS[name] = url;
-          eachCell((el, r, y) => { if (shownSym[r] && shownSym[r][y] && shownSym[r][y].name === name) smearOn(el, name); });
+          eachCell((el, r, y) => { if (showSym(r, y) && showSym(r, y).name === name) smearOn(el, name); });
         });
       }).catch(() => { /* that symbol falls without a blur */ });
     } else if ((tries[name] = (tries[name] || 0) + 1) < 20) names.push(name);   // its picture is still on its way
@@ -4866,7 +5272,8 @@ function dropReel(r, ev, wait, inExtra = 0, onCrewLeader = null, slow = 1) {
     const place = y => {   // this round's symbol into a cell, hidden until it falls in
       if (placed[y]) return;
       placed[y] = true;
-      setCell(r, y, ev.board[r][y + 1]);   // strip the 1-row padding (the cell's classes are reset: its fall-out goes)
+      const B = ev.board;                  // the new board's own neighbours, for a Multi's stand-in (shownAs)
+      setCell(r, y, B[r][y + 1], [B[r - 1] && B[r - 1][y + 1], B[r + 1] && B[r + 1][y + 1], B[r][y], B[r][y + 2]]);   // strip the 1-row padding (the cell's classes are reset: its fall-out goes)
       bareMulti(cells[y]);                 // a Multi falls in unpainted: the can sprays its value on
       cells[y].style.removeProperty("--out");
       cells[y].style.visibility = "hidden";
@@ -4917,7 +5324,7 @@ function dropReel(r, ev, wait, inExtra = 0, onCrewLeader = null, slow = 1) {
     const land = (y, pace, tt) => {
       const c = cells[y];
       sfx("dripLand", landRate(y, pace));
-      landFoley(shownSym[r] && shownSym[r][y]);   // and what it is made of
+      landFoley(showSym(r, y));   // and what it is made of
       const crew = c.classList.contains("scat");
       if (crew || c.classList.contains("escat")) {
         c.classList.add("scatland");
@@ -5382,6 +5789,20 @@ const SFX_SETS = {
   swishIn: ["sfx_swish_in", 2, .3],             // with every menuOpen (SFX_WITH)
   swishOut: ["sfx_swish_out", 2, .28],          // with every menuClose
   capPop: ["sfx_cap_pop", 2, .38],              // the bonus buy opening
+  // the Multi's big bottle (bigBottle), its cork (corkFly) and the splash (fxSplash), 2026-11-03 (tools/sfx/fall_spec.py)
+  bottleWhoosh: ["sfx_bottle_whoosh", 2, .32],  // the bottle swinging in
+  gloveGrip: ["sfx_glove_grip", 2, .22],        // the gloves taking hold of it
+  bottleSlosh: ["sfx_bottle_slosh", 2, .32],    // shaken: the cider sloshing in the glass
+  bottleFizz: ["sfx_bottle_fizz", 2, .3],       // the fizz-up: a rising hiss, the cork straining
+  bottlePop: ["sfx_bottle_pop", 3, .55],        // the cork POP
+  bottleGush: ["sfx_bottle_gush", 1, .36],      // the cider gushing out of the neck
+  bottleWhooshOut: ["sfx_bottle_whoosh_out", 2, .28],   // the bottle swinging away
+  corkWhirr: ["sfx_cork_whirr", 2, .26],        // the cork tumbling through the air
+  corkBonk: ["sfx_cork_bonk", 3, .45],          // the cork bonking the icon
+  ciderSplash: ["sfx_cider_splash", 3, .4],     // the splash on the icon it hit
+  ciderFizz: ["sfx_cider_fizz", 1, .22],        // its bubbles fizzing up
+  ciderDrip: ["sfx_cider_drip", 3, .2],         // drips running off it
+  bubblePop: ["sfx_bubble_pop", 3, .3],         // each icon round it popping
   buyConfirm: ["sfx_buy_confirm", 1, .5],       // a bonus bought
   fsTick: ["sfx_fs_tick", 2, .32],              // the free spins counter turning over
   // the figures (charSfx)
@@ -5889,7 +6310,7 @@ const handlers = {
     // is about to rebuild the column is dropped, so no pop can ever land on a new tile.
     const gap = Math.min(55, Math.floor(420 / order.length)) * tempo();
     const timers = [];
-    const geo = order.map(([r, y]) => burstMeasure(r, y, shownSym[r][y]));   // every tile's burst, measured once up front
+    const geo = order.map(([r, y]) => burstMeasure(r, y, showSym(r, y)));   // every tile's burst, measured once up front
     order.forEach(([r, y], i) => {
       const go = () => {
         burstIcon(geo[i]);   // the icon strains, then comes apart
@@ -5940,7 +6361,7 @@ const handlers = {
         const fall = fy < H ? H : fy - survRows[fy - H];
         // a survivor that stays put is the same symbol in the same cell: it keeps its picture,
         // so a performance it is part-way through carries on instead of snapping back
-        if (fall === 0) cell.className = cellClass(finalSyms[fy]);
+        if (fall === 0) cell.className = cellClass(shownAs(finalSyms[fy]));
         else setCell(r, fy, finalSyms[fy]);
         if (fy < H) bareMulti(cell);   // a new Multi falls in unpainted, like on the reveal
         if (fall > 0) {
@@ -5987,22 +6408,24 @@ const handlers = {
   },
 
   async booster(ev) {
-    // A Multi blows out - after every cluster on this board has been paid, never before. The
-    // board spotlights it the way it does a cluster: everything else fades back, the Multi
-    // punches up and plays its win performance, then the four cells sharing an edge with it do
-    // the same, and only once they have all played through does its value land on the five.
-    // The tumbleBoard that follows clears them (together with the paid cluster symbols) and
-    // drops new symbols in on top of the numbers. Skipping shortens this; never hides it.
+    // A Multi blows out - after every cluster on this board has been paid, never before. The Multi is not on
+    // the board (its cell shows a plain symbol, shownAs): a big cider bottle swings in from the side of the
+    // screen, shakes and pops its cork (bigBottle), the cork lands on the Multi's cell and that icon pops, then
+    // the four sharing an edge with it, and only once they have all played through does its value land on the
+    // five. The tumbleBoard that follows clears them (together with the paid cluster symbols) and drops new
+    // symbols in on top of the numbers. Skipping shortens this; never hides it.
     clearFxWins();
     $("board").classList.add("spotlight");
-    // Several Multis on one board go off in a quick run rather than one after another: each starts
-    // MULTI_STAGGER after the one before, while that one's neighbours are still popping, and the
-    // board moves on once the last has played through.
-    const one = async b => {
-      const at = p => cellEls[p.reel][Math.min(Math.max(p.row - 1, 0), ROWS - 1)];
+    const at = p => cellEls[p.reel][Math.min(Math.max(p.row - 1, 0), ROWS - 1)];
+    const popHit = c => { c.classList.add("hit", "winhit"); rigPlay(c, "multi", { speed: MULTI_RATE }); };
+    const list = ev.boosters || [], stagger = list.length > 6 ? Math.max(24, MULTI_STAGGER * 6 / list.length) : MULTI_STAGGER;
+    const star = list.length <= 6 ? list.reduce((m, b) => (b.mult || 1) >= CAM_PUNCH_MIN && (!m || b.mult > m.mult) ? b : m, null) : null;
+    const one = async (b, landed) => {
       const multi = at(b), hits = (b.cells || []).map(at).filter(c => c !== multi);
-      multi.classList.add("boom", "winhit");
-      rigPlay(multi, "multi", { speed: MULTI_RATE });
+      if (landed) { await landed; fxSplash(multi, 1); await corkBonk(multi); }   // the cork hits it: a splash, the knock, then it pops
+      multi.classList.add("boom");
+      popHit(multi);
+      if (!REDUCED_MOTION) sparkBurst(multi, { n: 16, reach: .6, colors: ["#ffffff", "#FFE39A", "#F2B33D"] });
       // the camera eases in on the biggest of them, once, and only on one worth it (CAM_PUNCH_MIN) -
       // it used to punch in on every Multi and jump from each to the next (owner, 2026-10-29: too
       // jumpy); a board cover's ripple of them is the wall event's quake instead
@@ -6014,20 +6437,22 @@ const handlers = {
       boardFlash("multi", b.mult || 1);
       if (state.multiCount >= 3 && state.multiCount % 3 === 0) sfx((state.multiCount / 3) % 2 ? "alertA" : "alertB");
       tick(`<b>MULTI x${fmtMult(b.mult)}</b> hits ${(b.cells || []).length} cells`);
-      const lead = 360 / MULTI_RATE;   // the Multi's pop leads; its neighbours follow
-      await hold(lead);
-      for (const c of hits) { c.classList.add("hit", "winhit"); rigPlay(c, "multi", { speed: MULTI_RATE }); }
-      // every performance - the Multi's and its neighbours' - plays through before anything moves on
-      await hold((Math.max(480, Math.max(winClipMs(hits, "multi"), winClipMs([multi], "multi") - 360) + 80)) / MULTI_RATE);
+      await hold(110 / MULTI_RATE);
+      for (const c of hits) { popHit(c); fxSplash(c, .45); }
+      // every performance - the hit icon's and its neighbours' - plays through before anything moves on
+      await hold((Math.max(480, winClipMs([multi, ...hits], "multi")) + 80) / MULTI_RATE);
     };
-    // a board cover sets off a wall in every cell: those go in a quick ripple, not one by one
-    const list = ev.boosters || [], stagger = list.length > 6 ? Math.max(24, MULTI_STAGGER * 6 / list.length) : MULTI_STAGGER;
-    const star = list.length <= 6 ? list.reduce((m, b) => (b.mult || 1) >= CAM_PUNCH_MIN && (!m || b.mult > m.mult) ? b : m, null) : null;
+    // one bottle per Multi, one after another (the next swings in as the last one leaves); a board cover sets off
+    // a wall in every cell: the first few get their bottle, the rest go in a quick ripple after them
     const runs = [];
-    for (const [i, b] of list.entries()) {
-      if (i) await hold(stagger);
-      runs.push(one(b));
+    let i = 0;
+    for (; i < Math.min(list.length, BOTTLES_MAX); i++) {
+      const show = bigBottle(at(list[i]));
+      if (!show) break;
+      runs.push(one(list[i], show.landed));
+      await show.gone;
     }
+    for (const b of list.slice(i)) { if (runs.length) await hold(stagger); runs.push(one(b)); }
     await Promise.all(runs);
     const was = state.grid;
     state.grid = (ev.gridMults || []).map(col => col.slice());
@@ -7605,10 +8030,14 @@ let charsLoaded = Promise.resolve([]);
 // content down to whatever the window is. Measured at --fit:1 each time so the factor is
 // derived from the natural size, never compounded on the previous scale.
 let fitBusy = false;
-function fitToScreen() {
+function fitToScreen(opts) {
   placeMultLayer();   // the slots follow the cells whenever the layout moves
   const app = $("app"), stage = document.querySelector(".stage");
   if (!app || !stage || fitBusy) return;
+  // a re-fit the player watches happen (the bonus's counter leaving) eases the board and the bar to their new
+  // size instead of snapping there: where they are now, before anything below moves them
+  const flip = opts && opts.smooth && !REDUCED_MOTION
+    ? [stage, document.querySelector(".hud")].filter(Boolean).map(el => [el, el.getBoundingClientRect()]) : null;
   // Every write below resizes the very boxes the observer watches, so guard against being
   // re-entered from inside our own writes. The flag clears in a finally, not on a frame: a
   // backgrounded tab throttles rAF, and a flag waiting on one would stay stuck and leave
@@ -7662,8 +8091,23 @@ function fitToScreen() {
     app.style.transform = `scale(${fit.toFixed(4)})`;
     document.documentElement.style.setProperty("--fit", fit.toFixed(4));
     placeScenery();   // the characters and the tag take their places from where the board landed
+    if (flip) fitEase(flip, fit);
   } finally {
     fitBusy = false;
+  }
+}
+// FLIP: each piece is put back where it was drawn before the re-fit (an added transform, so the stage's lean,
+// the camera and the bar's own moves carry on under it) and let go to its new place and size
+function fitEase(list, fit) {
+  for (const [el, a] of list) {
+    const b = el.getBoundingClientRect();
+    if (!a.width || !b.width) continue;
+    const k = a.width / b.width;
+    const dx = (a.left + a.width / 2 - b.left - b.width / 2) / fit, dy = (a.top + a.height / 2 - b.top - b.height / 2) / fit;
+    if (Math.abs(k - 1) < .003 && Math.abs(dx) + Math.abs(dy) < 1) continue;
+    el.animate([{ transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${k.toFixed(4)})` },
+                { transform: "translate(0px, 0px) scale(1)" }],
+               { duration: 750, easing: "cubic-bezier(.22, 1, .36, 1)", composite: "add" });
   }
 }
 // Portrait phones: the pair stands behind the board. Each figure's box ends 35% of its
@@ -8125,64 +8569,6 @@ hoverWin(document.querySelector("#fsCard .fsplate"), { x: .35, y: .45, r: .4, s:
 // for - a currency mark, a letter - is set beside them in the number font instead of being
 // dropped, so the figure still reads in every currency.
 const NUMERAL = { ".": "dot", ",": "comma" };
-// A bad-TV-signal twitch (owner, 2026-10-26: YOU WON, the spins and every win figure): now and
-// then, for a fraction of a second, the element tears - bands of scanlines slide sideways, the
-// colour channels split red one way and cyan the other, and it jumps a pixel or two - a few
-// frames of it, then clean again. An SVG filter of its own, applied only during a burst (no cost
-// between them), so it works on lettering and on the numeral pictures alike and survives the
-// win figure re-rendering itself as it counts. It stops by itself once the element is gone.
-const SVG_NS = "http://www.w3.org/2000/svg";
-let tvDefs = null, tvSeq = 0;
-function tvGlitch(el, { strength = 1, every = [1300, 3600], burst = [120, 320] } = {}) {
-  if (REDUCED_MOTION || !el) return;
-  if (!tvDefs) {
-    const svg = document.createElementNS(SVG_NS, "svg");
-    svg.setAttribute("aria-hidden", "true");
-    svg.style.cssText = "position:absolute;width:0;height:0;overflow:hidden;pointer-events:none";
-    tvDefs = document.createElementNS(SVG_NS, "defs");
-    svg.appendChild(tvDefs); document.body.appendChild(svg);
-  }
-  const id = "tvglitch" + (++tvSeq);
-  const f = document.createElementNS(SVG_NS, "filter");
-  f.setAttribute("id", id);
-  for (const [k, v] of [["x", "-15%"], ["y", "-30%"], ["width", "130%"], ["height", "160%"], ["color-interpolation-filters", "sRGB"]]) f.setAttribute(k, v);
-  // noise that varies only down the picture (bands of scanlines), its red channel the sideways
-  // push and its green held at the middle (no push up or down)
-  f.innerHTML =
-    `<feTurbulence type="fractalNoise" baseFrequency="0.00001 0.12" numOctaves="1" seed="1" result="n"/>` +
-    `<feColorMatrix in="n" type="matrix" values="1 0 0 0 0  0 0 0 0 .5  0 0 0 0 0  0 0 0 0 1" result="m"/>` +
-    `<feDisplacementMap in="SourceGraphic" in2="m" scale="0" xChannelSelector="R" yChannelSelector="G" result="d"/>` +
-    `<feColorMatrix in="d" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>` +
-    `<feOffset in="r" dx="0" dy="0" result="ro"/>` +
-    `<feColorMatrix in="d" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" result="c"/>` +
-    `<feOffset in="c" dx="0" dy="0" result="co"/>` +
-    `<feBlend in="ro" in2="co" mode="screen" result="b"/>` +
-    `<feOffset in="b" dx="0" dy="0"/>`;
-  tvDefs.appendChild(f);
-  const [turb, , disp, , redOff, , cyanOff, , jump] = f.children;
-  const rnd = (a, b) => a + Math.random() * (b - a);
-  let timer = 0;
-  const gone = () => { clearTimeout(timer); f.remove(); };
-  const frame = (until, k) => {
-    if (!el.isConnected) return gone();
-    if (performance.now() >= until) { el.style.filter = ""; timer = setTimeout(start, rnd(every[0], every[1])); return; }
-    const split = rnd(1.5, 4) * k;
-    turb.setAttribute("seed", String(Math.floor(rnd(1, 999))));
-    turb.setAttribute("baseFrequency", `0.00001 ${rnd(.04, .22).toFixed(3)}`);
-    disp.setAttribute("scale", (Math.random() < .25 ? 0 : rnd(5, 16) * k).toFixed(1));   // now and then a frame of colour split alone
-    redOff.setAttribute("dx", split.toFixed(1)); cyanOff.setAttribute("dx", (-split).toFixed(1));
-    jump.setAttribute("dx", rnd(-3, 3).toFixed(1)); jump.setAttribute("dy", rnd(-1.2, 1.2).toFixed(1));
-    el.style.filter = `url(#${id})`;
-    timer = setTimeout(() => frame(until, k), rnd(35, 75));
-  };
-  const start = () => {
-    if (!el.isConnected) return gone();
-    const k = strength * (Math.random() < .2 ? 1.4 : 1);   // one burst in five hits a little harder
-    frame(performance.now() + rnd(burst[0], burst[1]) * (k > strength ? 1.4 : 1), k);
-  };
-  timer = setTimeout(start, rnd(500, 1500));
-}
-
 function numeralRow(text) {
   let html = "", sym = "";
   const flush = () => { if (sym) { html += `<span class="sym">${sym.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))}</span>`; sym = ""; } };
@@ -8512,7 +8898,7 @@ function totalWinScreen(amount, { total = true } = {}) {
         if ($("fsCard").classList.contains("on")) {   // the end of a bonus: its counter goes with it
           $("fsCard").classList.remove("on", "leaving");
           $("fsCard").style.scale = "";            // a fit for this bonus's figure, not the next one's
-          fitToScreen();
+          fitToScreen({ smooth: true });          // the board grows back into the room it leaves, eased
           $("fsNow").textContent = "\u2014"; state.fsShown = null;
           $("fsWin").innerHTML = ""; state.fsWinShown = -1;
         }
@@ -8526,7 +8912,6 @@ function totalWinScreen(amount, { total = true } = {}) {
     // headline climbs with it: every mark the running figure passes swaps the lettering and
     // lands it with a thump, the tier's bright splash under it from the first mark on.
     const amountEl = wrap.querySelector(".twfig");   // the numerals (their sweep is .twamount's)
-    tvGlitch(amountEl, { strength: 1.1 });           // and they twitch like a bad TV signal now and then
     // Each headline is its own image, decoded now, so a mark shows its own art on the frame it
     // lands - swapping one image's source could show the art before it until the new one loads.
     const logos = [...wrap.querySelectorAll(".twlogo")];
@@ -8718,6 +9103,7 @@ function runFeatures() {
   wrap.setAttribute("aria-label", T("How the game works"));
   const box = (icon, title, text) => `<div class="fbox"><div class="fin"><div class="ficon">${icon}</div><h3>${title}</h3><p>${text}</p></div></div>`;
   wrap.innerHTML =
+    `<div class="flogo" role="img" aria-label="Tipsy Harvest"><img class="iwglow" src="assets/intro_wordmark_glow.webp" alt="" draggable="false"><img class="iwink" src="assets/intro_wordmark.webp" alt="" draggable="false"></div>` +
     `<div class="fboxes">` +
       box(`<img src="${SYM.M.img}" alt="${T("Multi")}" draggable="false"><div class="fmult" id="featMult">x${fmtMult(FEATURE_VALUES[0])}</div>`,
         T("Multi"),
@@ -8817,8 +9203,6 @@ function bonusIntro(spins, extreme) {
     // feels alive rather than printed; each stops with the screen
     for (const el of wrap.querySelectorAll(".blogo, .byou, .bnum, .bfs, .bhow")) hoverWin(el, { x: .5, y: .7, r: .5, s: 0, unit: "vh", pace: 2.2 }, 0);
     tiltPlates([wrap.querySelector(".inner")]);   // and the whole screen tips toward the cursor, its pieces at their own depths
-    tvGlitch(wrap.querySelector(".byou"));        // YOU WON and the figure twitch like a bad TV signal now and then
-    tvGlitch(wrap.querySelector(".bfig"), { strength: 1.1 });
     const step = (ms, fn) => setTimeout(fn, REDUCED_MOTION ? 0 : ms);
     let phase = 0;   // 0 fading to black, 1 up and waiting, 2 leaving
     // It waits for the player: a click, or Space / Enter (owner, 2026-10-24: it used to move on by

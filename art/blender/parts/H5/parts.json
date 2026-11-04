@@ -1,1 +1,48 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "jug",
+   "png": "jug.png",
+   "pivot": [
+    480,
+    920
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "jug_art",
+   "png": "jug_art.png",
+   "pivot": [
+    480,
+    920
+   ],
+   "parent": "jug",
+   "order": 1
+  },
+  {
+   "name": "drip",
+   "png": "drip.png",
+   "pivot": [
+    600,
+    180
+   ],
+   "parent": "jug",
+   "order": 2
+  },
+  {
+   "name": "cork",
+   "png": "cork.png",
+   "pivot": [
+    568,
+    108
+   ],
+   "parent": "jug",
+   "order": 3
+  }
+ ]
+}

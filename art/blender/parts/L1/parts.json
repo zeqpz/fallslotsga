@@ -1,1 +1,148 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "mid",
+   "png": "mid.png",
+   "pivot": [
+    424,
+    714
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "mid_rim",
+   "png": "mid_rim.png",
+   "pivot": [
+    424,
+    714
+   ],
+   "parent": "mid",
+   "order": 1
+  },
+  {
+   "name": "low_l",
+   "png": "low_l.png",
+   "pivot": [
+    310,
+    655
+   ],
+   "parent": "mid",
+   "order": 2
+  },
+  {
+   "name": "low_l_rim",
+   "png": "low_l_rim.png",
+   "pivot": [
+    310,
+    655
+   ],
+   "parent": "low_l",
+   "order": 3
+  },
+  {
+   "name": "low_r",
+   "png": "low_r.png",
+   "pivot": [
+    570,
+    700
+   ],
+   "parent": "mid",
+   "order": 4
+  },
+  {
+   "name": "low_r_rim",
+   "png": "low_r_rim.png",
+   "pivot": [
+    570,
+    700
+   ],
+   "parent": "low_r",
+   "order": 5
+  },
+  {
+   "name": "left",
+   "png": "left.png",
+   "pivot": [
+    282,
+    505
+   ],
+   "parent": "mid",
+   "order": 6
+  },
+  {
+   "name": "left_rim",
+   "png": "left_rim.png",
+   "pivot": [
+    282,
+    505
+   ],
+   "parent": "left",
+   "order": 7
+  },
+  {
+   "name": "right",
+   "png": "right.png",
+   "pivot": [
+    656,
+    575
+   ],
+   "parent": "mid",
+   "order": 8
+  },
+  {
+   "name": "right_rim",
+   "png": "right_rim.png",
+   "pivot": [
+    656,
+    575
+   ],
+   "parent": "right",
+   "order": 9
+  },
+  {
+   "name": "top",
+   "png": "top.png",
+   "pivot": [
+    482,
+    435
+   ],
+   "parent": "mid",
+   "order": 10
+  },
+  {
+   "name": "top_rim",
+   "png": "top_rim.png",
+   "pivot": [
+    482,
+    435
+   ],
+   "parent": "top",
+   "order": 11
+  },
+  {
+   "name": "stem",
+   "png": "stem.png",
+   "pivot": [
+    424,
+    722
+   ],
+   "parent": "mid",
+   "order": 12
+  },
+  {
+   "name": "stem_rim",
+   "png": "stem_rim.png",
+   "pivot": [
+    424,
+    722
+   ],
+   "parent": "stem",
+   "order": 13
+  }
+ ]
+}

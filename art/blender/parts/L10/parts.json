@@ -1,1 +1,128 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "bale",
+   "png": "bale.png",
+   "pivot": [
+    500,
+    800
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "body",
+   "png": "body.png",
+   "pivot": [
+    500,
+    800
+   ],
+   "parent": "bale",
+   "order": 1
+  },
+  {
+   "name": "tuft0",
+   "png": "tuft0.png",
+   "pivot": [
+    878,
+    651
+   ],
+   "parent": "body",
+   "order": 2
+  },
+  {
+   "name": "tuft1",
+   "png": "tuft1.png",
+   "pivot": [
+    649,
+    810
+   ],
+   "parent": "body",
+   "order": 3
+  },
+  {
+   "name": "tuft2",
+   "png": "tuft2.png",
+   "pivot": [
+    433,
+    775
+   ],
+   "parent": "body",
+   "order": 4
+  },
+  {
+   "name": "tuft3",
+   "png": "tuft3.png",
+   "pivot": [
+    179,
+    687
+   ],
+   "parent": "body",
+   "order": 5
+  },
+  {
+   "name": "tuft4",
+   "png": "tuft4.png",
+   "pivot": [
+    100,
+    368
+   ],
+   "parent": "body",
+   "order": 6
+  },
+  {
+   "name": "tuft5",
+   "png": "tuft5.png",
+   "pivot": [
+    354,
+    211
+   ],
+   "parent": "body",
+   "order": 7
+  },
+  {
+   "name": "tuft6",
+   "png": "tuft6.png",
+   "pivot": [
+    570,
+    226
+   ],
+   "parent": "body",
+   "order": 8
+  },
+  {
+   "name": "tuft7",
+   "png": "tuft7.png",
+   "pivot": [
+    860,
+    297
+   ],
+   "parent": "body",
+   "order": 9
+  },
+  {
+   "name": "twine_l",
+   "png": "twine_l.png",
+   "pivot": [
+    250,
+    520
+   ],
+   "parent": "bale",
+   "order": 10
+  },
+  {
+   "name": "twine_r",
+   "png": "twine_r.png",
+   "pivot": [
+    560,
+    560
+   ],
+   "parent": "bale",
+   "order": 11
+  }
+ ]
+}

@@ -1,1 +1,48 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "body",
+   "png": "body.png",
+   "pivot": [
+    480,
+    925
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "skin",
+   "png": "skin.png",
+   "pivot": [
+    480,
+    925
+   ],
+   "parent": "body",
+   "order": 1
+  },
+  {
+   "name": "leaf",
+   "png": "leaf.png",
+   "pivot": [
+    548,
+    240
+   ],
+   "parent": "stem",
+   "order": 2
+  },
+  {
+   "name": "stem",
+   "png": "stem.png",
+   "pivot": [
+    516,
+    340
+   ],
+   "parent": "body",
+   "order": 3
+  }
+ ]
+}

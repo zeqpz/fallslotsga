@@ -122,12 +122,49 @@ S = {
                   "foley", (.4, 1.2, 2, None), ("set", "wing_flap", -25, "wingFlap", .1, "crow wing flaps, taking off")),
     "crow_peck": (PRE + "A bird's beak pecking once on a stiff felt hat: one short soft woody tock.", 6, "hit",
                   (.03, .25, 3, None), ("set", "crow_peck", -25, "crowPeck", .1, "crow beak peck on the hat")),
+
+    # ---------------- the cider bottle (bigBottle): the Multi going off, 2026-11-03 ----------------
+    "b_swing_in": (PRE + "A heavy glass bottle swung quickly through the air right past the microphone: one short, "
+                   "deep, airy whoosh.", 5, "whoosh", (.3, .75, 2, None),
+                   ("set", "bottle_whoosh", -24, "bottleWhoosh", .32, "the big bottle swinging in")),
+    "b_glove": (PRE + "A leather work glove gripping a glass bottle tightly: one short squeaky rub of leather on "
+                "glass.", 5, "foley", (.12, .5, 2, None),
+                ("set", "glove_grip", -26, "gloveGrip", .22, "the gloves taking hold of the bottle")),
+    "b_slosh": (PRE + "Shaking a full glass bottle of fizzy cider hard back and forth: liquid sloshing and splashing "
+                "around inside the glass, fizzing more and more.", 5, "foley", (.5, 1.3, 2, "gesture"),
+                ("set", "bottle_slosh", -24, "bottleSlosh", .32, "the bottle shaken: cider sloshing in the glass")),
+    "b_fizz": (PRE + "Pressure building up inside a shaken champagne bottle: a rising hiss of fizz and bubbles with "
+               "the cork creaking and straining, getting louder.", 5, "spray", (.6, 1.3, 2, "sustain"),
+               ("set", "bottle_fizz", -24, "bottleFizz", .3, "the fizz-up: rising hiss, the cork straining")),
+    "b_pop": (PRE + "A big champagne cork shooting out of a bottle: one loud, explosive, satisfying POP.", 6, "hit",
+              (.05, .4, 3, None), ("set", "bottle_pop", -18, "bottlePop", .55, "the big cork POP")),
+    "b_gush": (PRE + "Champagne gushing and spraying out of a bottle right after the cork pops: a wet, foamy, "
+               "fizzing gush of liquid splashing out for about one second.", 5, "spray", (.6, 1.3, 2, "sustain"),
+               ("set", "bottle_gush", -22, "bottleGush", .36, "the cider gushing out of the neck")),
+    "b_swing_out": (PRE + "A heavy glass bottle swung quickly away from the microphone: one short airy whoosh "
+                    "fading out.", 5, "whoosh", (.3, .75, 2, None),
+                    ("set", "bottle_whoosh_out", -25, "bottleWhooshOut", .28, "the big bottle swinging away")),
+    "c_whirr": (PRE + "A cork spinning fast end over end through the air: a short whirring, fluttering whoosh that "
+                "rises and falls.", 5, "whoosh", (.4, 1.0, 2, None),
+                ("set", "cork_whirr", -25, "corkWhirr", .26, "the cork tumbling through the air")),
+    "c_bonk": (PRE + "A cork hitting a piece of fruit hard: one hollow, comical, woody bonk with a tiny cartoon "
+               "boing.", 6, "hit", (.1, .55, 3, None), ("set", "cork_bonk", -20, "corkBonk", .45, "the cork bonking the icon")),
+    "c_splash": (PRE + "A big wet splash of fizzy cider landing on a wooden table: one juicy splat with droplets "
+                 "spattering around it.", 5, "hit", (.2, .75, 3, None),
+                 ("set", "cider_splash", -22, "ciderSplash", .4, "the splash on the hit icon")),
+    "c_fizzpop": (PRE + "Lots of tiny bubbles fizzing and popping in a glass of cider: a short, crackly, sparkling "
+                  "fizz.", 5, "foley", (.4, 1.0, 2, None),
+                  ("set", "cider_fizz", -26, "ciderFizz", .22, "bubbles fizzing on the hit icon")),
+    "c_drip": (PRE + "A few drops of cider dripping off a table edge onto a wooden floor: soft, small, wet plips.", 5,
+               "drop", (.1, .45, 3, None), ("set", "cider_drip", -26, "ciderDrip", .2, "drips running off the icon")),
+    "c_bubble": (PRE + "One single big soapy bubble popping: a short, wet, cartoony pop.", 5, "drop",
+                 (.05, .3, 3, None), ("set", "bubble_pop", -24, "bubblePop", .3, "a neighbour popping, fizzy")),
 }
 
 # one event per take for these (no second hit inside the event)
 SINGLE = {"land_platter", "land_pie", "land_hat", "land_jug", "land_corn", "land_pumpkin", "land_leaf", "land_acorn",
           "land_apple", "land_grapes", "land_sunflower", "land_feather", "land_jelly", "land_porcelain", "land_hay",
-          "land_bottle", "crow_peck", "f_cork", "f_gravy_drop", "f_plop", "f_squash"}
+          "land_bottle", "crow_peck", "f_cork", "f_gravy_drop", "f_plop", "f_squash", "b_pop", "c_bonk", "c_bubble"}
 TONAL = {"land_porcelain", "land_bottle", "f_scatter", "f_bonus", "f_bust", "land_pie"}
 FOUT = {"f_scatter": 400, "f_bonus": 250, "f_bust": 250, "jug_slosh": 120, "straw_rustle": 90, "rope_creak": 90,
         "wing_flap": 90, "f_sweep_long": 120, "crow_caw": 60}

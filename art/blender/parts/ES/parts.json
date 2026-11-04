@@ -1,1 +1,118 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "torso",
+   "png": "torso.png",
+   "pivot": [
+    510,
+    560
+   ],
+   "parent": "body",
+   "order": 0
+  },
+  {
+   "name": "f_ul",
+   "png": "f_ul.png",
+   "pivot": [
+    290,
+    215
+   ],
+   "parent": "root",
+   "order": 1
+  },
+  {
+   "name": "f_ur",
+   "png": "f_ur.png",
+   "pivot": [
+    815,
+    265
+   ],
+   "parent": "root",
+   "order": 2
+  },
+  {
+   "name": "f_ll",
+   "png": "f_ll.png",
+   "pivot": [
+    200,
+    700
+   ],
+   "parent": "root",
+   "order": 3
+  },
+  {
+   "name": "f_lr",
+   "png": "f_lr.png",
+   "pivot": [
+    825,
+    770
+   ],
+   "parent": "root",
+   "order": 4
+  },
+  {
+   "name": "wing_l",
+   "png": "wing_l.png",
+   "pivot": [
+    365,
+    410
+   ],
+   "parent": "body",
+   "order": 5
+  },
+  {
+   "name": "wing_r",
+   "png": "wing_r.png",
+   "pivot": [
+    690,
+    455
+   ],
+   "parent": "body",
+   "order": 6
+  },
+  {
+   "name": "foot_l",
+   "png": "foot_l.png",
+   "pivot": [
+    430,
+    715
+   ],
+   "parent": "root",
+   "order": 7
+  },
+  {
+   "name": "foot_r",
+   "png": "foot_r.png",
+   "pivot": [
+    595,
+    715
+   ],
+   "parent": "root",
+   "order": 8
+  },
+  {
+   "name": "body",
+   "png": "body.png",
+   "pivot": [
+    510,
+    720
+   ],
+   "parent": "root",
+   "order": 9
+  },
+  {
+   "name": "head",
+   "png": "head.png",
+   "pivot": [
+    530,
+    455
+   ],
+   "parent": "body",
+   "order": 10
+  }
+ ]
+}

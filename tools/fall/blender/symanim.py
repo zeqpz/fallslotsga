@@ -6,9 +6,9 @@ effect sprites (art/fall-src/fx) are animated around it. Each symbol has its own
 Camera: orthographic, 13 units across, looking along +y, the icon centred (tools/blender/pack_frames.py's frame).
 
 Runs in the user's live Blender over the MCP socket (build + preview), or in the background for the renders:
-  blender.exe -b --factory-startup --python tools/fall/blender/symanim.py -- <ID> [build,render]
+  blender.exe -b --factory-startup --python tools/fall/blender/symanim.py -- <ID> [build,render,big,cork]   (big, cork: M only)
 -> art/blender/symbols/<ID>.blend, art/blender/renders/<ID>/<clip>/####.png (512 px, RGBA)"""
-import math, os, random, sys
+import json, math, os, random, sys
 
 import bpy
 
@@ -21,6 +21,9 @@ FPS = 30
 CLIPS = {"idle": 72, "land": 24, "hit": 46, "multi": 42}
 START = {"idle": 1, "land": 101, "hit": 201, "multi": 301}     # each clip's first frame on the timeline
 HALF = 4.7                                                    # half the art's longer side, units (940 px)
+VIEW = {"M": 24.0}                                            # a bigger view (units across) where the effects need it:
+                                                              # the Multi's cider fountain; same px per unit (512 / 13)
+CAM = 13.0                                                    # this scene's view, set by setup_scene
 GLOW = {                                                      # halo colour per tier
     1: (1.0, 0.72, 0.22), 2: (1.0, 0.45, 0.12), "M": (1.0, 0.85, 0.3), "BS": (1.0, 0.86, 0.35),
     "ES": (0.62, 0.35, 1.0), 0: (1.0, 0.9, 0.6)}
@@ -34,7 +37,7 @@ def clear():
     for ob in list(bpy.data.objects):
         bpy.data.objects.remove(ob, do_unlink=True)
     for coll in (bpy.data.meshes, bpy.data.materials, bpy.data.images, bpy.data.armatures, bpy.data.actions,
-                 bpy.data.cameras):
+                 bpy.data.cameras, bpy.data.metaballs, bpy.data.lights, bpy.data.collections):
         for b in list(coll):
             coll.remove(b)
 
@@ -46,7 +49,9 @@ def setup_scene(sid):
         sc.render.engine = "BLENDER_EEVEE"
     except TypeError:
         sc.render.engine = "BLENDER_EEVEE_NEXT"
-    sc.render.resolution_x = sc.render.resolution_y = 512
+    global CAM
+    CAM = VIEW.get(sid, 13.0)
+    sc.render.resolution_x = sc.render.resolution_y = round(512 * CAM / 13.0)
     sc.render.resolution_percentage = 100
     sc.render.film_transparent = True
     sc.render.fps = FPS
@@ -61,7 +66,7 @@ def setup_scene(sid):
     sc.frame_start, sc.frame_end = 1, START["multi"] + CLIPS["multi"] - 1
     cam_data = bpy.data.cameras.new("cam")
     cam_data.type = "ORTHO"
-    cam_data.ortho_scale = 13.0
+    cam_data.ortho_scale = CAM
     cam = bpy.data.objects.new("cam", cam_data)
     sc.collection.objects.link(cam)
     cam.location = (0, -30, 0)
@@ -323,7 +328,7 @@ class Pool:
             t = (f - f0) / max(1, f1 - f0)
             x, z = path(t)
             g = grow[0] + (grow[1] - grow[0]) * t
-            lim = 6.3 - self.size * g * .72                     # keep the whole sprite inside the 13-unit frame
+            lim = CAM / 2 - .2 - self.size * g * .72            # keep the whole sprite inside the frame
             x, z = max(-lim, min(lim, x)), max(-lim, min(lim, z))
             key_obj(ob, f, x=x, z=z, s=max(.01, g), r=r0 + spin * t)
             a = fade[0] + (fade[1] - fade[0]) * t
@@ -585,14 +590,498 @@ def clip_multi(sid, arm, glow, pools, rng):
                                    3.4 + math.sin(a) * 5 * t - 5 * t * t), rng, grow=(.7, .5), fade=(1, 1))
 
 
+# ---------------------------------------------------------------- the Multi: the champagne pop
+# The Multi going off, as the big bottle the game swings in from the side of the screen (owner, 2026-11-03; the game
+# never shows the Multi on the board). The bottle is drawn EMPTY (icons/M_empty.png, M_open_empty.png) and the cider
+# in it is painted by a shader (cider_material): a surface that sloshes against the bottle's rocking - a damped spring
+# chasing the tilt the glass is at - with a foam band on top and bubbles rising through it, all cut to the glass
+# (icons/M_glass.png), so the label, the foil, the outline and the glass's highlights stay in front of it.
+#   rest     it rocks gently, the cider lapping
+#   shake    harder and harder: the cider slops side to side, the bubbles thicken and race, the foam climbs - it FIZZES
+#            UP until the glass is all foam - and foam bubbles out round the cork, a dribble running down the neck
+#   crouch   it squeezes down, the foam brimming
+#   POP      the cork goes (the game flies it; the board's own clip shows it shooting out of the frame), the bottle
+#            kicks, the foam round the neck is blown off, a burst of fizz explodes out of the neck - two drawings
+#            flicked on twos, stretching up as it opens - and a fountain spews, pumping and swaying, cycling through
+#            three drawings so it boils; cider rains down round it, bubbles fly off the top, the level in the glass
+#            drops as it empties
+#   settle   the fountain dies to a foam head bubbling at the neck, the cider sloshes to a stop half-way down
+# The clip ends on that open bottle (pack_frames.py HOLD). Positions are icon px of art/fall-src/icons/M.png
+# (tools/fall/prep_champagne.py; the other versions are registered onto it).
+M_FRAMES = 96
+M_POP = 48                                                      # the frame the cork leaves the bottle
+M_LEAN = 52.0                                                   # the bottle lies over toward the board (deg, CCW):
+                                                                # it points its neck at the reels, not at the sky
+M_CORK = (544, 95)                                              # the seated cork's middle (the XXX bottle, 2026-11-03)
+M_MOUTH = (532, 104)                                            # the open neck's mouth, where the spray comes from
+M_GLASS = (126, 941)                                            # the glass's top and bottom rows (prep_champagne.py):
+                                                                # the whole neck is glass now, no foil
+V_LO, V_HI = (500 - M_GLASS[1]) / 1000 + .5, (500 - M_GLASS[0]) / 1000 + .5   # the same as the icon plane's v
+
+
+def u(p):
+    """icon px -> (x, z) units"""
+    return (p[0] - 500) / 100, (500 - p[1]) / 100
+
+
+def anchored(ob, f, base, size, s, r=0.0, fade=None, stretch=1.0):
+    """Key a sprite whose art rises from its bottom middle (the sprays) so that point stays at `base`; `stretch`
+    pulls it taller and thinner (and squat and wider under 1), keeping its area."""
+    a = math.radians(r)
+    sx, sz = max(.01, s / math.sqrt(stretch)), max(.01, s * math.sqrt(stretch))
+    h = size * sz * .45                                         # the art's foot sits 45% of the plane below its centre
+    key_obj(ob, f, x=base[0] + h * math.sin(a), z=base[1] + h * math.cos(a), sx=sx, sz=sz, r=-r)
+    if fade is not None:
+        key_fade(ob, f, fade)
+
+
+def skin_copy(icon, name, mat, dy):
+    """Another picture on the icon's own mesh and rig (it bends and shakes with it), dy nearer the camera."""
+    ob = icon.copy()
+    ob.data = icon.data.copy()
+    ob.name = name
+    ob.data.materials[0] = mat
+    bpy.context.scene.collection.objects.link(ob)
+    ob.location.y = icon.location.y + dy
+    return ob
+
+
+def cider_material():
+    """The cider: colour and alpha from the keyed values level (the surface, in the icon's v), amp / phase (its
+    ripples), tilt (its slope across the glass), foam (the foam band's depth, v), rise (the bubbles' climb, v),
+    fizz (the bubbles' size, 0 = none) and fade; cut to the glass."""
+    m = bpy.data.materials.new("cider")
+    m.use_nodes = True
+    try:
+        m.surface_render_method = "BLENDED"
+    except AttributeError:
+        m.blend_method = "BLEND"
+    nt = m.node_tree
+    for n in list(nt.nodes):
+        nt.nodes.remove(n)
+    L = nt.links.new
+
+    def op(kind, a, b=None, clamp=False):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation = kind
+        n.use_clamp = clamp
+        for i, v in enumerate((a, b)):
+            if v is None:
+                continue
+            if isinstance(v, (int, float)):
+                n.inputs[i].default_value = v
+            else:
+                L(v, n.inputs[i])
+        return n.outputs[0]
+
+    def val(name, v):
+        n = nt.nodes.new("ShaderNodeValue")
+        n.name = n.label = name
+        n.outputs[0].default_value = v
+        return n.outputs[0]
+
+    def mix(fac, a, b):
+        n = nt.nodes.new("ShaderNodeMixRGB")
+        n.blend_type = "MIX"
+        L(fac, n.inputs[0])
+        for i, c in ((1, a), (2, b)):
+            if isinstance(c, tuple):
+                n.inputs[i].default_value = (*c, 1)
+            else:
+                L(c, n.inputs[i])
+        return n.outputs[0]
+
+    lin = lambda r, g, b: tuple(((c / 255) / 12.92 if c / 255 <= .04045 else ((c / 255 + .055) / 1.055) ** 2.4) for c in (r, g, b))
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    L(tc.outputs["UV"], sep.inputs[0])
+    U, V = sep.outputs[0], sep.outputs[1]
+    level, amp, phase, tilt = val("level", .45), val("amp", .004), val("phase", 0), val("tilt", 0)
+    foam, rise, fizz, fade = val("foam", .01), val("rise", 0), val("fizz", .1), val("fade", 0)
+    # the surface across the glass: two ripples and the slope
+    w1 = op("SINE", op("ADD", op("MULTIPLY", U, 70.0), phase))
+    w2 = op("SINE", op("SUBTRACT", op("MULTIPLY", U, 131.0), op("MULTIPLY", phase, 1.7)))
+    surf = op("ADD", op("ADD", level, op("MULTIPLY", amp, op("ADD", w1, op("MULTIPLY", w2, .45)))),
+              op("MULTIPLY", tilt, op("SUBTRACT", U, .5)))
+    d = op("SUBTRACT", surf, V)                                  # how far under the surface
+    inside = op("DIVIDE", d, .004, clamp=True)
+    deep = op("DIVIDE", d, op("MAXIMUM", foam, .002), clamp=True)    # 0 at the surface .. 1 under the foam
+    deep = op("POWER", deep, .6)
+    # the cider: amber at the foot to gold up top; cream foam over it; an ink line along the surface
+    height = op("DIVIDE", op("SUBTRACT", V, V_LO), V_HI - V_LO, clamp=True)
+    col = mix(height, lin(176, 96, 14), lin(246, 184, 48))
+    col = mix(deep, lin(255, 236, 190), col)
+    # bubbles: a field of round cells sliding up with `rise`, each its own size, a cream ring with a light middle
+    vec = nt.nodes.new("ShaderNodeCombineXYZ")
+    L(op("MULTIPLY", U, 22.0), vec.inputs[0])
+    L(op("MULTIPLY", op("SUBTRACT", V, rise), 22.0), vec.inputs[1])
+    vor = nt.nodes.new("ShaderNodeTexVoronoi")
+    vor.voronoi_dimensions = "2D"
+    vor.inputs["Scale"].default_value = 1.0
+    L(vec.outputs[0], vor.inputs["Vector"])
+    sepc = nt.nodes.new("ShaderNodeSeparateColor")
+    L(vor.outputs["Color"], sepc.inputs[0])
+    rad = op("MULTIPLY", fizz, op("ADD", .3, op("MULTIPLY", sepc.outputs[0], .7)))
+    dist = vor.outputs["Distance"]
+    ring = op("SUBTRACT", 1.0, op("DIVIDE", op("ABSOLUTE", op("SUBTRACT", dist, rad)), .045), clamp=True)
+    core = op("LESS_THAN", dist, rad)
+    col = mix(op("MULTIPLY", core, .35), col, lin(255, 246, 214))
+    col = mix(op("MULTIPLY", ring, inside), col, lin(255, 250, 232))
+    line = op("SUBTRACT", 1.0, op("DIVIDE", op("ABSOLUTE", d), .0035), clamp=True)
+    col = mix(op("MULTIPLY", line, .85), col, lin(74, 38, 10))
+    mask = nt.nodes.new("ShaderNodeTexImage")
+    mask.image = image(os.path.join(ICONS, "M_glass.png"))
+    mask.extension = "CLIP"
+    alpha = op("MULTIPLY", op("MULTIPLY", mask.outputs["Alpha"], op("MAXIMUM", inside, line)), fade)
+    em = nt.nodes.new("ShaderNodeEmission")
+    L(col, em.inputs["Color"])
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mx_ = nt.nodes.new("ShaderNodeMixShader")
+    L(alpha, mx_.inputs[0]); L(tr.outputs[0], mx_.inputs[1]); L(em.outputs[0], mx_.inputs[2])
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    L(mx_.outputs[0], out.inputs["Surface"])
+    return m
+
+
+def key_val(mat, name, f, v):
+    n = mat.node_tree.nodes[name].outputs[0]
+    n.default_value = v
+    n.keyframe_insert("default_value", frame=f)
+
+
+# ---------------------------------------------------------------- the cider itself: metaball liquid
+# The spray and the foam are real liquid, not pictures: metaballs (blobs that run together into one surface where
+# they touch and break apart into drops as they spread), thrown out of the neck by a small simulation - each drop
+# leaves the mouth along the bottle, slowed by the air and pulled down by gravity, stretched along the way it is
+# flying - drawn cartoon-style: two flat tones from a key light, a hard highlight, and a dark ink line round the
+# outside (Freestyle, on the liquid only). Everything else in the scene is unlit, so the light touches nothing else.
+FX_COLL = "cider_fx"
+
+
+def lin(r, g, b):
+    return tuple(((c / 255) / 12.92 if c / 255 <= .04045 else ((c / 255 + .055) / 1.055) ** 2.4) for c in (r, g, b))
+
+
+def cel_material(name, base, shade, hi):
+    """Two flat tones split by the key light, plus a hard highlight: the art's cel paint, on a 3D blob."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    for n in list(nt.nodes):
+        nt.nodes.remove(n)
+    L = nt.links.new
+    dif = nt.nodes.new("ShaderNodeBsdfDiffuse")
+    s1 = nt.nodes.new("ShaderNodeShaderToRGB")
+    L(dif.outputs[0], s1.inputs[0])
+    r1 = nt.nodes.new("ShaderNodeValToRGB")
+    r1.color_ramp.interpolation = "CONSTANT"
+    r1.color_ramp.elements[0].color = (*shade, 1)
+    r1.color_ramp.elements[1].position = .5                     # the shadow side: the half facing away from the key
+    r1.color_ramp.elements[1].color = (*base, 1)
+    L(s1.outputs["Color"], r1.inputs["Fac"])
+    gl = nt.nodes.new("ShaderNodeBsdfGlossy")
+    gl.inputs["Roughness"].default_value = .18
+    s2 = nt.nodes.new("ShaderNodeShaderToRGB")
+    L(gl.outputs[0], s2.inputs[0])
+    r2 = nt.nodes.new("ShaderNodeValToRGB")
+    r2.color_ramp.interpolation = "CONSTANT"
+    r2.color_ramp.elements[0].color = (0, 0, 0, 1)
+    r2.color_ramp.elements[1].position = .12                    # a hard glint where the key catches it
+    r2.color_ramp.elements[1].color = (*hi, 1)
+    L(s2.outputs["Color"], r2.inputs["Fac"])
+    add = nt.nodes.new("ShaderNodeMixRGB")
+    add.blend_type = "ADD"
+    add.inputs[0].default_value = 1.0
+    L(r1.outputs["Color"], add.inputs[1]); L(r2.outputs["Color"], add.inputs[2])
+    em = nt.nodes.new("ShaderNodeEmission")
+    L(add.outputs[0], em.inputs["Color"])
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    L(em.outputs[0], out.inputs["Surface"])
+    return m
+
+
+def fx_stage():
+    """The liquid's collection, its key light (upper left, in front) and its ink line."""
+    sc = bpy.context.scene
+    coll = bpy.data.collections.get(FX_COLL) or bpy.data.collections.new(FX_COLL)
+    if coll.name not in sc.collection.children:
+        sc.collection.children.link(coll)
+    sun = bpy.data.lights.new("cider_key", "SUN")
+    sun.energy = 3.0
+    lo = bpy.data.objects.new("cider_key", sun)
+    coll.objects.link(lo)
+    from mathutils import Vector
+    lo.rotation_euler = Vector((.55, .8, -.45)).to_track_quat("-Z", "Y").to_euler()   # light travels right, in, down
+    sc.render.use_freestyle = True
+    sc.render.line_thickness_mode = "ABSOLUTE"
+    sc.render.line_thickness = 2.4 * sc.render.resolution_x / 945
+    fs = bpy.context.view_layer.freestyle_settings
+    fs.as_render_pass = False
+    for ls in list(fs.linesets):
+        fs.linesets.remove(ls)
+    ls = fs.linesets.new("cider_ink")
+    ls.select_by_collection = True
+    ls.collection = coll
+    ls.select_by_visibility = True
+    ls.select_silhouette = ls.select_border = True
+    ls.select_crease = False
+    ls.linestyle.color = lin(52, 24, 6)
+    ls.linestyle.thickness = 2.4
+    return coll
+
+
+def meta(name, mat, coll, res=.06):
+    mb = bpy.data.metaballs.new(name)
+    mb.resolution = .12
+    mb.render_resolution = res
+    mb.threshold = .6
+    ob = bpy.data.objects.new(name, mb)
+    coll.objects.link(ob)
+    mb.materials.append(mat)
+    ob.location = (0, -1.6, 0)                                 # in front of the bottle and its cider
+    return ob
+
+
+def blob(mb, track, kind="BALL"):
+    """One metaball keyed along `track`: {frame: (x, z, radius, stretch, angle)}; nothing either side of it."""
+    from mathutils import Quaternion
+    el = mb.elements.new()
+    el.type = kind
+    fs = sorted(track)
+    el.radius = 0.0
+    el.keyframe_insert("radius", frame=0)
+    el.keyframe_insert("radius", frame=fs[0] - 1)
+    for f in fs:
+        x, z, r, st, a = track[f]
+        el.co = (x, 0, z)
+        el.radius = r
+        el.keyframe_insert("co", frame=f)
+        el.keyframe_insert("radius", frame=f)
+        if kind == "ELLIPSOID":
+            el.size_x, el.size_y, el.size_z = st, 1 / math.sqrt(st), 1 / math.sqrt(st)
+            el.rotation = Quaternion((0, 1, 0), -a)          # its long axis along the way it flies
+            el.keyframe_insert("size_x", frame=f); el.keyframe_insert("size_y", frame=f); el.keyframe_insert("size_z", frame=f)
+            el.keyframe_insert("rotation", frame=f)
+    el.radius = 0.0
+    el.keyframe_insert("radius", frame=fs[-1] + 1)
+    return el
+
+
+def cider_spray(f0, n, P, mouth, axis_at, rng):
+    """The pop's burst and the gushing stream after it: drops thrown out of the mouth along the neck, in clip
+    frames; they run together as they leave and break up into drops as they spread and fall."""
+    coll = fx_stage()
+    ob = meta("cider_spray", cel_material("cider_cel", lin(247, 186, 50), lin(204, 120, 18), lin(255, 246, 214)), coll)
+    G, DRAG, LIM = 15.0, .55, CAM / 2 - .3
+    born = []
+    for i in range(P, P + 30):
+        q = (i - P) / 30
+        if i < P + 5:                                          # the bang: a fat, fast, wide burst
+            cnt, sp, spread, rad = 9, (17, 27), 20, (.42, .62)
+        else:                                                  # then the gush, thinning and slowing
+            q2 = (i - P - 5) / 25
+            cnt, sp, spread, rad = max(1, round(6 * (1 - q2))), (10 + 6 * (1 - q2), 15 + 7 * (1 - q2)), 8 + 6 * q2, (.3 * (1 - .4 * q2) + .1, .46 * (1 - .4 * q2) + .1)
+        for _ in range(cnt):
+            a = axis_at(i) + math.radians(rng.uniform(-spread, spread) * (1 if rng.random() < .7 else 1.6))
+            v = rng.uniform(*sp)
+            mx_, mz_ = mouth(i)
+            off = rng.uniform(0, .25)
+            born.append(dict(i=i + rng.random() * .0, x=mx_ + math.cos(axis_at(i)) * off, z=mz_ + math.sin(axis_at(i)) * off,
+                             vx=v * math.cos(a), vz=v * math.sin(a), r=rng.uniform(*rad), life=rng.randint(16, 26)))
+    for p in born:
+        x, z, vx, vz, track = p["x"], p["z"], p["vx"], p["vz"], {}
+        for k in range(p["life"]):
+            i = p["i"] + k
+            if i > n:
+                break
+            sp = math.hypot(vx, vz)
+            grow = min(1, (k + 1) / 2.5)                         # it swells out of the mouth over its first frames
+            r = p["r"] * grow * (1 - .35 * k / p["life"])
+            track[f0 + i] = (x, z, r, 1 + min(1.6, sp / 16), math.atan2(vz, vx))
+            dt = 1 / FPS
+            vz -= G * dt
+            kd = math.exp(-DRAG * dt)
+            vx *= kd; vz *= kd
+            x += vx * dt; z += vz * dt
+            if abs(x) > LIM or abs(z) > LIM:
+                break
+        if track:
+            blob(ob.data, track, "ELLIPSOID")
+    return coll
+
+
+def cider_foam(coll, f0, n, P, W, turn, mouth, axis_at, rng, cork):
+    """Foam: bubbling out round the cork as it fizzes up (one blob dribbling down the neck), blown off at the pop
+    with a puff of foam bursting out of the neck, then a head of foam bubbling at the open neck as it settles."""
+    ob = meta("cider_foam", cel_material("foam_cel", lin(255, 241, 208), lin(226, 190, 128), lin(255, 255, 255)), coll, res=.05)
+    cx, cz = cork
+    for j, (ox, oz, s1, start) in enumerate(((-.62, .45, .5, 30), (.62, .38, .46, 32), (0, .66, .56, 34),
+                                            (-.36, .76, .38, 38), (.4, .72, .4, 40), (.62, -.3, .34, 36))):
+        track, ph = {}, rng.uniform(0, 6.3)
+        for i in range(start, P):
+            t = (i - start) / max(1, P - start)
+            r = s1 * ease_out(min(1, t * 1.6)) * (1 + .1 * math.sin(i * 1.1 + ph))
+            dz = -1.3 * t * t if j == 5 else 0
+            x, z = W((cx + ox, cz + oz + dz), i)
+            track[f0 + i] = (x, z, max(.02, r), 1, 0)
+        x0, z0 = W((cx + ox, cz + oz), P)
+        out = turn((ox * 2.4 + rng.uniform(-.4, .4), 2.4 + rng.uniform(0, 1.2)), P)
+        for k in range(7):
+            t = k / 6
+            track[f0 + P + k] = (x0 + out[0] * ease_out(t), z0 + out[1] * ease_out(t), s1 * (1 - t) + .02, 1, 0)
+        blob(ob.data, track)
+    m = mouth(P)
+    for j in range(7):                                         # the puff out of the neck at the bang
+        a = axis_at(P) + math.radians(rng.uniform(-45, 45))
+        d, s1, track = rng.uniform(1.2, 2.6), rng.uniform(.45, .7), {}
+        for k in range(10):
+            t = k / 9
+            r = s1 * math.sin(math.pi * min(1, t * 1.15)) + .02
+            track[f0 + P + k] = (m[0] + math.cos(a) * d * ease_out(t), m[1] + math.sin(a) * d * ease_out(t), r, 1, 0)
+        blob(ob.data, track)
+    for j in range(4):                                         # the head bubbling at the open neck
+        ox, oz, s1, ph = rng.uniform(-.35, .35), rng.uniform(.1, .45), rng.uniform(.3, .42), rng.uniform(0, 6.3)
+        track = {}
+        for i in range(P + 20, n + 1):
+            t = (i - P - 20) / 10
+            x, z = W((u(M_MOUTH)[0] + ox, u(M_MOUTH)[1] + oz), i)
+            track[f0 + i] = (x, z, s1 * ease_out(min(1, t)) * (1 + .12 * math.sin(i * .9 + ph)) + .01, 1, 0)
+        blob(ob.data, track)
+
+
+def clip_multi_champagne(arm, icon, glow, pools, rng):
+    f0, n = START["multi"], CLIPS["multi"]
+    P, S0, C0 = M_POP, 14, 42                                    # the pop, the shake's start, the crouch's start
+    pop = f0 + P
+    # the pictures: the painted cider bottle (the other clips') steps aside for the empty one and its cider, and the
+    # empty open one takes over at the pop
+    empty = skin_copy(icon, "icon_empty", emit_material("icon_M_empty", image(os.path.join(ICONS, "M_empty.png"))), -.005)
+    op_ = skin_copy(icon, "icon_open", emit_material("icon_M_open", image(os.path.join(ICONS, "M_open_empty.png"))), -.006)
+    cm = cider_material()
+    cider = skin_copy(icon, "cider", cm, -.02)
+    # the gloved hands holding it (prep_champagne.py hands()): on the same rig, so they shake it, over its cider
+    hands = skin_copy(icon, "hands", emit_material("icon_M_hands", image(os.path.join(ICONS, "M_hands.png"))), -.03)
+    for ob, on, off in ((icon, None, (f0, f0 + n)), (empty, (f0, pop - 1), None), (op_, (pop, f0 + n), None),
+                        (cider, (f0, f0 + n), None), (hands, (f0, f0 + n), None)):
+        if on:                                                   # shown from on[0] to on[1], hidden either side
+            key_fade(ob, 0, 0.0); key_fade(ob, on[0] - 1, 0.0); key_fade(ob, on[0], 1.0)
+            key_fade(ob, on[1], 1.0); key_fade(ob, on[1] + 1, 0.0)
+        else:                                                    # hidden from off[0] to off[1]
+            key_fade(ob, off[0] - 1, 1.0); key_fade(ob, off[0], 0.0)
+            key_fade(ob, off[1], 0.0); key_fade(ob, off[1] + 1, 1.0)
+    key_val(cm, "fade", f0 - 1, 0.0)
+    # the body and the cider, frame by frame
+    tilt, tv = -math.tan(math.radians(M_LEAN)) + .5, 0.0          # the surface's slope (sloshing as it swings in)
+    phase, rise = 0.0, 0.0
+    roots = {}
+    for i in range(n + 1):
+        f = f0 + i
+        if i < S0:
+            k = 0.0
+            pose = dict(root=dict(r=2.2 * math.sin(i * .45)))
+        elif i < C0:
+            k = ((i - S0) / (C0 - S0)) ** 1.3
+            pose = dict(root=dict(x=.17 * k * math.sin(i * 2.7), r=5 * k * math.sin(i * 2.3 + .5) + 2.2 * (1 - k) * math.sin(i * .45),
+                                  sx=1 + .03 * k * math.sin(i * 1.9), sy=1 + .04 * k + .04 * k * math.sin(i * 1.9 + 1)),
+                        b2=dict(r=6 * k * math.sin(i * 3.1)), b1=dict(r=-2.5 * k * math.sin(i * 2.9 + .4)))
+        elif i < P:
+            k = 1.0
+            c = ease_in_out((i - C0) / (P - 1 - C0))
+            pose = dict(root=dict(sx=1 + .1 * c, sy=1 - .13 * c, x=.04 * math.sin(i * 3.3)), b2=dict(sy=1 - .05 * c))
+        else:
+            k = 1.0
+            t = (i - P) / FPS
+            kick = damp(t, 3.0, .28)
+            spew = math.exp(-t * 1.4) if i < P + 34 else 0
+            pose = dict(root=dict(y=-.32 * kick, sx=1 - .06 * kick, sy=1 + .14 * kick,
+                                  r=3.4 * spew * math.sin(i * 1.7), x=.05 * spew * math.sin(i * 2.3)),
+                        b2=dict(r=-7 * damp(t, 2.6, .3) + 2 * spew * math.sin(i * 2.1)), b1=dict(r=2.5 * damp(t, 2.4, .3)))
+            if i >= n - 1:
+                pose = dict(root={})
+        pose.setdefault("b0", {}); pose.setdefault("b1", {}); pose.setdefault("b2", {})
+        pose["root"]["r"] = pose["root"].get("r", 0.0) + M_LEAN   # the shake rides on the lean
+        r_deg = pose["root"]["r"]
+        roots[i] = (pose["root"].get("x", 0.0), pose["root"].get("y", 0.0), r_deg)
+        about_centre(pose["root"])
+        key_pose(arm, f, **pose)
+        g = (min(1, max(0, i - S0) / (P - S0)) * .7) if i < P else max(0, 1 - (i - P) / 22)
+        key_fade(glow, f, base_glow("M") + (.6 - base_glow("M")) * g)
+        key_obj(glow, f, s=1 + .05 * g)
+        # the cider: its slope chases the level the glass is at (a damped spring), the shake slops it about
+        # the surface stays level in the world: across the leaning glass it slopes by the lean's tangent
+        want = -math.tan(math.radians(r_deg)) + (.12 * k * math.sin(i * 1.3) if S0 <= i < P else 0)
+        w, z = 2 * math.pi * 2.0 / FPS, .22
+        tv += -w * w * (tilt - want) - 2 * z * w * tv
+        tilt += tv
+        phase += .3 + 1.1 * k if i < P + 30 else .3
+        fz = ease_in_out(min(1, max(0, i - 26) / (P - 26))) if i < P else 0.0     # the fizz-up
+        if i < P:
+            L = .5 + .58 * fz                                    # the glass runs up the neck: it foams right up it
+            fo = .012 + .2 * fz
+            fizz = .1 + .18 * k + .06 * fz
+            amp = .004 + .016 * k
+        else:
+            t = (i - P) / FPS
+            drain = ease_out(min(1, t / .9))
+            L = 1.08 - .68 * drain
+            fo = max(.03, .2 - .2 * drain)
+            fizz = .34 - .2 * drain
+            amp = .02 * math.exp(-t * 1.5) + .004
+        if i >= n - 1:
+            amp, tv = .003, 0.0
+        rise += .004 + .018 * (k if i < P else max(0, 1 - (i - P) / 30))
+        lv = V_LO + L * (V_HI - V_LO)
+        for name, v in (("level", lv), ("amp", amp), ("phase", phase), ("tilt", tilt), ("foam", fo * (V_HI - V_LO)),
+                        ("rise", rise), ("fizz", fizz), ("fade", 1.0)):
+            key_val(cm, name, f, v)
+    key_fade(glow, f0 + n, base_glow("M")); key_obj(glow, f0 + n, s=1.0)
+    key_val(cm, "fade", f0 + n + 1, 0.0)
+    cx, cz = u(M_CORK)
+    mx, mz = u(M_MOUTH)
+    def turn(v, i):
+        """a vector in the bottle's own frame (icon units) turned by its lean and shake at clip frame i"""
+        a = math.radians(roots[max(0, min(n, i))][2])
+        return v[0] * math.cos(a) - v[1] * math.sin(a), v[0] * math.sin(a) + v[1] * math.cos(a)
+
+    def W(p, i):
+        """a point of the bottle (icon units from its middle) -> where it is in the frame at clip frame i"""
+        x, z = turn(p, i)
+        ox, oy, _ = roots[max(0, min(n, i))]
+        return ox + x, oy + z
+
+    lean = lambda i: roots[max(0, min(n, i))][2]
+    mouth = lambda i: W((mx, mz), i)
+    axis = math.radians(90 + lean(P))                          # the way the neck points as it pops
+    # for the game, which flies the cork from there: the seated cork's middle and the bottle's lean as it pops
+    arm["seat"] = [*W(u(M_CORK), P), lean(P)]
+    # glints at the cork as the pressure builds
+    for fs in (f0 + 24, f0 + 31, f0 + 37, f0 + 43):
+        pools["sparkle"].particle(fs, fs + 6, lambda t, at=W((cx + .6, cz + .3), fs - f0): at, rng, spin=120, grow=(.15, .7), fade=(1, 0))
+    # the cork (the board's clip: off the neck and out of the top of the frame; hidden in the big render)
+    cork = sprite("cork", "cork.png", 2.1, depth=-1.5)
+    key_fade(cork, 0, 0.0); key_fade(cork, pop - 1, 0.0)
+    for q, f in enumerate(range(pop, pop + 8)):
+        t = q / 7
+        key_obj(cork, f, x=cx + 1.4 * t * t, z=cz + 5.5 * t + 1.8 * t * t, s=1.0, r=-30 - 620 * t)
+        key_fade(cork, f, 1.0)
+    key_fade(cork, pop + 8, 0.0)
+    # the cider: the spray and the foam, as liquid (cider_spray, cider_foam)
+    axis_at = lambda i: math.radians(90 + lean(i))
+    coll = cider_spray(f0, n, P, mouth, axis_at, rng)
+    cider_foam(coll, f0, n, P, W, turn, mouth, axis_at, rng, (cx, cz))
+
 def build(sid, seed=None):
     clear()
+    if sid == "M":
+        CLIPS["multi"] = M_FRAMES
     setup_scene(sid)
     rng = random.Random(seed if seed is not None else sum(map(ord, sid)) * 7)
     arm, icon, glow = build_icon(sid)
     kinds = set(P[sid]["fx"]) | {"sparkle"}
     sizes = {"leaf": 10, "sparkle": 12, "glint": 6, "steam": 8, "bubble": 10, "popcorn": 10, "puff": 4, "drop": 10,
              "straw": 9, "feather": 8, "crumb": 8}
+    if sid == "M":                                              # the champagne pop rains a lot of cider
+        sizes.update(drop=30, bubble=20, sparkle=16)
     pools = {k: Pool(k, sizes.get(k, 8), sid) for k in kinds}
     pools["ring"] = Pool2("ring", 2, 9.0, behind=True)
     if sid in TIER and TIER[sid] == 1 or sid in ("BS", "ES", "M"):
@@ -600,7 +1089,10 @@ def build(sid, seed=None):
     clip_idle(sid, arm, glow, pools, rng)
     clip_land(sid, arm, glow, pools, rng)
     clip_hit(sid, arm, glow, pools, rng)
-    clip_multi(sid, arm, glow, pools, rng)
+    if sid == "M":
+        clip_multi_champagne(arm, icon, glow, pools, rng)
+    else:
+        clip_multi(sid, arm, glow, pools, rng)
     # steps between clips are not seen; make every curve linear where we keyed every frame (keeps loops exact)
     for ob in [arm] + [o for o in bpy.data.objects if o.animation_data]:
         ad = ob.animation_data
@@ -660,9 +1152,91 @@ def render(sid, clips=None):
             bpy.ops.render.render(write_still=True)
 
 
+def render_big(sid="M", scale=1.5):
+    """The Multi going off as the game shows it since 2026-11-03: not on the board but as a big bottle that swings in
+    from the side of the screen. Its "multi" clip again, sharper (scale x the frame's px) and at every frame (30 fps), without
+    the cork - the game flies the cork itself, from the bottle's neck onto the cell it hits.
+    -> art/blender/renders/<ID>/big/####.png (tools/blender/pack_frames.py big <ID>)"""
+    sc = bpy.context.scene
+    cork = bpy.data.objects.get("cork")
+    if cork:
+        cork.hide_render = True
+    sc.render.resolution_x = sc.render.resolution_y = round(sc.render.resolution_x * scale)
+    sc.render.line_thickness *= scale                          # the liquid's ink line keeps its weight
+    d = os.path.join(REN, sid, "big")
+    os.makedirs(d, exist_ok=True)
+    for old in os.listdir(d):
+        os.remove(os.path.join(d, old))
+    json.dump({"seat": list(bpy.data.objects["rig"]["seat"])}, open(os.path.join(d, "meta.json"), "w"))
+    for k, f in enumerate(range(START["multi"], START["multi"] + CLIPS["multi"] + 1)):
+        sc.frame_set(f)
+        sc.render.filepath = os.path.join(d, f"{k:04d}.png")
+        bpy.ops.render.render(write_still=True)
+
+
+def render_fx_sprites(sid="M", px=160):
+    """The game's own drops and foam (its cork trail and the splash on the cell it hits), drawn as the bottle's
+    cider is - the same cel paint and ink line - so the splash matches the spray: a round drop of cider (the game
+    stretches it along its flight) and a lumpy blob of foam -> frontend/assets/fx/fizz_drop.webp, foam_puff.webp"""
+    sc = bpy.context.scene
+    coll = bpy.data.collections[FX_COLL]
+    keep = {"cider_key"}
+    for ob in bpy.data.objects:
+        ob.hide_render = ob.type != "CAMERA" and ob.name not in keep
+    sc.camera.data.ortho_scale = 2.2
+    sc.render.resolution_x = sc.render.resolution_y = 256
+    sc.render.line_thickness = 3.2
+    sc.frame_set(1)
+    out = os.path.join(ROOT, "frontend", "assets", "fx")
+    for name, mat, balls in (("fizz_drop", "cider_cel", [(0, 0, .62)]),
+                             ("foam_puff", "foam_cel", [(-.3, -.1, .42), (.28, -.12, .4), (0, .22, .44), (.05, -.3, .3)])):
+        mb = bpy.data.metaballs.new("sprite_" + name)
+        mb.render_resolution = .02
+        mb.threshold = .6
+        mb.materials.append(bpy.data.materials[mat])
+        ob = bpy.data.objects.new("sprite_" + name, mb)
+        coll.objects.link(ob)
+        ob.location = (0, -1.6, 0)
+        for x, z, r in balls:
+            el = mb.elements.new()
+            el.co, el.radius = (x, 0, z), r
+        path = os.path.join(REN, sid, name + ".png")
+        sc.render.filepath = path
+        bpy.ops.render.render(write_still=True)
+        ob.hide_render = True
+    return out
+
+
+def render_cork(sid="M", frames=12):
+    """The cork tumbling end over end, for the game to fly from the bottle to the cell it hits: one turn in `frames`
+    drawings, its width breathing with the turn so it reads as a cylinder flipping (a 2D cut-out's tumble).
+    -> art/blender/renders/<ID>/cork/####.png, 256 px (tools/blender/pack_frames.py cork <ID>)"""
+    sc = bpy.context.scene
+    for ob in bpy.data.objects:
+        ob.hide_render = ob.type != "CAMERA"
+    ob = sprite("cork_tumble", "cork_up.png", 2.1, depth=0.0)    # upright: frame 0 is the cork as it sits in the neck
+    ob.animation_data_clear()
+    ob.active_material.node_tree.nodes["fade"].outputs[0].default_value = 1.0
+    sc.camera.data.ortho_scale = 2.4
+    sc.render.resolution_x = sc.render.resolution_y = 256
+    d = os.path.join(REN, sid, "cork")
+    os.makedirs(d, exist_ok=True)
+    for old in os.listdir(d):
+        os.remove(os.path.join(d, old))
+    for k in range(frames):
+        a = 2 * math.pi * k / frames
+        ob.location = (0, 0, 0)
+        ob.rotation_euler = (0, -a, 0)
+        ob.scale = (.62 + .38 * abs(math.cos(a)), 1, 1)       # end-on, it is narrower
+        sc.render.filepath = os.path.join(d, f"{k:04d}.png")
+        bpy.ops.render.render(write_still=True)
+
+
 if __name__ == "__main__" and "--" in sys.argv:
     args = sys.argv[sys.argv.index("--") + 1:]
     sid = args[0]
+    if sid == "M":
+        CLIPS["multi"] = M_FRAMES
     steps = args[1].split(",") if len(args) > 1 else ["build", "render"]
     if "build" in steps:
         build(sid)
@@ -670,4 +1244,10 @@ if __name__ == "__main__" and "--" in sys.argv:
         bpy.ops.wm.open_mainfile(filepath=os.path.join(BLEND, sid + ".blend"))
     if "render" in steps:
         render(sid)
+    if "big" in steps:
+        render_big(sid)
+    if "cork" in steps:
+        render_cork(sid)
+    if "fx" in steps:
+        render_fx_sprites(sid)
     print("DONE", sid)

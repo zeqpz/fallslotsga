@@ -1,1 +1,78 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "nut",
+   "png": "nut.png",
+   "pivot": [
+    430,
+    930
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "nut_rim",
+   "png": "nut_rim.png",
+   "pivot": [
+    430,
+    930
+   ],
+   "parent": "nut",
+   "order": 1
+  },
+  {
+   "name": "nut_top",
+   "png": "nut_top.png",
+   "pivot": [
+    430,
+    930
+   ],
+   "parent": "nut",
+   "order": 2
+  },
+  {
+   "name": "stem",
+   "png": "stem.png",
+   "pivot": [
+    690,
+    215
+   ],
+   "parent": "cap",
+   "order": 3
+  },
+  {
+   "name": "stem_rim",
+   "png": "stem_rim.png",
+   "pivot": [
+    690,
+    215
+   ],
+   "parent": "stem",
+   "order": 4
+  },
+  {
+   "name": "cap",
+   "png": "cap.png",
+   "pivot": [
+    480,
+    450
+   ],
+   "parent": "nut",
+   "order": 5
+  },
+  {
+   "name": "cap_rim",
+   "png": "cap_rim.png",
+   "pivot": [
+    480,
+    450
+   ],
+   "parent": "cap",
+   "order": 6
+  }
+ ]
+}

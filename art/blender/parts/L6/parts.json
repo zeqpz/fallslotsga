@@ -1,1 +1,38 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "base",
+   "png": "base.png",
+   "pivot": [
+    470,
+    930
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "middle",
+   "png": "middle.png",
+   "pivot": [
+    530,
+    615
+   ],
+   "parent": "base",
+   "order": 1
+  },
+  {
+   "name": "tip",
+   "png": "tip.png",
+   "pivot": [
+    640,
+    325
+   ],
+   "parent": "middle",
+   "order": 2
+  }
+ ]
+}

@@ -1,1 +1,98 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "boat",
+   "png": "boat.png",
+   "pivot": [
+    320,
+    870
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "back",
+   "png": "back.png",
+   "pivot": [
+    320,
+    870
+   ],
+   "parent": "boat",
+   "order": 1
+  },
+  {
+   "name": "back_2",
+   "png": "back_2.png",
+   "pivot": [
+    320,
+    870
+   ],
+   "parent": "back",
+   "order": 2
+  },
+  {
+   "name": "back_3",
+   "png": "back_3.png",
+   "pivot": [
+    320,
+    870
+   ],
+   "parent": "back",
+   "order": 3
+  },
+  {
+   "name": "gravy",
+   "png": "gravy.png",
+   "pivot": [
+    130,
+    405
+   ],
+   "parent": "boat",
+   "order": 4
+  },
+  {
+   "name": "front",
+   "png": "front.png",
+   "pivot": [
+    320,
+    870
+   ],
+   "parent": "boat",
+   "order": 5
+  },
+  {
+   "name": "handle",
+   "png": "handle.png",
+   "pivot": [
+    832,
+    520
+   ],
+   "parent": "boat",
+   "order": 6
+  },
+  {
+   "name": "steam_l",
+   "png": "steam_l.png",
+   "pivot": [
+    400,
+    398
+   ],
+   "parent": "gravy",
+   "order": 7
+  },
+  {
+   "name": "steam_r",
+   "png": "steam_r.png",
+   "pivot": [
+    560,
+    418
+   ],
+   "parent": "gravy",
+   "order": 8
+  }
+ ]
+}

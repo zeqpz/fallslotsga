@@ -1,1 +1,88 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "leaves",
+   "png": "leaves.png",
+   "pivot": [
+    445,
+    285
+   ],
+   "parent": "bunch",
+   "order": 0
+  },
+  {
+   "name": "bunch",
+   "png": "bunch.png",
+   "pivot": [
+    530,
+    290
+   ],
+   "parent": "root",
+   "order": 1
+  },
+  {
+   "name": "g_top",
+   "png": "g_top.png",
+   "pivot": [
+    565,
+    262
+   ],
+   "parent": "bunch",
+   "order": 2
+  },
+  {
+   "name": "g_left",
+   "png": "g_left.png",
+   "pivot": [
+    490,
+    392
+   ],
+   "parent": "bunch",
+   "order": 3
+  },
+  {
+   "name": "g_mid",
+   "png": "g_mid.png",
+   "pivot": [
+    625,
+    445
+   ],
+   "parent": "bunch",
+   "order": 4
+  },
+  {
+   "name": "g_lowl",
+   "png": "g_lowl.png",
+   "pivot": [
+    525,
+    570
+   ],
+   "parent": "bunch",
+   "order": 5
+  },
+  {
+   "name": "g_lowm",
+   "png": "g_lowm.png",
+   "pivot": [
+    650,
+    640
+   ],
+   "parent": "bunch",
+   "order": 6
+  },
+  {
+   "name": "g_lowr",
+   "png": "g_lowr.png",
+   "pivot": [
+    770,
+    735
+   ],
+   "parent": "bunch",
+   "order": 7
+  }
+ ]
+}

@@ -1,1 +1,68 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "tail_l",
+   "png": "tail_l.png",
+   "pivot": [
+    475,
+    262
+   ],
+   "parent": "bow",
+   "order": 0
+  },
+  {
+   "name": "prong_r",
+   "png": "prong_r.png",
+   "pivot": [
+    528,
+    398
+   ],
+   "parent": "top",
+   "order": 1
+  },
+  {
+   "name": "top",
+   "png": "top.png",
+   "pivot": [
+    515,
+    395
+   ],
+   "parent": "root",
+   "order": 2
+  },
+  {
+   "name": "prong_l",
+   "png": "prong_l.png",
+   "pivot": [
+    500,
+    398
+   ],
+   "parent": "top",
+   "order": 3
+  },
+  {
+   "name": "tail_r",
+   "png": "tail_r.png",
+   "pivot": [
+    565,
+    272
+   ],
+   "parent": "bow",
+   "order": 4
+  },
+  {
+   "name": "bow",
+   "png": "bow.png",
+   "pivot": [
+    515,
+    240
+   ],
+   "parent": "top",
+   "order": 5
+  }
+ ]
+}

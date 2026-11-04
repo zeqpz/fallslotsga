@@ -1,1 +1,158 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "horn",
+   "png": "horn.png",
+   "pivot": [
+    760,
+    560
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "horn_tip",
+   "png": "horn_tip.png",
+   "pivot": [
+    870,
+    272
+   ],
+   "parent": "horn",
+   "order": 1
+  },
+  {
+   "name": "leaf_maple",
+   "png": "leaf_maple.png",
+   "pivot": [
+    520,
+    420
+   ],
+   "parent": "horn",
+   "order": 2
+  },
+  {
+   "name": "leaf_gold",
+   "png": "leaf_gold.png",
+   "pivot": [
+    660,
+    560
+   ],
+   "parent": "horn",
+   "order": 3
+  },
+  {
+   "name": "leaf_vine",
+   "png": "leaf_vine.png",
+   "pivot": [
+    750,
+    680
+   ],
+   "parent": "horn",
+   "order": 4
+  },
+  {
+   "name": "corn",
+   "png": "corn.png",
+   "pivot": [
+    410,
+    560
+   ],
+   "parent": "horn",
+   "order": 5
+  },
+  {
+   "name": "apple_top_fill",
+   "png": "apple_top_fill.png",
+   "pivot": [
+    595,
+    560
+   ],
+   "parent": "horn",
+   "order": 6
+  },
+  {
+   "name": "apple_top",
+   "png": "apple_top.png",
+   "pivot": [
+    595,
+    560
+   ],
+   "parent": "apple_top_fill",
+   "order": 7
+  },
+  {
+   "name": "pumpkin_fill",
+   "png": "pumpkin_fill.png",
+   "pivot": [
+    500,
+    765
+   ],
+   "parent": "horn",
+   "order": 8
+  },
+  {
+   "name": "pumpkin",
+   "png": "pumpkin.png",
+   "pivot": [
+    500,
+    765
+   ],
+   "parent": "pumpkin_fill",
+   "order": 9
+  },
+  {
+   "name": "apples_fill",
+   "png": "apples_fill.png",
+   "pivot": [
+    280,
+    805
+   ],
+   "parent": "horn",
+   "order": 10
+  },
+  {
+   "name": "apples",
+   "png": "apples.png",
+   "pivot": [
+    280,
+    805
+   ],
+   "parent": "apples_fill",
+   "order": 11
+  },
+  {
+   "name": "leaf_red",
+   "png": "leaf_red.png",
+   "pivot": [
+    190,
+    700
+   ],
+   "parent": "apples",
+   "order": 12
+  },
+  {
+   "name": "leaf_front",
+   "png": "leaf_front.png",
+   "pivot": [
+    455,
+    770
+   ],
+   "parent": "apples_fill",
+   "order": 13
+  },
+  {
+   "name": "grapes",
+   "png": "grapes.png",
+   "pivot": [
+    690,
+    580
+   ],
+   "parent": "horn",
+   "order": 14
+  }
+ ]
+}

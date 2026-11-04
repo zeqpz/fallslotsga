@@ -1,1 +1,38 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "leaves",
+   "png": "leaves.png",
+   "pivot": [
+    487,
+    478
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "petals",
+   "png": "petals.png",
+   "pivot": [
+    487,
+    478
+   ],
+   "parent": "leaves",
+   "order": 1
+  },
+  {
+   "name": "centre",
+   "png": "centre.png",
+   "pivot": [
+    487,
+    478
+   ],
+   "parent": "petals",
+   "order": 2
+  }
+ ]
+}

@@ -1,1 +1,58 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "plate",
+   "png": "plate.png",
+   "pivot": [
+    500,
+    790
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "plate_art",
+   "png": "plate_art.png",
+   "pivot": [
+    500,
+    790
+   ],
+   "parent": "plate",
+   "order": 1
+  },
+  {
+   "name": "jelly_lo",
+   "png": "jelly_lo.png",
+   "pivot": [
+    540,
+    795
+   ],
+   "parent": "root",
+   "order": 2
+  },
+  {
+   "name": "jelly_mid",
+   "png": "jelly_mid.png",
+   "pivot": [
+    550,
+    555
+   ],
+   "parent": "jelly_lo",
+   "order": 3
+  },
+  {
+   "name": "jelly_top",
+   "png": "jelly_top.png",
+   "pivot": [
+    560,
+    320
+   ],
+   "parent": "jelly_mid",
+   "order": 4
+  }
+ ]
+}

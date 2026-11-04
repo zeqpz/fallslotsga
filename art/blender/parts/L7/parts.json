@@ -1,1 +1,58 @@
-{"size": [1000, 1000]}
+{
+ "size": [
+  1000,
+  1000
+ ],
+ "layers": [
+  {
+   "name": "quill",
+   "png": "quill.png",
+   "pivot": [
+    127,
+    867
+   ],
+   "parent": "root",
+   "order": 0
+  },
+  {
+   "name": "vane1",
+   "png": "vane1.png",
+   "pivot": [
+    224,
+    766
+   ],
+   "parent": "quill",
+   "order": 1
+  },
+  {
+   "name": "vane2",
+   "png": "vane2.png",
+   "pivot": [
+    369,
+    615
+   ],
+   "parent": "vane1",
+   "order": 2
+  },
+  {
+   "name": "vane3",
+   "png": "vane3.png",
+   "pivot": [
+    508,
+    471
+   ],
+   "parent": "vane2",
+   "order": 3
+  },
+  {
+   "name": "eye",
+   "png": "eye.png",
+   "pivot": [
+    633,
+    341
+   ],
+   "parent": "vane3",
+   "order": 4
+  }
+ ]
+}
