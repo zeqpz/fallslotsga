@@ -5,8 +5,10 @@ through the **Claude desktop app's built-in browser pane**, which Cooper logged 
 engine.io by hand. That browser profile holds the session cookie; the session that drives
 the pane can make same-origin `fetch()` calls to engine.io's private dashboard API.
 
-Game: team `smukiez`, game `smukiezs-mural`
-Dashboard: https://studio.engine.io/teams/smukiez/games/smukiezs-mural/files
+Game: team `smukiez`, game **`tipsy-harvest`** (this repo; first uploaded 2026-11-04 from commit f83f9fd -
+817 front files + 7 math files). The `smukiezs-city` / `smukiezs-mural` slugs in the copied upload tools are the
+original Smukiez game's: never upload this repo there.
+Dashboard: https://studio.engine.io/teams/smukiez/games/tipsy-harvest/files
 (moved from engine.io to **studio.engine.io** around 2026-09-18; the old host redirects
 to marketing and its API returns the HTML shell, which reads like a broken session)
 Game UUID (bucket prefix): `01a09492-cff1-7dee-98a7-3dc642d55cc2`
