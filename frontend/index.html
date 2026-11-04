@@ -3717,12 +3717,93 @@ function symHold(id, clip, s) {
     s.frames = frames;
   }).catch(e => console.warn("symbol frames:", id, clip, e.message));
 }
+// Live rigs (mobile perf, 2026-11-04). The frame sheets above cost ~440 MB decoded at the smallest density
+// (1.8 GB at the biggest) and decoding them stalled the game; now the icons are drawn LIVE from their Blender rigs:
+// tools/fall/blender/export_rig.py reads, for every frame of every clip, where each picture of the icon sits (its
+// parts, its halo, its effect sprites: a 2D matrix and an alpha each), tools/fall/pack_rigs.py packs the pictures
+// into one atlas per density (assets/rig/r<px per unit>/p<N>.webp, ~17 MB decoded) and the frames into
+// assets/rig/rigs.json. A symbol's canvas redraws its few pictures from the atlas, and in between Blender's
+// frames the parts glide (each matrix eased toward the next frame's), so the motion is smoother than the 30 fps
+// it was keyed at. Same canvases, same boxes, so every CSS effect on the board's cells still applies.
+// ?sheets forces the old frame sheets (QA).
+const RIG_TIERS = [20, 40];      // atlas px per Blender unit (the icon is 10 units across)
+const RIG_SUB = 2;               // drawn steps per Blender frame: up to 60 a second at tempo 1
+const RIGL = { on: false, data: null, tier: null, pages: [], k: 10, gen: 0 };
+// screen px per Blender unit of the board's symbols at rest
+function rigPx() {
+  const c = cellEls[0] && cellEls[0][0], dpr = Math.min(window.devicePixelRatio || 1, 3);
+  if (!c || !c.offsetWidth || !c.offsetHeight) return 10 * dpr;
+  const unit = Math.min(c.clientWidth, c.clientHeight) * .88 / 10;
+  const fit = c.getBoundingClientRect().width / c.offsetWidth;
+  return unit * (fit > 0 ? fit : 1) * dpr;
+}
+function rigScale() {
+  const T = +((RIGL.tier && RIGL.tier.D) || RIG_TIERS[0]);
+  const k = Math.max(4, Math.min(rigPx() * 1.15, T * 1.5));
+  if (Math.abs(k - RIGL.k) > .5) { RIGL.k = k; RIGL.gen++; }
+}
+async function rigLiveLoad() {
+  if (new URLSearchParams(location.search).has("sheets") || typeof createImageBitmap !== "function") return false;
+  const data = await fetch("assets/rig/rigs.json").then(r => r.ok ? r.json() : Promise.reject(new Error("rigs.json " + r.status)));
+  const force = +new URLSearchParams(location.search).get("rigt");             // QA: ?rigt=40 pins a tier
+  const px = rigPx() * 1.1, have = Object.keys(data.tiers).map(Number).sort((a, b) => a - b);
+  const D = have.includes(force) ? force : (have.find(t => t >= px) || have[have.length - 1]);
+  const tier = Object.assign(data.tiers[D], { D });
+  const pages = await Promise.all(tier.pages.map(pg => fetch("assets/rig/" + pg.file)
+    .then(r => r.ok ? r.blob() : Promise.reject(new Error(pg.file + " " + r.status))).then(b => createImageBitmap(b))));
+  for (const rig of Object.values(data.rigs))
+    for (const c of Object.values(rig.clips))
+      c.idx = c.frames.map(fr => new Map(fr.map(it => [it[0], it])));   // object -> its item, for the glide
+  Object.assign(RIGL, { on: true, data, tier, pages });
+  rigScale();
+  return true;
+}
+// one moment of a clip (ft in Blender frames, fractional between them) on a symbol's canvas
+function rigDraw(el, clip, ft) {
+  const rig = RIGL.data.rigs[el._name], c = rig && rig.clips[clip];
+  if (!c) return;
+  const n = c.frames.length;
+  ft = c.loop ? ((ft % n) + n) % n : Math.min(Math.max(ft, 0), n - 1);
+  const q = Math.floor(ft * RIG_SUB) / RIG_SUB, key = clip + q + "/" + RIGL.gen;
+  if (el._shown === key) return;
+  const f0 = Math.floor(q), f1 = c.loop ? (f0 + 1) % n : Math.min(f0 + 1, n - 1), t = f1 === f0 ? 0 : q - f0;
+  const K = RIGL.k, size = Math.ceil(rig.units * K), cv = el._cv;
+  if (el._box !== "live") {
+    const m = el._m, u = rig.units * 10;
+    cv.style.cssText = `left:${(m.icon[0] * 5 - u / 2).toFixed(2)}px;top:${(m.icon[1] * 5 - u / 2).toFixed(2)}px;width:${u}px;height:${u}px`;
+    el._box = "live";
+  }
+  if (cv.width !== size) cv.width = cv.height = size;
+  const g = el._ctx, pics = RIGL.tier.pics, pages = RIGL.pages, next = t > 0 ? c.idx[f1] : null, o = size / 2;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalAlpha = 1;
+  g.clearRect(0, 0, size, size);
+  for (const it of c.frames[f0]) {
+    let a = it[2], b = it[3], cc = it[4], d = it[5], tx = it[6], ty = it[7], al = it[8];
+    const j = next && next.get(it[0]);
+    if (j) {
+      a += (j[2] - a) * t; b += (j[3] - b) * t; cc += (j[4] - cc) * t; d += (j[5] - d) * t;
+      tx += (j[6] - tx) * t; ty += (j[7] - ty) * t; al += (j[8] - al) * t;
+    }
+    const p = pics[it[1]];
+    g.globalAlpha = al;
+    g.setTransform(K * a, K * b, K * cc, K * d, K * tx + o, K * ty + o);
+    g.drawImage(pages[p[0]], p[1], p[2], p[3], p[4], p[5], p[6], p[7] - p[5], p[8] - p[6]);
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalAlpha = 1;
+  el._shown = key;
+}
 function loadSymFrames() {
   if (symReady) return symReady;
   symReady = (async () => {
     if (REDUCED_MOTION) return false;
     const man = await fetch("assets/sym/manifest.json").then(r => r.ok ? r.json() : Promise.reject(new Error("manifest " + r.status)));
     SYMF.man = man;
+    if (await rigLiveLoad().catch(e => { console.warn("live rigs unavailable, frame sheets instead:", e); return false; })) {
+      setTimeout(bigBottleLoad, 1500);   // the Multi's bottle (frames, ~100 MB decoded): after the board is up
+      return Object.keys(RIGL.data.rigs).length > 0;
+    }
     SYMF.density = symWantDensity();
     SYMF.k = symHoldScale();
     const ids = Object.keys(man.symbols).filter(id => (SYM[id] || {}).cls !== "booster");   // the Multi is never on the board
@@ -3743,7 +3824,7 @@ function loadSymFrames() {
 // the glow and the effects round it.
 function rigEl(name, label) {
   const m = SYMF.man && SYMF.man.symbols[name];
-  if (!m || !SYMF.sheets.has(name + "_land")) return null;
+  if (!m || !(RIGL.on ? RIGL.data.rigs[name] : SYMF.sheets.has(name + "_land"))) return null;
   const el = document.createElement("span");
   el.className = "rig"; el.setAttribute("role", "img"); el.setAttribute("aria-label", label || name);
   el.style.setProperty("--rw", (m.icon[0] * 10).toFixed(2));
@@ -3768,6 +3849,7 @@ function symLay(el, clip, w, h) {
   el._box = clip; el._shown = "";
 }
 function symDraw(el, clip, f) {
+  if (RIGL.on) return rigDraw(el, clip, f);
   const fr = SYMF.sheets.get(el._name + "_" + clip), held = fr && fr.frames && fr.frames[f];
   const key = clip + f + (held ? "h" : "");
   if (el._shown === key) return;
@@ -3795,25 +3877,25 @@ function symStep(now) {
   for (const el of symPlaying) {
     if (!el.isConnected) { symPlaying.delete(el); continue; }
     const c = el._m.clips[el._clip];
-    let f = Math.floor((now - el._t0) * el._rate / 1000 * c.fps);
-    if (f >= c.frames) {
-      if (el._loop) f %= c.frames;
+    let ft = (now - el._t0) * el._rate / 1000 * c.fps;   // frames, fractional: the live rigs glide between them
+    if (ft >= c.frames) {
+      if (el._loop) ft %= c.frames;
       else if (c.hold) {   // a clip that does not end on the rest pose (the Multi's popped bottle): it stays as it ends
         symDraw(el, el._clip, c.frames - 1);
         symPlaying.delete(el); el._clip = null; el._held = true;
         continue;
       }
-      else if (SYMF.sheets.get(el._name + "_idle")?.ok) {
+      else if (RIGL.on || SYMF.sheets.get(el._name + "_idle")?.ok) {
         // straight back into the idle from the very moment the clip ended (both meet on the rest pose): a
         // symbol never stands still between a landing, a hit or a Multi and its idle
         const end = el._t0 + c.frames / c.fps / el._rate * 1000;
         Object.assign(el, { _clip: "idle", _t0: end, _rate: 1 / tempo(), _loop: true });
         const ci = el._m.clips.idle;
-        f = Math.floor((now - end) * el._rate / 1000 * ci.fps) % ci.frames;
+        ft = ((now - end) * el._rate / 1000 * ci.fps) % ci.frames;
       }
       else { symPlaying.delete(el); el._clip = null; symRest(el); continue; }
     }
-    symDraw(el, el._clip, Math.max(0, f));
+    symDraw(el, el._clip, RIGL.on ? Math.max(0, ft) : Math.max(0, Math.floor(ft)));
   }
   if (symPlaying.size) symRaf = requestAnimationFrame(symStep);
 }
@@ -3835,7 +3917,7 @@ function rigPlay(cell, clip, { loop = false, speed = 1 } = {}) {
   if (!el || REDUCED_MOTION) return null;
   clip = CLIP_OF[clip] || clip;
   const c = el._m.clips[clip], s = SYMF.sheets.get(el._name + "_" + clip);
-  if (!c || !s || !s.ok) { if (c && !s) symSheet(el._name, clip).catch(() => {}); return null; }
+  if (!c || (!RIGL.on && (!s || !s.ok))) { if (c && !s && !RIGL.on) symSheet(el._name, clip).catch(() => {}); return null; }
   Object.assign(el, { _clip: clip, _t0: performance.now(), _rate: speed / tempo(), _loop: loop, _held: false });
   symDraw(el, clip, 0);
   symPlaying.add(el);
@@ -3855,13 +3937,31 @@ const CORK_FLIGHT = 950;     // ms at tempo 1: about how long the cork is in the
 const CORK_UNITS = 2.1;      // the cork's drawing, Blender units (symanim.py render_cork), as the seated cork's
 const AIM_MAX = 18;          // deg the bottle turns, at most, to point its neck at the cell it will hit
 const BOTTLES_MAX = 4;       // Multis that get a bottle each; the rest of a board cover go off in a ripple after them
-const BIGF = { img: null, ok: false };
+// The bottle's frames are cut out of their sheet once, in the background, each its own small picture (perf,
+// 2026-11-04): drawn off the whole sheet (4008 x 6240, ~100 MB, past the biggest texture most phones' GPUs take),
+// its first frame stalled the screen ~300 ms while the sheet went up to the GPU.
+const BIGF = { img: null, ok: false, frames: null };
 function bigBottleLoad() {
   const e = SYMF.man && SYMF.man.big && SYMF.man.big.M;
   if (!e || BIGF.img) return;
   BIGF.img = new Image();
-  BIGF.img.src = "assets/sym/big/M_multi.webp";
-  BIGF.img.decode().then(() => { BIGF.ok = true; }, () => { BIGF.img = null; });
+  const url = "assets/sym/big/M_multi.webp";
+  if (typeof createImageBitmap === "function") {
+    fetch(url).then(r => r.ok ? r.blob() : Promise.reject(new Error(url + " " + r.status))).then(b => createImageBitmap(b)).then(async sheet => {
+      const frames = [];
+      try {
+        for (let f = 0; f < e.frames; f++) {
+          frames.push(await createImageBitmap(sheet, (f % e.cols) * e.w, Math.floor(f / e.cols) * e.h, e.w, e.h));
+          if (f % 8 === 7) await new Promise(r => setTimeout(r, 0));
+        }
+      } catch (err) { frames.forEach(fb => fb.close()); throw err; }
+      finally { sheet.close(); }
+      BIGF.frames = frames; BIGF.ok = true;
+    }).catch(err => { console.warn("bottle frames:", err.message); BIGF.img.src = url; BIGF.img.decode().then(() => { BIGF.ok = true; }, () => { BIGF.img = null; }); });
+  } else {
+    BIGF.img.src = url;
+    BIGF.img.decode().then(() => { BIGF.ok = true; }, () => { BIGF.img = null; });
+  }
   for (const n of ["cork_up", "fizz_drop", "fizz_bubble", "foam_puff"]) fxPic(n);
 }
 
@@ -4079,7 +4179,7 @@ function bigBottle(target) {
   document.body.append(wrap);
   const g = cv.getContext("2d");
   let shown = -1;
-  const draw = f => { if (f === shown) return; shown = f; g.clearRect(0, 0, e.w, e.h); g.drawImage(BIGF.img, (f % e.cols) * e.w, Math.floor(f / e.cols) * e.h, e.w, e.h, 0, 0, e.w, e.h); };
+  const draw = f => { if (f === shown) return; shown = f; g.clearRect(0, 0, e.w, e.h); if (BIGF.frames) g.drawImage(BIGF.frames[f], 0, 0); else g.drawImage(BIGF.img, (f % e.cols) * e.w, Math.floor(f / e.cols) * e.h, e.w, e.h, 0, 0, e.w, e.h); };
   draw(0);
   let hit;
   const landed = new Promise(r => { hit = r; });
@@ -4172,7 +4272,7 @@ function symIdleTick() {
   const now = performance.now();
   for (let r = 0; r < REELS; r++) for (let y = 0; y < ROWS; y++) {
     const cell = cellEls[r][y], el = rigOf(cell);
-    if (!el || el._held || symPlaying.has(el) || !SYMF.sheets.get(el._name + "_idle")?.ok) continue;
+    if (!el || el._held || symPlaying.has(el) || !(RIGL.on || SYMF.sheets.get(el._name + "_idle")?.ok)) continue;
     if (!el._idleAt) el._idleAt = now + Math.random() * SYM_IDLE_STAGGER;
     else if (now >= el._idleAt) { el._idleAt = 0; rigPlay(cell, "idle", { loop: true }); }
   }
@@ -4208,6 +4308,11 @@ function measureRigBox() {
   if (!c) return;
   const w = c.clientWidth * .88, h = c.clientHeight * .88;
   if (w > 0 && h > 0) { $("board").style.setProperty("--boxw", w.toFixed(2)); $("board").style.setProperty("--boxh", h.toFixed(2)); }
+  if (RIGL.on) {   // the live rigs' canvases follow the board's size (redrawn sharp on their next step)
+    const g = RIGL.gen;
+    rigScale();
+    if (g !== RIGL.gen) for (const row of cellEls) for (const cell of row) { const el = rigOf(cell); if (el && !symPlaying.has(el)) symDraw(el, el._clip || "land", 0); }
+  }
 }
 function startRigs() {
   loadSymFrames().then(ok => {
@@ -8172,6 +8277,7 @@ function placeScenery() {
   }
 }
 addEventListener("resize", fitToScreen);
+addEventListener("resize", () => { if (RIGL.on) setTimeout(measureRigBox, 700); });   // the live rigs redraw sharp at the new size, once the re-fit has eased in
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitToScreen).catch(() => {});
 addEventListener("load", fitToScreen);
 // The layout grows without the window changing: a bonus puts the spin counter under the

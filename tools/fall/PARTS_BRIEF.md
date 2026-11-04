@@ -63,6 +63,12 @@ separately and realistically (a drumstick waves on its joint, a cap lifts off an
    background) and READ it. Fix and re-render until: parts stay attached where they should, no holes or ghosts
    appear where a part moves off, nothing is clipped at the frame edge, clips start/end at rest, the motion reads.
 
+7. **Ship it to the game** (the lead does this, after all renders): the board draws icons LIVE from rig data since
+   2026-11-04, not from the frame sheets. `blender.exe -b --factory-startup --python tools/fall/blender/export_rig.py -- <ID>[,<ID>..]`
+   (-> art/blender/rigs/<ID>/rig.json), then `.venv/Scripts/python.exe tools/fall/pack_rigs.py` (packs ALL exported rigs ->
+   frontend/assets/rig/), and `pack_rigs.py check <ID> <clip> <frame> out.png` to compare against the Blender render.
+   pack_frames.py still makes the sheets the game falls back to (?sheets).
+
 ## Don'ts
 - Do NOT edit the shared tools (`tools/fall/cut_parts.py`, `tools/fall/blender/partsanim.py`,
   `tools/fall/blender/symanim.py`, `tools/blender/pack_frames.py`) or anything under `frontend/`. Other agents are

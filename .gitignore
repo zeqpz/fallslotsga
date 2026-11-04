@@ -33,3 +33,6 @@ qa-review/
 math-sdk/games/*/library/beta_cache/
 # the 4x Real-ESRGAN intermediate of the background (tools/fall: rebuilt from art/fall-src/bg_v1.png)
 art/fall-src/hires/
+
+# live-rig export (absolute paths inside; rebuilt by tools/fall/blender/export_rig.py, packed by tools/fall/pack_rigs.py)
+art/blender/rigs/
