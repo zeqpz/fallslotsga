@@ -7169,9 +7169,11 @@ function lineSprites() {
       g.beginPath(); g.arc(h + Math.cos(a) * r, h + Math.sin(a) * r, .35 + Math.random() * .55, 0, Math.PI * 2); g.fill();
     }
   }));
-  const under = make(30, (g, h) => {   // the soft dark under-glow
+  const under = make(52, (g, h) => {   // the soft dark under-glow
     const ug = g.createRadialGradient(h, h, 0, h, h, h);
-    ug.addColorStop(0, "rgba(255,200,60,.32)"); ug.addColorStop(.5, "rgba(255,190,40,.12)"); ug.addColorStop(1, "rgba(255,190,40,0)");   // its gold glow
+    // its gold glow: a wide, soft bloom with a smooth (gaussian-like) falloff, warm at the heart, never a hard rim
+    ug.addColorStop(0, "rgba(255,222,120,.20)"); ug.addColorStop(.18, "rgba(255,206,90,.15)"); ug.addColorStop(.38, "rgba(255,188,60,.075)");
+    ug.addColorStop(.6, "rgba(250,170,40,.028)"); ug.addColorStop(.8, "rgba(245,160,30,.008)"); ug.addColorStop(1, "rgba(245,160,30,0)");
     g.fillStyle = ug; g.fillRect(0, 0, h * 2, h * 2);
   });
   return lineDabs = { core, specks, under };
@@ -7247,7 +7249,7 @@ function drawWinLine(positions) {
     return { x: P[lo].x + (P[hi].x - P[lo].x) * f, y: P[lo].y + (P[hi].y - P[lo].y) * f };
   };
   // the sheet: the path's box with room for the overspray, the under-glow and the runs below
-  const xs = P.map(p => p.x), ys = P.map(p => p.y), PAD = 18, DROP = 34;
+  const xs = P.map(p => p.x), ys = P.map(p => p.y), PAD = 30, DROP = 4;   // room for the glow (no drips below any more)
   const bx = Math.min(...xs) - PAD, by = Math.min(...ys) - PAD;
   const bw = Math.max(...xs) + PAD - bx, bh = Math.max(...ys) + PAD + DROP - by;
   const sh = lineSheet();
@@ -7272,11 +7274,11 @@ function drawWinLine(positions) {
     if (dripSounds++ < 2 && !REDUCED_MOTION) sfx("paintDrip");   // a drop or two heard, not every run
   };
   let dripSounds = 0;
-  const cw = LINE_CORE + 3, sw = 22, uw = 30;
+  const cw = LINE_CORE + 3, sw = 22, uw = 52;
   let nCore = 0, nSpeck = 0, nUnder = 0, nDrip = 0;
   const stampTo = s => {
     gp.globalCompositeOperation = "destination-over";
-    for (; nUnder <= s; nUnder += 3) { const q = at(nUnder); gp.drawImage(dabs.under, q.x - uw / 2, q.y - uw / 2, uw, uw); }
+    for (; nUnder <= s; nUnder += 2) { const q = at(nUnder); gp.drawImage(dabs.under, q.x - uw / 2, q.y - uw / 2, uw, uw); }
     gp.globalCompositeOperation = "source-over";
     for (; nCore <= s; nCore += 1) {   // the twine, laid down evenly
       const q = at(nCore);
