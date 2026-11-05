@@ -3228,7 +3228,7 @@
   .bigbottle.inrow { right: auto; bottom: auto; translate: none; aspect-ratio: auto; }
 
   .bottleclip { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
-  .bottleclip { z-index: 0; }   /* first in #app: under the board and the HUD */
+  .bottleclip { z-index: 0; }   /* just before .bottom in #app: over the board, under the HUD */
   .bottleclip .bigbottle.inrow { position: absolute; z-index: auto; }
 </style>
 </head>
@@ -4388,7 +4388,7 @@ function bottleRow(targets) {
   const UP = -90 - neck0 * 180 / Math.PI;                 // the turn that stands the neck straight up
   const SPEED = 1.3;   // the whole show 30% quicker (owner, 2026-11-04)
   const t = tempo() / SPEED, rate = MULTI_RATE / t;
-  // the row lives inside #app, under everything in it (the board, the HUD). #app is scaled to the window: screen px / fit
+  // the row lives inside #app, between the board and the HUD. #app is scaled to the window: screen px / fit
   const app = $("app"), ar = app.getBoundingClientRect(), fit = ar.width / Math.max(1, app.offsetWidth) || 1;
   const L = v => v / fit, drop = L(innerHeight - floor + H);
   const at = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
@@ -4396,8 +4396,8 @@ function bottleRow(targets) {
   // they rise out from behind it and sink back behind it
   const clip = document.createElement("div");
   clip.className = "bottleclip";
-  // the very back of #app: the bottles are part of the background, behind the board and behind the HUD (owner, 2026-11-04)
-  app.insertBefore(clip, app.firstChild);
+  // just before the HUD in #app: over the board, under the HUD (owner, 2026-11-04)
+  app.insertBefore(clip, document.querySelector("#app > .bottom") || null);
   const gap = Math.min(bd.width / n, W * .42);            // close together, centred under the board
   const bottles = targets.map((target, i) => {
     const wrap = document.createElement("div");
