@@ -388,6 +388,97 @@ def ticks(names=None):
     open(wl, "w").write("\n".join(written) + "\n")
 
 
+# ------------------------------------------------------------------ shape (after build / texture: FS.SHAPE)
+def _sweep(y, f0, f1, curve):
+    """A low-pass whose cutoff follows f0 -> f1 along `curve` (0..1 over the clip), on 1024-point STFT frames."""
+    f, t, Z = signal.stft(y.T, SR, nperseg=1024, noverlap=768)
+    pos = np.clip(t / (len(y) / SR), 0, 1)
+    cut = f0 * (f1 / f0) ** np.interp(pos, np.linspace(0, 1, len(curve)), curve)
+    mask = 1 / (1 + (f[:, None] / cut[None, :]) ** 4)
+    _, x = signal.istft(Z * mask[None], SR, nperseg=1024, noverlap=768)
+    return x.T[:len(y)]
+
+
+def _env(n, pts):
+    """A gain curve through (position 0..1, dB) points."""
+    p, d = zip(*pts)
+    return 10 ** (np.interp(np.linspace(0, 1, n), p, d) / 20)[:, None]
+
+
+def shape(names):
+    """Whatever a raw take could not give, done to the built file (from a kept pre-shape copy, so it can be re-run):
+      lead      cut what is in front to 4 ms before the first real hit (-20 dB re the peak)
+      compact   (gap s, dB re peak): stretches quieter than dB longer than gap are cut to gap (6 ms crossfades)
+      swell / away / pass   a whoosh's movement: level and a low-pass sweep (rising / leaving / passing by)
+      rise      the ident's rise: a varispeed glide up this many semitones into the original pitch at its end,
+                and a crescendo, still ending on the same sample
+    then back to the loudness target."""
+    os.makedirs(os.path.join(W, "preshape"), exist_ok=True)
+    from audiolib import read_wav
+    for name in names:
+        if name not in FS.SHAPE:
+            continue
+        ops, out = FS.SHAPE[name], FS.S[name][4]
+        tgt = out[2]
+        fns = [f"sfx_{out[1]}_{i}.wav" for i in range(1, FS.S[name][3][2] + 1)] if out[0] == "set" else out[1]
+        for fn in fns:
+            keep = os.path.join(W, "preshape", fn)
+            if not os.path.exists(keep):
+                shutil.copy(os.path.join(ASSETS, fn), keep)
+            y, sr, _ = read_wav(keep)
+            if "rise" in ops:
+                st = ops["rise"]; n = len(y)
+                r = 2 ** (np.linspace(-st, 0, n) / 12)            # playback rate, slow -> 1
+                pos = np.cumsum(r); pos += (n - 1) - pos[-1]        # end on the last sample
+                pos = np.clip(pos, 0, n - 1)
+                y = np.stack([np.interp(pos, np.arange(n), y[:, c]) for c in range(y.shape[1])], 1)
+                y *= _env(n, [(0, -14), (.7, -4), (1, 0)])
+                fi = int(.12 * SR); y[:fi] *= np.linspace(0, 1, fi)[:, None] ** 2
+            if "lead" in ops:
+                e = np.abs(y).max(1)
+                a = int(np.argmax(e > e.max() * 10 ** (-20 / 20)))   # the first real hit, not a rumble before it
+                y = y[max(0, a - int(.004 * SR)):]
+            if "compact" in ops:
+                (gap, thr), w = ops["compact"], int(.01 * SR)
+                e = signal.convolve(np.abs(y).max(1), np.ones(w) / w, mode="same")
+                quiet = e < e.max() * 10 ** (thr / 20)
+                keep_idx, i, n = [], 0, len(y)
+                while i < n:
+                    if quiet[i]:
+                        j = i
+                        while j < n and quiet[j]: j += 1
+                        if j - i > gap * SR and i > 0 and j < n:     # keep `gap` of it, drop the rest
+                            keep_idx.append((i, i + int(gap * SR)))
+                        else:
+                            keep_idx.append((i, j))
+                        i = j
+                    else:
+                        j = i
+                        while j < n and not quiet[j]: j += 1
+                        keep_idx.append((i, j)); i = j
+                parts, x = [], int(.006 * SR)
+                for a, b in keep_idx:
+                    s = y[a:b].copy()
+                    if len(s) > 2 * x:
+                        s[:x] *= np.linspace(0, 1, x)[:, None]; s[-x:] *= np.linspace(1, 0, x)[:, None]
+                    parts.append(s)
+                y = np.concatenate(parts)
+            n = len(y)
+            if "swell" in ops:
+                y = _sweep(y, 1200, 12000, [0, .5, 1, 1]) * _env(n, [(0, -20), (.8, 0), (.9, -2), (1, -40)])
+            if "away" in ops:
+                y = _sweep(y, 12000, 900, [0, .4, 1]) * _env(n, [(0, -10), (.12, 0), (.5, -8), (1, -40)])
+            if "pass" in ops:
+                pk = ops["pass"]
+                y = _sweep(y, 1500, 11000, [0, 1, .3]) * _env(n, [(0, -24), (pk, 0), (min(.95, pk + .3), -10), (1, -40)])
+            y = _level(y, tgt)
+            fo = int(.01 * SR); y[-fo:] *= np.linspace(1, 0, fo)[:, None]
+            y[0] = 0; y[-1] = 0
+            write_wav(os.path.join(ASSETS, fn), y, SR)
+            _, M = lufs(y, SR)
+            print(f"{fn:28s} {name} {sorted(ops)} {len(y) / SR:.2f}s M {M:.1f}")
+
+
 def main():
     step, names = sys.argv[1], [a for a in sys.argv[2:]] or list(FS.S)
     for s in (("gen", "cand", "pick", "build") if step == "all" else (step,)):

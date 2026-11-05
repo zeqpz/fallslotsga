@@ -3227,8 +3227,9 @@
   /* a bottle in the row under the board (bottleRow): placed and turned by the script */
   .bigbottle.inrow { right: auto; bottom: auto; translate: none; aspect-ratio: auto; }
 
-  .bottleclip { position: fixed; left: 0; right: 0; top: 0; z-index: 57; overflow: hidden; pointer-events: none; }
-  .bottleclip .bigbottle.inrow { position: absolute; }
+  .bottleclip { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
+  .bottleclip { z-index: 0; }   /* first in #app: under the board and the HUD */
+  .bottleclip .bigbottle.inrow { position: absolute; z-index: auto; }
 </style>
 </head>
 <body>
@@ -4385,19 +4386,24 @@ function bottleRow(targets) {
   const H = Math.min(innerHeight * .32, bd.width / n * 1.25, 420), W = H * e.box[2] / e.box[3];
   const lean = e.seat[2] * Math.PI / 180, neck0 = Math.atan2(-Math.cos(lean), -Math.sin(lean));
   const UP = -90 - neck0 * 180 / Math.PI;                 // the turn that stands the neck straight up
-  const t = tempo(), rate = MULTI_RATE / t, drop = innerHeight - floor + H;
+  const SPEED = 1.3;   // the whole show 30% quicker (owner, 2026-11-04)
+  const t = tempo() / SPEED, rate = MULTI_RATE / t;
+  // the row lives inside #app, under everything in it (the board, the HUD). #app is scaled to the window: screen px / fit
+  const app = $("app"), ar = app.getBoundingClientRect(), fit = ar.width / Math.max(1, app.offsetWidth) || 1;
+  const L = v => v / fit, drop = L(innerHeight - floor + H);
   const at = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
   // the row is cut off at the HUD's top edge, so the bottles stand behind the bar (owner, 2026-11-04):
   // they rise out from behind it and sink back behind it
   const clip = document.createElement("div");
   clip.className = "bottleclip";
-  clip.style.height = floor.toFixed(1) + "px";
-  document.body.append(clip);
+  // the very back of #app: the bottles are part of the background, behind the board and behind the HUD (owner, 2026-11-04)
+  app.insertBefore(clip, app.firstChild);
+  const gap = Math.min(bd.width / n, W * .42);            // close together, centred under the board
   const bottles = targets.map((target, i) => {
     const wrap = document.createElement("div");
     wrap.className = "bigbottle inrow";
-    const cx = bd.left + bd.width * (i + .5) / n;           // its slot under the board
-    wrap.style.cssText = `left:${(cx - W * .62).toFixed(1)}px;top:${(floor - H * .62 - H * .2).toFixed(1)}px;width:${W.toFixed(1)}px;height:${H.toFixed(1)}px;rotate:${UP.toFixed(1)}deg`;
+    const cx = bd.left + bd.width / 2 + (i - (n - 1) / 2) * gap;   // its slot under the board
+    wrap.style.cssText = `left:${L(cx - W * .62 - ar.left).toFixed(1)}px;top:${L(floor - H * .62 - H * .2 - ar.top).toFixed(1)}px;width:${L(W).toFixed(1)}px;height:${L(H).toFixed(1)}px;rotate:${UP.toFixed(1)}deg`;
     const cv = document.createElement("canvas");
     cv.width = e.w; cv.height = e.h;
     const neck = document.createElement("i");
@@ -4442,7 +4448,7 @@ function bottleRow(targets) {
         for (; cue < CUES.length && ms >= CUES[cue][0] / e.fps / rate * 1000; cue++) sfx(CUES[cue][1], CUES[cue][2]);
         if (!popped && ms >= popAt) {
           popped = true;
-          const p = at(b.neck), u = b.wrap.offsetHeight / e.box[3];
+          const p = at(b.neck), u = b.wrap.offsetHeight * fit / e.box[3];
           sfx("corkWhirr", .95 + Math.random() * .1);
           corkFly({ x: p.x, y: p.y, ang: (aim + neck0 * 180 / Math.PI) * Math.PI / 180, size: u * CORK_UNITS }, b.target, hit);
         }
@@ -4550,7 +4556,22 @@ function startRigs() {
       if (sym && SYMF.man.symbols[sym.name]) fillCell(cellEls[r][y], sym);
     }
     symIdleTick();
+    setTimeout(prewarmBursts, 2500);
   });
+}
+// The pieces a popping icon tears into and the bits of its material are cut once per icon - on its first
+// pop that cost landed mid-frame (perf, 2026-11-04): made here instead, one icon per idle moment
+function prewarmBursts() {
+  const names = Object.keys(BURST_MAT);
+  const next = () => {
+    const n = names.shift();
+    if (!n) return;
+    for (const [kind, col] of BURST_MAT[n]) matSprite(kind, col);
+    const img = FLAT[n];
+    if (img && img.complete && img.naturalWidth) { try { burstKit(n, img); } catch (e) { /* cut on first use instead */ } }
+    (window.requestIdleCallback || (f => setTimeout(f, 60)))(next);
+  };
+  next();
 }
 
 /* ---------- the Multi's value, sprayed on ---------- */
@@ -6941,7 +6962,7 @@ const handlers = {
         const show = row.pop(i);
         runs.push(one(list[i], show.landed));
         await show.landed;
-        await hold(220);
+        await hold(170);
       }
     }
     for (const b of list.slice(i)) { if (runs.length) await hold(stagger); runs.push(one(b)); }

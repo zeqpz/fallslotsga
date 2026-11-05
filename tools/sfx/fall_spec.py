@@ -294,6 +294,11 @@ LOOP = {"h_reels": .12, "h_coins": .1, "h_hover": .6}
 TICKS = {"sfx_money_tick.wav": dict(src="h_ratchet", period=.125, n=22, tgt=-20)}
 # after the clean: keep only this many seconds ending at the loudest moment (the ident's rise ends at its peak)
 ENDPEAK = {"h_intro_rise": 1.62}
+# fall.py `shape`, after build / texture: what the takes could not give (see shape's doc)
+SHAPE = {"h_intro_rise": {"rise": 5}, "h_intro_hit": {"lead": 1}, "h_line": {"lead": 1, "compact": (.15, -26)},
+         "h_sparkle": {"lead": 1, "compact": (.06, -24)}, "h_menu_open": {"lead": 1}, "h_menu_close": {"lead": 1},
+         "h_count_whoosh": {"swell": 1}, "h_float": {"away": 1}, "h_intro_out": {"away": 1},
+         "h_swish_in": {"pass": .4}, "h_swish_out": {"pass": .2}}
 
 # one event per take for these (no second hit inside the event)
 SINGLE = {"land_platter", "land_pie", "land_hat", "land_jug", "land_corn", "land_pumpkin", "land_leaf", "land_acorn",
