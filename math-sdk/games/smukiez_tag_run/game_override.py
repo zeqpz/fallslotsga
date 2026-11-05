@@ -29,6 +29,14 @@ class GameStateOverride(GameExecutables):
         values = self.get_current_distribution_conditions()["booster_mult_values"][self.gametype]
         symbol.assign_attribute({"multiplier": get_random_outcome(values)})
 
+    def evaluate_finalwin(self):
+        """Cork Storm only: name the big wins (CORKSTORM_BIG up to, not including, the cap) so the
+        optimiser can draw them as a group of their own (fence "big")."""
+        super().evaluate_finalwin()
+        conds = self.get_current_distribution_conditions()
+        if conds.get("force_corks", False) and conds["cork_big"] <= self.final_win < self.config.wincap:
+            self.record({"kind": self.config.cork_storm_count, "symbol": "corkstorm_big", "gametype": self.gametype})
+
     def check_repeat(self):
         """Resimulate when the outcome does not satisfy the assigned criteria."""
         if self.repeat is False:

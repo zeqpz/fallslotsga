@@ -25,6 +25,7 @@ import json
 import os
 from collections import Counter
 
+from game_config import BOOST_BONUS, BOOST_COST, ENABLE_CORKSTORM, CORKSTORM_COST
 from optimization_program.optimization_config import (
     ConstructScaling,
     ConstructParameters,
@@ -49,6 +50,17 @@ BASE_TAIL_ASK = 0.8
 # Over 100x the optimiser's own curves thin the pool's few books (38 of them) to a third or less
 # of what is asked, so they are asked for three times as much.
 BASE_TOP_LIFT = 3.0
+
+# Cork Storm (cost CORKSTORM_COST = 250). The 3-star limits set the shape: the cap at most 1 play in
+# 12,500 (etl10k <= 0.8; asked 1 in ~15,000 -> 0.667) and every win of 5,000x or more at most 1.25%
+# of plays (prob5k, x0.8 leniency at this price; asked 1 in CORK_BIG_HR). The "big" fence holds the
+# books recorded "corkstorm_big" (5,000x up to the cap); the "corkstorm" fence holds every other
+# winning book and is asked for its pool's own mean win, so its shape is the drop's own; the zero
+# books fill the rest. av_wins are in bet multiples, measured on the 20,000-book pool.
+CORK_CAP_RTP = 0.00267          # x 250 / 10,000 -> the cap 1 in 14,981 plays
+CORK_BIG_HR = 90                # 5,000x+ wins (below the cap) 1 in 90 plays
+CORK_BIG_AV = 7017.0           # the pool: 1,857 books, 5,000x-9,005x
+CORK_MID_AV = 682.0            # the pool: 10,421 books, 0.4x-4,010x (77% under 10x)
 
 
 def base_book_scaling(game_config, conditions, criteria="basegame", mode="base"):
@@ -128,6 +140,42 @@ def base_book_scaling(game_config, conditions, criteria="basegame", mode="base")
     return scaling
 
 
+def cork_book_scaling(game_config, mode="corkstorm"):
+    """Cork Storm: weigh BOOKS, not payout values, inside the "big" and "corkstorm" fences.
+
+    Left to itself the optimiser spreads each fence's weight over its distinct payouts and splits
+    a payout's share evenly over the books paying it, so the 7 books paying 10-1,000x took 4% of
+    all buys between them (one 28.4x board came 1 in 59). One scaling entry per payout, its book
+    count over the commonest payout's, makes every board in a fence about as likely as any other
+    - the drop's own shape - and the fence's hr/rtp only set how often the group comes.
+    Returns [] when there is no pool yet (run.py builds the setup after the sims)."""
+    lut = os.path.join(game_config.library_path, "lookup_tables", f"lookUpTable_{mode}.csv")
+    forces = os.path.join(game_config.library_path, "forces", f"force_record_{mode}.json")
+    if not (os.path.exists(lut) and os.path.exists(forces)):
+        return []
+    big = set()
+    for option in json.load(open(forces, encoding="UTF-8")):
+        if {"name": "symbol", "value": "corkstorm_big"} in option["search"]:
+            big.update(option["bookIds"])
+    counts = {"big": Counter(), "corkstorm": Counter()}
+    with open(lut, encoding="UTF-8") as f:
+        for line in f:
+            book, _, payout = (int(x) for x in line.split(","))
+            if 0 < payout < game_config.wincap * 100:
+                counts["big" if book in big else "corkstorm"][payout / 100] += 1
+    scaling = []
+    for criteria, c in counts.items():
+        most = max(c.values())
+        for v, n in sorted(c.items()):
+            scaling.append({
+                "criteria": criteria,
+                "scale_factor": n / most,
+                "win_range": (round(v - 0.005, 3), round(v + 0.005, 3)),
+                "probability": 1.0,
+            })
+    return scaling
+
+
 class OptimizationSetup:
     """Handle all game mode optimization parameters."""
 
@@ -154,6 +202,37 @@ class OptimizationSetup:
                 rtp=0.012, hr=80000, search_conditions={"symbol": "wallcover"}
             ).return_dict(),
             "basegame": ConstructConditions(hr=2.5, rtp=0.566).return_dict(),
+        }
+        # Bonus Boost: base's targets with the bonus criteria BOOST_BONUS x as frequent (hr / 1.6)
+        # at the same average win, priced at BOOST_COST. Every rtp here is a share of the boost's
+        # cost (1.25 base bets), so a return of R base bets is asked as R / 1.25. The bonus brings
+        # 1.6 x 0.389 = 0.622 base bets and the base game's own spins 0.578; the 0.008 still
+        # missing to 0.967 x 1.25 = 1.209 goes on the ordinary winning spins (av_win 1.415x ->
+        # 1.436x a win), so wallcover and the 0 criteria are untouched.
+        k, c = BOOST_BONUS, BOOST_COST
+        boost_bonus_rtp = {
+            "wincap": round(0.002 * k / c, 6),
+            "freegame": round(0.34 * k / c, 6),
+            "extremegame": round(0.047 * k / c, 6),
+            "wallcover": round(0.012 / c, 6),
+        }
+        boost_conditions = {
+            "wincap": ConstructConditions(
+                rtp=boost_bonus_rtp["wincap"], av_win=wincaps["boost"], search_conditions=wincaps["boost"]
+            ).return_dict(),
+            "0": ConstructConditions(rtp=0, av_win=0, search_conditions=0).return_dict(),
+            "freegame": ConstructConditions(
+                rtp=boost_bonus_rtp["freegame"], hr=240 / k, search_conditions={"symbol": "scatter"}
+            ).return_dict(),
+            "extremegame": ConstructConditions(
+                rtp=boost_bonus_rtp["extremegame"], hr=8000 / k, search_conditions={"symbol": "scatter_extreme"}
+            ).return_dict(),
+            "wallcover": ConstructConditions(
+                rtp=boost_bonus_rtp["wallcover"], hr=80000, search_conditions={"symbol": "wallcover"}
+            ).return_dict(),
+            "basegame": ConstructConditions(
+                hr=2.5, rtp=round(game_config.rtp - sum(boost_bonus_rtp.values()), 6)
+            ).return_dict(),
         }
         self.game_config.opt_params = {
             "base": {
@@ -211,6 +290,57 @@ class OptimizationSetup:
                     score_type="rtp",
                 ).return_dict(),
             },
+            "boost": {
+                "conditions": boost_conditions,
+                "scaling": ConstructScaling(
+                    base_book_scaling(game_config, boost_conditions, mode="boost")
+                ).return_dict(),
+                "parameters": ConstructParameters(
+                    num_show=1500,
+                    num_per_fence=2000,
+                    min_m2m=1,
+                    max_m2m=400,
+                    pmb_rtp=1.0,
+                    sim_trials=5000,
+                    test_spins=[50, 100, 200],
+                    test_weights=[0.3, 0.4, 0.3],
+                    score_type="rtp",
+                ).return_dict(),
+            },
         }
+        if ENABLE_CORKSTORM:
+            big_rtp = round(CORK_BIG_AV / CORK_BIG_HR / CORKSTORM_COST, 6)
+            mid_rtp = round(game_config.rtp - CORK_CAP_RTP - big_rtp, 6)
+            mid_hr = round(CORK_MID_AV / (mid_rtp * CORKSTORM_COST), 4)
+            self.game_config.opt_params["corkstorm"] = {
+                "conditions": {
+                    "wincap": ConstructConditions(
+                        rtp=CORK_CAP_RTP, av_win=wincaps["corkstorm"], search_conditions=wincaps["corkstorm"]
+                    ).return_dict(),
+                    "0": ConstructConditions(rtp=0, av_win=0, search_conditions=0).return_dict(),
+                    "big": ConstructConditions(
+                        rtp=big_rtp, hr=CORK_BIG_HR, search_conditions={"symbol": "corkstorm_big"}
+                    ).return_dict(),
+                    # ~77% of these wins are under 10x and the mean is ~682x: the optimiser's
+                    # per-fence mean/median band defaults to 0..10 and would reject every candidate
+                    # forever, so this fence gets its own (passed through by make_temp_math_config)
+                    "corkstorm": {
+                        **ConstructConditions(rtp=mid_rtp, hr=mid_hr).return_dict(),
+                        "max_mean_to_median": 5000,
+                    },
+                },
+                "scaling": ConstructScaling(cork_book_scaling(game_config)).return_dict(),
+                "parameters": ConstructParameters(
+                    num_show=1500,
+                    num_per_fence=2000,
+                    min_m2m=1,
+                    max_m2m=400,
+                    pmb_rtp=1.0,
+                    sim_trials=5000,
+                    test_spins=[10, 20, 50],
+                    test_weights=[0.6, 0.2, 0.2],
+                    score_type="rtp",
+                ).return_dict(),
+            }
 
         verify_optimization_input(self.game_config, self.game_config.opt_params)

@@ -2,8 +2,8 @@
 (tools/fall/parts/L1.py). The "_rim" layers ride their part and are never posed themselves.
 idle   it sways on its stem, the lobes fluttering in the breeze, each out of step with the others
 land   it settles like a leaf: the lobes flop down and float back up, a gentle squash
-hit    it curls up, then flips right over about its stem - a full twirl with a little lift - its lobes flapping,
-       loose leaves whirling off it, and it rocks to rest
+hit    it curls in, then a gust catches it: it lifts and floats back down while a ripple runs round its lobes one
+       after another and the stem flicks, loose leaves blown off sideways (no turning over: owner, 2026-11-04)
 multi  it trembles, the lobes curling in tighter and tighter, then springs wide open - lobes flung out - with a gust
        of leaves"""
 import math
@@ -43,46 +43,41 @@ def land(c):
 
 
 def hit(c):
-    T0, T1 = 6, 36                                       # the twirl
+    ORDER = ("low_l", "left", "top", "right", "low_r")      # the gust runs round the leaf, lobe by lobe
 
     def pose(i, n):
-        if i <= T0:                                      # curl up: the lobes lift, it dips
-            e = c.ease_in_out(i / T0)
-            p = dict(root=dict(sy=1 - .06 * e, sx=1 + .04 * e))
-            for b, a in (("left", 7), ("right", 7), ("top", 0), ("low_l", 4), ("low_r", 4)):
-                p[b] = dict(r=-OUT[b] * a * e)
+        u = i / n
+        env = 1 - c.ease_in_out(max(0, (u - .78) / .22))
+        if i <= 6:                                           # it curls in against the gust
+            e = c.ease_in_out(i / 6)
+            p = dict(root=dict(sy=1 - .05 * e, sx=1 + .03 * e), mid=dict(sy=1 - .03 * e), stem=dict(r=-5 * e))
+            for b in ORDER:
+                p[b] = dict(r=-OUT[b] * 6 * e)
             return p
-        if i <= T1:
-            s = (i - T0) / (T1 - T0)
-            f = c.ease_in_out(s)
-            air = S(math.pi * s)
-            t = (i - T0) / 30
-            p = dict(root=dict(sx=math.cos(TAU * f), y=.55 * air, r=10 * S(TAU * f) * .8),
-                     stem=dict(r=10 * S(t * 16) * air))
-            e = 1 - min(1, s / .15)                      # the curl lets go as it starts to turn
-            for k, (b, a) in enumerate((("left", 8), ("right", 8), ("top", 0), ("low_l", 5), ("low_r", 5))):
-                p[b] = dict(r=-OUT[b] * a * e + 8 * S(t * 22 + k * 1.3) * air)
-            return p
-        t = (i - T1) / 30                                # rock to rest
-        k = c.damp(t, 2.4, .35)
-        env = (1 - c.ease_in_out((i - T1) / (n - T1))) * (1 - math.exp(-t * 12))   # eases in from the twirl
-        p = dict(mid=dict(r=6 * k * env), root=dict(sx=1 + .05 * k * env, sy=1 - .06 * k * env))
-        for j, b in enumerate(("left", "right", "top", "low_l", "low_r")):
-            p[b] = dict(r=OUT[b] * 7 * c.damp(max(0, t - .03 * j), 2.6, .3) * env)
+        t = (i - 6) / 30
+        lift = S(math.pi * min(1, t / 1.0))                  # it lifts on the gust and floats back down
+        rel = 1 - c.ease_out(min(1, t / .15))
+        p = dict(root=dict(y=.35 * lift * env, r=2.5 * S(TAU * .9 * t) * lift * env,
+                           sx=1 + .03 * S(t * 9) * lift * env, sy=1 - .03 * S(t * 9) * lift * env),
+                 mid=dict(r=2 * S(t * 7) * lift * env),
+                 stem=dict(r=(-5 * rel + 12 * S(t * 14) * math.exp(-t * 2)) * env))
+        for k, b in enumerate(ORDER):                        # each lobe flaps up a beat after the one before
+            w = S(t * 13 - k * .9) * max(0, min(1, t * 5 - k * .5)) * math.exp(-t * 1.2)
+            p[b] = dict(r=(-OUT[b] * 6 * rel + OUT[b] * 9 * w) * env)
         return p
     c.run("hit", pose)
     f0 = 201
     for j in range(8):                                   # loose leaves whirl off as it turns
-        fs = f0 + T0 + 2 + j * 2
+        fs = f0 + 6 + 2 + j * 2
         a0 = TAU * j / 8 + .3
-        c.pools["leaf"].particle(fs, fs + 22, lambda t, a0=a0: (
-            math.cos(a0 + 2.2 * t) * (2.2 + 2.4 * c.ease_out(t)), .3 + math.sin(a0 + 2.2 * t) * (2.2 + 2.0 * c.ease_out(t)) - 1.2 * t * t),
+        c.pools["leaf"].particle(fs, fs + 22, lambda t, a0=a0: (          # blown off sideways on the gust
+            -3.2 + 6.4 * c.ease_out(t) + .5 * math.sin(a0 + 6 * t), 2.6 * math.sin(a0) + .8 * math.sin(t * 7) - .8 * t),
             c.rng, spin=c.rng.choice((-1, 1)) * 320, grow=(.45, .7), fade=(1, 0))
     for j in range(5):
         a = TAU * j / 5 + .7
         c.pools["sparkle"].particle(f0 + 18, f0 + 30, lambda t, a=a: (math.cos(a) * (3.4 + 1.2 * c.ease_out(t)),
                                     .2 + math.sin(a) * (3.4 + 1.2 * c.ease_out(t))), c.rng, spin=160, grow=(.7, .05))
-    c.glow_curve("hit", lambda u: 0)                    # the halo would hang behind as a grey leaf while it turns
+    c.glow_curve("hit", lambda u: .5 * S(math.pi * u) ** 2)
 
 
 def multi(c):

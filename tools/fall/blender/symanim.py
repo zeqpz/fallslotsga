@@ -1158,6 +1158,9 @@ def render_big(sid="M", scale=1.5):
     the cork - the game flies the cork itself, from the bottle's neck onto the cell it hits.
     -> art/blender/renders/<ID>/big/####.png (tools/blender/pack_frames.py big <ID>)"""
     sc = bpy.context.scene
+    hands = bpy.data.objects.get("hands")   # no gloves on the big bottle (owner, 2026-11-04)
+    if hands:
+        hands.hide_render = True
     cork = bpy.data.objects.get("cork")
     if cork:
         cork.hide_render = True

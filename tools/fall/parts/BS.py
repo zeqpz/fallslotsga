@@ -1,98 +1,56 @@
-"""BS Golden Wishbone, cut into parts (tools/fall/cut_parts.py). Icon px of art/fall-src/icons/BS.png.
+"""BS Free Spins badge (a pumpkin with big gold "FS" letters, two maple leaves behind), cut into parts
+(tools/fall/cut_parts.py). Icon px of art/fall-src/icons/BS.png. Helpers: tools/fall/parts/_bonus.py.
 
-The drawing's ink lines have gaps (the whole icon is one flat region), so the art parts are cut "poly" and the gold and
-the left tail come off the plates through a position-aware keep (only that part's colour, inside that part's polygon).
-plates  bare  the wishbone alone (the stem painted in through the knot, the prongs whole under the tails)
-        bow   the ribbon alone (both tails whole, under the left prong and the knot)
-layers  back to front: the left tail (behind the left prong), the right prong, the top (stem + fork), the left prong (in
-        front of the fork, carrying the big star on it), the right tail (in front of the right prong), the bow"""
-import os
+plates  badge  generated: the picture with the letters taken off (the pumpkin's ribs painted in where they were)
+        base   made here: the icon itself, with the lined-up badge plate only under the letters (so at rest the back
+               layer is exactly the icon, and a letter moving off it shows bare pumpkin, never a ghost of itself)
+layers  back to front: the badge (pumpkin, stem; the whole back), the two maple leaves (cut from the art along their
+        own outlines), the F and the S (each traced from the icon's gold, 3D shadow and outline: cut "poly")"""
+import os, sys
 
-import numpy as np
-from PIL import Image, ImageDraw
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _bonus as B                                              # noqa: E402
+
 
 class _Plates(dict):
-    """The plates: "none" is made here (an empty picture: the plate a whole-plate part is told apart from, so its keep
-    alone says what it is), the rest by the generator (cut_parts.py plates only asks for those)."""
+    """"base" is made here; cut_parts.py plates only asks the generator for the others"""
     def items(self):
         return [(k, v) for k, v in dict.items(self) if v]
 
 
 PLATES = _Plates({
-    "bare": "Edit the attached picture: remove the red ribbon bow completely - both bow loops, the knot and both long "
-            "ribbon tails - and remove ALL the white four-point sparkle stars. Paint the golden wishbone whole where the "
-            "ribbon covered it: its rounded top stem continues smoothly straight down through where the knot was into "
-            "the fork where the two legs join, and the tops of both legs are whole. Keep the wishbone exactly the same: "
-            "same position, same size, same golden colours and glossy shading, same black outline, and the cream "
-            "sticker border round it. Transparent background.",
-    "ribbon": "Edit the attached picture: remove the LEFT leg of the golden wishbone - the long gold leg that runs from "
-              "the fork down to the lower left - and ALL the white four-point sparkle stars. Paint the red ribbon's left "
-              "tail whole where that leg covered it: the left tail runs unbroken from under the knot out to its forked "
-              "end. Where the rest of the leg was, leave empty transparent background. Keep everything else exactly the "
-              "same and in exactly the same place: the bow loops, the knot, both ribbon tails, the gold stem and the "
-              "right leg - same position, same size, same colours, same black outline and the cream sticker border "
-              "round it. Transparent background.",
-    "none": "",
+    "badge": "Edit the attached picture: remove the two big gold letters F and S completely, with their dark brown 3D "
+             "shadows. Paint the bare orange pumpkin where they were: its smooth glossy orange ribs and the dark rib "
+             "lines continuing naturally down across the middle of the pumpkin. Keep everything else exactly the same: "
+             "the pumpkin's outline and shape, its brown curly stem, the two red maple leaves behind it, the same "
+             "position, size, colours, black outline and cream sticker border. No text at all. Transparent background.",
+    "base": "",
 })
-_none = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-                     "art", "fall-src", "parts", "BS", "plate_none.png")
-if not os.path.exists(_none):
-    os.makedirs(os.path.dirname(_none), exist_ok=True)
-    Image.new("RGBA", (1024, 1024), (0, 0, 0, 0)).save(_none)
+
+F_ROUGH = [(160, 440), (205, 398), (300, 362), (488, 340), (496, 470), (470, 520), (462, 660), (440, 700), (390, 840),
+           (160, 840)]
+S_ROUGH = [(488, 340), (840, 340), (840, 840), (390, 840), (440, 700), (462, 660), (470, 520), (496, 470)]
+LEAF_L = [(40, 110), (400, 110), (420, 250), (330, 290), (220, 320), (140, 420), (40, 430)]
+LEAF_R = [(640, 120), (960, 120), (960, 470), (860, 450), (800, 330), (700, 300), (640, 260)]
 
 
-def _poly(pts):
-    im = Image.new("L", (1000, 1000), 0)
-    ImageDraw.Draw(im).polygon(pts, fill=255)
-    return np.asarray(im) > 0
+def _gold(rgb, h, s, v):
+    gold = (h > 32) & (h < 62) & (s > .3) & (v > .55)            # the letter's gold and its darker gold
+    hi = (h > 30) & (h < 65) & (v > .85) & (s > .12)            # its pale highlights
+    brown = (h > 5) & (h < 45) & (v > .12) & (v < .6) & (s > .3)  # its brown 3D shadow
+    return gold | hi | brown
 
 
-def _sat(rgb):
-    mx, mn = rgb.max(2), rgb.min(2)
-    return np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0)
-
-
-def gold_in(pts):
-    where = _poly(pts)
-
-    def keep(rgb, sat, mx):
-        r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
-        return where & (r >= g * .95) & (g >= b) & (mx > .3) & (sat > .3)
-    return keep
-
-
-def red_in(pts):
-    where = _poly(pts)
-
-    def keep(rgb, sat, mx):
-        r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
-        return where & (r > 1.6 * g + .02) & (r > 1.3 * b) & (mx > .22)
-    return keep
-
-
-TAIL_L = [(90, 380), (150, 320), (300, 262), (350, 238), (400, 222), (470, 214), (500, 235), (500, 300), (470, 340),
-          (400, 430), (300, 530), (150, 560), (90, 480)]
-TOP = [(470, 20), (650, 20), (650, 280), (620, 330), (560, 380), (532, 428), (519, 462), (506, 456), (470, 360),
-       (440, 335), (430, 290), (460, 200)]
-PRONG_R = [(508, 365), (620, 305), (700, 380), (980, 760), (980, 1000), (560, 1000), (525, 480), (512, 420)]
-BOW = [(222, 268), (222, 150), (285, 35), (420, 25), (475, 62), (505, 140), (517, 186), (560, 184), (594, 188),
-       (603, 152), (612, 188), (632, 190), (640, 140), (700, 118), (800, 120), (880, 200), (885, 330), (860, 390),
-       (800, 392), (758, 374), (720, 360), (673, 330), (602, 276), (562, 266), (546, 292), (530, 292), (510, 284), (490, 280), (472, 276),
-       (461, 252), (463, 230), (400, 237), (350, 251), (310, 274), (283, 266), (265, 254)]
-PRONG_L = [(480, 292), (468, 282), (456, 270), (427, 300), (390, 347), (380, 358), (370, 351), (355, 298), (342, 350),
-           (293, 366), (342, 382), (347, 403), (307, 437), (270, 467), (240, 490), (215, 505), (160, 530), (60, 600),
-           (0, 650), (0, 1000), (470, 1000), (520, 520), (518, 470), (512, 420), (505, 372)]
-TAIL_R = [(545, 262), (604, 262), (676, 316), (724, 345), (770, 360), (790, 372), (850, 420), (920, 470), (930, 530),
-          (880, 600), (830, 590), (805, 572), (794, 560), (777, 550), (764, 540), (753, 530), (744, 520), (736, 510),
-          (728, 500), (721, 490), (713, 480), (707, 470), (700, 460), (693, 450), (686, 440), (679, 430), (672, 420),
-          (652, 410), (635, 402), (621, 394), (609, 386), (599, 378), (591, 370), (583, 362), (577, 354), (571, 346),
-          (565, 338), (561, 330), (557, 322), (555, 314), (552, 306), (550, 298), (548, 290)]
+_ic = B.icon("BS")
+_F = B.piece(_ic, B.inside(F_ROUGH), _gold, ink_grow=14)
+_S = B.piece(_ic, B.inside(S_ROUGH), _gold, ink_grow=14)
+if os.path.exists(os.path.join(B.ROOT, "art", "fall-src", "parts", "BS", "plate_badge.png")):
+    B.make_base("BS", "badge", [_F, _S])
 
 LAYERS = [
-    dict(name="tail_l", src="diff:ribbon-bare", keep=red_in(TAIL_L), pivot=(475, 262), parent="bow"),
-    dict(name="prong_r", src="diff:bare-none", keep=gold_in(PRONG_R), pivot=(528, 398), parent="top"),
-    dict(name="top", src="diff:bare-none", keep=gold_in(TOP), pivot=(515, 395), parent="root"),
-    dict(name="prong_l", src="art", cut="poly", poly=PRONG_L, pivot=(500, 398), parent="top"),
-    dict(name="tail_r", src="art", cut="poly", poly=TAIL_R, pivot=(565, 272), parent="bow"),
-    dict(name="bow", src="art", cut="poly", poly=BOW, pivot=(515, 240), parent="top"),
+    dict(name="badge", src="plate:base", pivot=(500, 930), parent="root"),
+    dict(name="leaf_l", src="art", poly=LEAF_L, pivot=(330, 330), parent="badge"),
+    dict(name="leaf_r", src="art", poly=LEAF_R, pivot=(690, 330), parent="badge"),
+    dict(name="let_f", src="art", cut="poly", poly=B.polygon(_F), pivot=(320, 790), parent="badge"),
+    dict(name="let_s", src="art", cut="poly", poly=B.polygon(_S), pivot=(640, 800), parent="badge"),
 ]

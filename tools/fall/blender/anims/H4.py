@@ -57,9 +57,9 @@ def hit(c):
         land = c.damp(max(0, t - .48), 3.4, .28) if t > .48 else 0
         rel = 1 - c.ease_out(min(1, t / .12))                      # the bow lets go
         pop = max(0, S(math.pi * min(1, max(0, t - .06) / .55)))   # the buckle swells and shrinks back
-        return dict(brim=dict(y=.75 * air * env, r=9 * air * S(min(1, t / .48) * math.pi * .9) * env,
+        return dict(brim=dict(y=.75 * air * env, r=3 * air * S(min(1, t / .48) * math.pi * .9) * env,
                               sx=1 + (.03 * rel + .08 * land) * env, sy=1 - (.08 * rel - .04 * air + .14 * land) * env),
-                    crown=dict(r=(-7 * rel + 10 * air + 7 * S(t * 16) * math.exp(-t * 2.5) * (t > .4)) * env,
+                    crown=dict(r=(-7 * rel + 12 * air + 7 * S(t * 16) * math.exp(-t * 2.5) * (t > .4)) * env,
                                sy=1 + (.06 * air - .1 * land) * env, sx=1 - (.03 * air - .06 * land) * env),
                     buckle=dict(sx=1 + .28 * pop * env, sy=1 + .28 * pop * env, y=-.05 * pop * env,
                                 r=-6 * pop * S(t * 10) * env))

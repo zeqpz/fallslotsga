@@ -5,114 +5,54 @@
  ],
  "layers": [
   {
-   "name": "torso",
-   "png": "torso.png",
+   "name": "jack",
+   "png": "jack.png",
    "pivot": [
-    510,
-    560
+    500,
+    940
    ],
-   "parent": "body",
+   "parent": "root",
    "order": 0
   },
   {
-   "name": "f_ul",
-   "png": "f_ul.png",
+   "name": "crow",
+   "png": "crow.png",
    "pivot": [
-    290,
-    215
+    530,
+    330
    ],
-   "parent": "root",
+   "parent": "jack",
    "order": 1
   },
   {
-   "name": "f_ur",
-   "png": "f_ur.png",
+   "name": "let_x",
+   "png": "let_x.png",
    "pivot": [
-    815,
-    265
+    290,
+    760
    ],
-   "parent": "root",
+   "parent": "jack",
    "order": 2
   },
   {
-   "name": "f_ll",
-   "png": "f_ll.png",
+   "name": "let_f",
+   "png": "let_f.png",
    "pivot": [
-    200,
-    700
+    500,
+    765
    ],
-   "parent": "root",
+   "parent": "jack",
    "order": 3
   },
   {
-   "name": "f_lr",
-   "png": "f_lr.png",
+   "name": "let_s",
+   "png": "let_s.png",
    "pivot": [
-    825,
+    715,
     770
    ],
-   "parent": "root",
+   "parent": "jack",
    "order": 4
-  },
-  {
-   "name": "wing_l",
-   "png": "wing_l.png",
-   "pivot": [
-    365,
-    410
-   ],
-   "parent": "body",
-   "order": 5
-  },
-  {
-   "name": "wing_r",
-   "png": "wing_r.png",
-   "pivot": [
-    690,
-    455
-   ],
-   "parent": "body",
-   "order": 6
-  },
-  {
-   "name": "foot_l",
-   "png": "foot_l.png",
-   "pivot": [
-    430,
-    715
-   ],
-   "parent": "root",
-   "order": 7
-  },
-  {
-   "name": "foot_r",
-   "png": "foot_r.png",
-   "pivot": [
-    595,
-    715
-   ],
-   "parent": "root",
-   "order": 8
-  },
-  {
-   "name": "body",
-   "png": "body.png",
-   "pivot": [
-    510,
-    720
-   ],
-   "parent": "root",
-   "order": 9
-  },
-  {
-   "name": "head",
-   "png": "head.png",
-   "pivot": [
-    530,
-    455
-   ],
-   "parent": "body",
-   "order": 10
   }
  ]
 }

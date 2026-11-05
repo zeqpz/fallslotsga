@@ -28,6 +28,27 @@ from src.config.config import Config
 from src.config.distributions import Distribution
 from src.config.betmode import BetMode
 
+# Bonus Boost (bet mode "boost"): the bonus - free game, extreme and the wincap that only comes
+# through them - lands this many times as often as in base.
+BOOST_BONUS = 1.6
+BOOSTED_CRITERIA = ("wincap", "extremegame", "freegame")
+# Its price. In base 0.389 of the 0.967 return (40%) comes from the bonus criteria, so 1.6x the
+# bonus is worth 0.967 + 0.6 x 0.389 = 1.200 base bets: at RTP 0.967 that costs 1.241. Rounded to
+# the tidy 1.25, the base game's own winning spins make up the 0.008 left over.
+BOOST_COST = 1.25
+# Cork Storm (bet mode "corkstorm", owner 2026-11-04): the drop is as designed - four 2,500x Multis
+# on random cells, no win promised - and the optimiser shapes how often each outcome is drawn. Left
+# alone the pool caps at 10,000x about 1 spin in 22 (mean ~813x); the SDK's 3-star limits
+# (rgs_verification) allow the cap at most 1 play in 12,500 (etl10k <= 0.8) and wins of 5,000x+ at
+# most 1.25% of plays at this price (prob5k x 0.8 <= 0.01), so those are drawn rarely
+# (game_optimization: fences "wincap" and "big") and the rest of the pool keeps its own shape.
+# The price is 250 and not ~230: from 250 up, 40 x cost reaches the 10,000x cap, so the etl40b
+# limit (return from wins of 40x cost or more <= 0.9) counts only the capped books; at 230 it would
+# also count every 9,200-9,999x win and those would have to vanish too.
+ENABLE_CORKSTORM = True
+CORKSTORM_COST = 250.0
+CORKSTORM_BIG = 5000.0   # a win this size (below the cap) is recorded as "corkstorm_big"
+
 
 class GameConfig(Config):
     """Smukiez Tag Run configuration class."""
@@ -141,6 +162,15 @@ class GameConfig(Config):
         self.reels = {}
         for r, f in reels.items():
             self.reels[r] = self.read_reels_csv(os.path.join(self.reels_path, f))
+
+        # Cork Storm (the one-spin buy "corkstorm"): exactly cork_storm_count Multis land on the
+        # revealed board, each worth cork_storm_value (together the 10,000x max win), on cells
+        # picked at random - nothing steers a cluster onto them. The rest of the spin is an
+        # ordinary base spin on BR0 with its Multis taken out ("BRC"), so the refills never bring
+        # a fifth one, and no wall line drops.
+        self.cork_storm_count = 4
+        self.cork_storm_value = self.wincap / self.cork_storm_count
+        self.reels["BRC"] = [[s for s in reel if s != "M"] for reel in self.reels["BR0"]]
 
         self.padding_reels = {
             "basegame": self.reels["BR0"],
@@ -377,4 +407,80 @@ class GameConfig(Config):
                     ),
                 ],
             ),
+            # Bonus Boost (owner 2026-11-04): the base spin, but the bonus (free game and extreme,
+            # and the wincap that only comes through them) lands BOOST_BONUS x as often. Same
+            # reels, same everything; only the optimiser's targets for those criteria and their
+            # sim quotas are scaled (game_optimization). Not a buy: an ante-style spin at a higher
+            # price - see BOOST_COST at the top of this file.
+            BetMode(
+                name="boost",
+                cost=BOOST_COST,
+                rtp=self.rtp,
+                max_win=self.wincap,
+                auto_close_disabled=False,
+                is_feature=True,
+                is_buybonus=False,
+                distributions=[],   # filled below from base's
+            ),
         ]
+        base_mode = self.bet_modes[0]
+        boost_mode = next(bm for bm in self.bet_modes if bm.get_name() == "boost")
+        boost_mode._distributions = self.boosted_distributions(base_mode.get_distributions())
+        if ENABLE_CORKSTORM:
+            self.bet_modes.append(
+                # Cork Storm (owner 2026-11-04): a one-spin buy. Exactly four Multis worth 2,500x each
+                # land at random on the base board and nothing else is forced: the spin pays only if
+                # clusters form on the values they leave behind (game_executables.drop_corks).
+                BetMode(
+                    name="corkstorm",
+                    cost=CORKSTORM_COST,
+                    rtp=self.rtp,
+                    max_win=self.wincap,
+                    auto_close_disabled=False,
+                    is_feature=False,
+                    is_buybonus=True,
+                    distributions=[
+                        Distribution(
+                            criteria="wincap",
+                            quota=0.002,
+                            win_criteria=self.wincap,
+                            conditions=self._cork_conditions(),
+                        ),
+                        Distribution(
+                            criteria="0",
+                            quota=0.25,
+                            win_criteria=0.0,
+                            conditions=self._cork_conditions(),
+                        ),
+                        Distribution(
+                            criteria="corkstorm",
+                            quota=0.748,
+                            conditions=self._cork_conditions(),
+                        ),
+                    ],
+                )
+            )
+
+    def boosted_distributions(self, base_distributions: list) -> list:
+        """Base's distributions, with the bonus criteria's sim quotas BOOST_BONUS x larger and the
+        ordinary base-game criteria taking up the difference (the quotas still sum to 1)."""
+        out = []
+        for d in base_distributions:
+            quota = round(d.get_quota() * (BOOST_BONUS if d.get_criteria() in BOOSTED_CRITERIA else 1), 6)
+            out.append(Distribution(criteria=d.get_criteria(), quota=quota,
+                                    win_criteria=d.get_win_criteria(), conditions=d._conditions))
+        extra = sum(d.get_quota() for d in out) - 1
+        for d in out:
+            if d.get_criteria() == "basegame":
+                d._quota = round(d._quota - extra, 6)
+        return out
+
+    def _cork_conditions(self) -> dict:
+        return {
+            "reel_weights": {self.basegame_type: {"BRC": 1}},
+            "booster_mult_values": {self.basegame_type: {self.cork_storm_value: 1}},
+            "force_wincap": False,
+            "force_freegame": False,
+            "force_corks": True,
+            "cork_big": CORKSTORM_BIG,
+        }

@@ -72,13 +72,13 @@ def land(c):
 def hit_tip(i):
     """the boat's tip, degrees (+ = spout down) over the hit"""
     if i <= 6:
-        return -5 * c_ease(i / 6)
+        return -2 * c_ease(i / 6)
     if i <= 15:
-        return -5 + 19 * c_ease((i - 6) / 9)
+        return -2 + 7 * c_ease((i - 6) / 9)
     if i <= 25:
-        return 14 + 1.2 * S((i - 15) * 1.9)                      # pouring, a little shake
+        return 5 + .8 * S((i - 15) * 1.9)                       # pouring, a little shake
     t = (i - 25) / 30
-    return 14 * (1 - c_ease(min(1, t / .25))) - 5 * imp(t - .15, 2.2, .3) * (1 - c_ease(max(0, (i - 38) / 8)))
+    return 5 * (1 - c_ease(min(1, t / .25))) - 2 * imp(t - .15, 2.2, .3) * (1 - c_ease(max(0, (i - 38) / 8)))
 
 
 def c_ease(t):
@@ -94,10 +94,12 @@ def hit(c):
         env = 1 - c.ease_in_out(max(0, (u - .8) / .2))
         slosh = (imp((i - 25) / 30, 2.0, .2) if i > 25 else 0) * env
         st = 1 + .12 * c.ease_in_out(min(1, i / 8)) * (1 - c.ease_in_out(max(0, (u - .6) / .4)))
-        return dict(boat=dict(r=r),
-                    gravy=dict(r=(-.5 * lag + 6 * slosh) * env, x=-.004 * max(0, lag) * env, y=.002 * max(0, lag) * env),
+        pour = max(0, lag) / 5                                 # 0..1: the gravy runs to the spout and stretches out
+        return dict(boat=dict(r=r, sx=1 + .02 * pour * env, sy=1 - .03 * pour * env),
+                    gravy=dict(r=(-.5 * lag + 6 * slosh - 3 * pour) * env, x=-.1 * pour * env, y=-.02 * pour * env,
+                               sx=1 + .08 * pour * env),
                     steam_l=dict(r=-.6 * r + 6 * S(i * .5) * env, sy=st), steam_r=dict(r=-.6 * r + 5 * S(i * .5 + 1) * env, sy=st),
-                    handle=dict(r=1.5 * S(i * 1.3) * env if 15 < i < 30 else 0))
+                    handle=dict(r=(-4 * pour + (1.5 * S(i * 1.3) if 15 < i < 30 else 0)) * env))
     c.run("hit", pose)
     f0 = 201
     for j in range(14):                                        # it pours: drops off the spout lip, falling

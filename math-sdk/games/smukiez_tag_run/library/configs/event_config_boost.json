@@ -1,0 +1,575 @@
+{
+    "reveal": {
+        "type": "reveal",
+        "board": [
+            [
+                {
+                    "name": "L7"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L4"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L5"
+                },
+                {
+                    "name": "L5"
+                },
+                {
+                    "name": "L7"
+                },
+                {
+                    "name": "M",
+                    "booster": true,
+                    "multiplier": 2
+                }
+            ],
+            [
+                {
+                    "name": "M",
+                    "booster": true,
+                    "multiplier": 2
+                },
+                {
+                    "name": "L7"
+                },
+                {
+                    "name": "L4"
+                },
+                {
+                    "name": "L4"
+                },
+                {
+                    "name": "L3"
+                },
+                {
+                    "name": "H3"
+                },
+                {
+                    "name": "H4"
+                },
+                {
+                    "name": "L3"
+                },
+                {
+                    "name": "L1"
+                }
+            ],
+            [
+                {
+                    "name": "L10"
+                },
+                {
+                    "name": "L3"
+                },
+                {
+                    "name": "L5"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L2"
+                },
+                {
+                    "name": "L8"
+                }
+            ],
+            [
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L6"
+                },
+                {
+                    "name": "H5"
+                },
+                {
+                    "name": "H6"
+                },
+                {
+                    "name": "L2"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L2"
+                },
+                {
+                    "name": "L2"
+                },
+                {
+                    "name": "L4"
+                }
+            ],
+            [
+                {
+                    "name": "H5"
+                },
+                {
+                    "name": "L4"
+                },
+                {
+                    "name": "L10"
+                },
+                {
+                    "name": "L6"
+                },
+                {
+                    "name": "H7"
+                },
+                {
+                    "name": "L3"
+                },
+                {
+                    "name": "H5"
+                },
+                {
+                    "name": "L3"
+                },
+                {
+                    "name": "L7"
+                }
+            ],
+            [
+                {
+                    "name": "L3"
+                },
+                {
+                    "name": "L9"
+                },
+                {
+                    "name": "H3"
+                },
+                {
+                    "name": "L10"
+                },
+                {
+                    "name": "H4"
+                },
+                {
+                    "name": "L5"
+                },
+                {
+                    "name": "L5"
+                },
+                {
+                    "name": "L5"
+                },
+                {
+                    "name": "L7"
+                }
+            ],
+            [
+                {
+                    "name": "L9"
+                },
+                {
+                    "name": "L8"
+                },
+                {
+                    "name": "L5"
+                },
+                {
+                    "name": "L7"
+                },
+                {
+                    "name": "L2"
+                },
+                {
+                    "name": "L4"
+                },
+                {
+                    "name": "L2"
+                },
+                {
+                    "name": "L8"
+                },
+                {
+                    "name": "L5"
+                }
+            ]
+        ],
+        "paddingPositions": [
+            17,
+            23,
+            5,
+            8,
+            77,
+            2,
+            76
+        ],
+        "gameType": "basegame",
+        "anticipation": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
+    },
+    "winInfo": {
+        "type": "winInfo",
+        "totalWin": 80,
+        "wins": [
+            {
+                "symbol": "L1",
+                "kind": 5,
+                "win": 80,
+                "positions": [
+                    {
+                        "reel": 2,
+                        "row": 3
+                    },
+                    {
+                        "reel": 2,
+                        "row": 4
+                    },
+                    {
+                        "reel": 2,
+                        "row": 5
+                    },
+                    {
+                        "reel": 3,
+                        "row": 5
+                    },
+                    {
+                        "reel": 2,
+                        "row": 6
+                    }
+                ],
+                "meta": {
+                    "clusterSize": 5,
+                    "winWithoutMult": 80,
+                    "multiplier": 1
+                }
+            }
+        ]
+    },
+    "updateTumbleWin": {
+        "type": "updateTumbleWin",
+        "amount": 80
+    },
+    "lineMults": {
+        "type": "lineMults",
+        "drops": [
+            {
+                "reel": 2,
+                "row": 5,
+                "mult": 2
+            }
+        ],
+        "gridMults": [
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                2.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        ]
+    },
+    "tumbleBoard": {
+        "type": "tumbleBoard",
+        "newSymbols": [
+            [],
+            [],
+            [
+                {
+                    "name": "L4"
+                },
+                {
+                    "name": "L1"
+                },
+                {
+                    "name": "L5"
+                },
+                {
+                    "name": "L3"
+                }
+            ],
+            [
+                {
+                    "name": "L3"
+                }
+            ],
+            [],
+            [],
+            []
+        ],
+        "explodingSymbols": [
+            {
+                "reel": 2,
+                "row": 3
+            },
+            {
+                "reel": 2,
+                "row": 4
+            },
+            {
+                "reel": 2,
+                "row": 5
+            },
+            {
+                "reel": 2,
+                "row": 6
+            },
+            {
+                "reel": 3,
+                "row": 5
+            }
+        ]
+    },
+    "setWin": {
+        "type": "setWin",
+        "amount": 80,
+        "winLevel": 2
+    },
+    "setTotalWin": {
+        "type": "setTotalWin",
+        "amount": 80
+    },
+    "finalWin": {
+        "type": "finalWin",
+        "amount": 80
+    },
+    "booster": {
+        "type": "booster",
+        "boosters": [
+            {
+                "reel": 3,
+                "row": 7,
+                "mult": 1.25,
+                "cells": [
+                    {
+                        "reel": 3,
+                        "row": 7
+                    },
+                    {
+                        "reel": 2,
+                        "row": 7
+                    },
+                    {
+                        "reel": 4,
+                        "row": 7
+                    },
+                    {
+                        "reel": 3,
+                        "row": 6
+                    }
+                ]
+            }
+        ],
+        "gridMults": [
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.25
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.25,
+                1.25
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.25
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ],
+            [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        ]
+    },
+    "freeSpinTrigger": {
+        "type": "freeSpinTrigger",
+        "totalFs": 10,
+        "positions": [
+            {
+                "reel": 1,
+                "row": 2
+            },
+            {
+                "reel": 2,
+                "row": 4
+            },
+            {
+                "reel": 6,
+                "row": 6
+            }
+        ]
+    },
+    "enterBonus": {
+        "type": "enterBonus",
+        "reason": "standard"
+    },
+    "updateFreeSpin": {
+        "type": "updateFreeSpin",
+        "amount": 0,
+        "total": 10
+    },
+    "freeSpinEnd": {
+        "type": "freeSpinEnd",
+        "amount": 1020,
+        "winLevel": 4
+    },
+    "wallDrop": {
+        "type": "wallDrop",
+        "kind": "line",
+        "positions": [
+            {
+                "reel": 2,
+                "row": 3
+            },
+            {
+                "reel": 3,
+                "row": 3
+            },
+            {
+                "reel": 4,
+                "row": 3
+            },
+            {
+                "reel": 5,
+                "row": 3
+            }
+        ]
+    },
+    "extremeTrigger": {
+        "type": "extremeTrigger",
+        "positions": [
+            {
+                "reel": 3,
+                "row": 7
+            }
+        ],
+        "reason": "extreme_upgrade"
+    },
+    "wincap": {
+        "type": "wincap",
+        "amount": 1000000
+    }
+}

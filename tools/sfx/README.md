@@ -42,3 +42,15 @@ clean3's strict clean and master, written straight into `frontend/assets/`). Wor
   broom swish is itself noise, so its bed limit is -56 (`BED`); the jug wah-wahs came back ~4 s, so they are
   time-compressed 2x with pitch kept (`wsola`) and re-levelled; the "fiddle + rooster" takes put the rooster ~2.5 s in,
   so the bonus start keeps only the fiddle (1.7 s cap) and the rooster got its own prompt.
+
+## The rest of the sounds, harvest (2026-11-04)
+
+Every clip still left from the street game (the Casino Machines singles in `SFX` and the street pass's own sets in
+`SFX_SETS`: ident, glints, counters, UI, ...) was remade harvest, in place, under the same file names: `fall_spec.H`
+(the `h_*` sounds). New on `fall.py`: `loop` (reels / win tally / Bonus-button hover: the steadiest stretch of a take,
+end crossfaded into its start), `ticks` (the money counter: `h_ratchet`'s built clicks laid every 125 ms, 22 of them)
+and `ENDPEAK` (the ident's rise is cut to 1.62 s ending on its loudest moment). `jackpot_a/b` are written as the same
+sound as `jackpot_alert_a/b` (they were byte-identical originals, and nothing plays them). The bust wah-wahs are left
+alone (being removed from the game). The street originals are backed up in `%TEMP%/fall_sfx/old_assets/`.
+`encode_opus.py` makes the .ogg copies without node: a stdlib server hands headless Chrome the WAVs and takes back
+the Opus files (the same WebCodecs encoder and Ogg muxer as `encode_new.js`).

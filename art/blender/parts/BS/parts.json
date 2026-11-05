@@ -5,64 +5,54 @@
  ],
  "layers": [
   {
-   "name": "tail_l",
-   "png": "tail_l.png",
+   "name": "badge",
+   "png": "badge.png",
    "pivot": [
-    475,
-    262
+    500,
+    930
    ],
-   "parent": "bow",
+   "parent": "root",
    "order": 0
   },
   {
-   "name": "prong_r",
-   "png": "prong_r.png",
+   "name": "leaf_l",
+   "png": "leaf_l.png",
    "pivot": [
-    528,
-    398
+    330,
+    330
    ],
-   "parent": "top",
+   "parent": "badge",
    "order": 1
   },
   {
-   "name": "top",
-   "png": "top.png",
+   "name": "leaf_r",
+   "png": "leaf_r.png",
    "pivot": [
-    515,
-    395
+    690,
+    330
    ],
-   "parent": "root",
+   "parent": "badge",
    "order": 2
   },
   {
-   "name": "prong_l",
-   "png": "prong_l.png",
+   "name": "let_f",
+   "png": "let_f.png",
    "pivot": [
-    500,
-    398
+    320,
+    790
    ],
-   "parent": "top",
+   "parent": "badge",
    "order": 3
   },
   {
-   "name": "tail_r",
-   "png": "tail_r.png",
+   "name": "let_s",
+   "png": "let_s.png",
    "pivot": [
-    565,
-    272
+    640,
+    800
    ],
-   "parent": "bow",
+   "parent": "badge",
    "order": 4
-  },
-  {
-   "name": "bow",
-   "png": "bow.png",
-   "pivot": [
-    515,
-    240
-   ],
-   "parent": "top",
-   "order": 5
   }
  ]
 }

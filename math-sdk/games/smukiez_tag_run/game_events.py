@@ -35,7 +35,8 @@ def booster_event(gamestate) -> None:
 
 def wall_drop_event(gamestate, kind: str, positions: list) -> None:
     """A wall event on the board just revealed: "line" (3 or 4 walls in a row or column) or
-    "cover" (every cell but a scatter). The walls themselves are in the reveal; this names
+    "cover" (every cell but a scatter) or "corkstorm" (the Cork Storm buy's four 2,500x Multis,
+    on random cells). The walls themselves are in the reveal; this names
     them so the client can announce the event. Positions carry the +1 padding offset."""
     pad = 1 if gamestate.config.include_padding else 0
     event = {

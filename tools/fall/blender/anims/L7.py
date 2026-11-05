@@ -3,7 +3,8 @@ Each piece rides the one before it, so a bend at the quill is carried up the fea
 the tip always does the most, a beat behind the quill - a light, whippy thing.
 idle   it sways in a breeze, the bend running up the feather link by link, the eye fluttering at the tip
 land   it drops on light: barely a squash at the quill, but the vane flops over and the tip flutters to a stop
-hit    it cocks back and SWISHES side to side like it's tickling someone, the wave whipping out to the tip, feathers
+hit    it bends back and SWISHES like it's tickling someone - the bend rolling up its joints (the quill barely
+       turns: owner, 2026-11-04), the wave whipping out to the tip, feathers
        shaken loose drifting down
 multi  it goes stiff - straight as a quill, trembling harder and swelling - then FLICKS: the whip cracks up the feather
        and it shudders back, feathers and sparks flung off"""
@@ -82,19 +83,19 @@ def hit(c):
         u = i / n
         if i <= 7:                                             # cock back
             e = c.ease_in_out(i / 7)
-            p = dict(root=dict(r=7 * e, x=-.15 * e, sx=1 - .02 * e), quill=dict(r=2 * e))
+            p = dict(root=dict(r=2 * e, x=-.05 * e, sx=1 - .02 * e), quill=dict(r=1.5 * e))
             for j, b in enumerate(CHAIN):
-                p[b] = dict(r=(1.5 + j) * e)
+                p[b] = dict(r=(1.5 + .9 * j) * e)
             return p
         t = (i - 7) / 30
         env = 1 - c.ease_in_out(max(0, (u - .62) / .38))      # home by the end
         w = TAU * 2.9                                          # three swishes
         sw = lambda d: math.cos(w * max(0, t - d))            # starts where the cock-back left it (+1)
-        p = dict(root=dict(r=7 * sw(0) * env + 4 * S(w * t) * env, x=(-.15 * sw(0) + .25 * S(w * t)) * env,
-                           y=.12 * abs(S(w * t)) * env),
-                 quill=dict(r=2 * sw(.02) * env))
-        for j, b in enumerate(CHAIN):                          # the wave runs up the feather and cracks at the tip
-            a = (1.5 + j) + (1.5 + 1.2 * j) * c.ease_in_out(min(1, t / .2))
+        p = dict(root=dict(r=2 * sw(0) * env, x=(-.05 * sw(0) + .06 * S(w * t)) * env,
+                           y=.06 * abs(S(w * t)) * env, sy=1 + .02 * abs(S(w * t)) * env),
+                 quill=dict(r=1.5 * sw(.02) * env))
+        for j, b in enumerate(CHAIN):                          # the S-bend runs up the feather and cracks at the tip
+            a = (1.5 + .9 * j) + (1.0 + .8 * j) * c.ease_in_out(min(1, t / .2))
             p[b] = dict(r=a * sw(.035 * (j + 1)) * env)
         p["eye"]["r"] += 3 * S(t * 60) * env * min(1, t * 4)
         return p
@@ -121,7 +122,7 @@ def multi(c):
         u = i / n
         if i < R:                                              # goes stiff: straight, trembling harder, swelling
             k = (i / R) ** 1.4
-            p = dict(root=dict(r=5 * c.ease_in_out(i / R) + 1.2 * S(i * 2.9) * k, sx=1 + .06 * k, sy=1 + .06 * k))
+            p = dict(root=dict(r=1.5 * c.ease_in_out(i / R) + .6 * S(i * 2.9) * k, sx=1 + .05 * k, sy=1 + .06 * k))
             p["quill"] = dict(r=.8 * S(i * 3.4 + 1) * k)
             for j, b in enumerate(CHAIN):
                 p[b] = dict(r=(.6 + .3 * j) * S(i * (3.1 + .4 * j) + j) * k)
@@ -131,11 +132,11 @@ def multi(c):
         sw = c.ease_in_out(min(1, t / .1))                     # FLICK: swing through in 3 frames
         k = c.damp(t, 2.6, .3)
         back = (1 - c.ease_in_out(min(1, t / .25)))
-        p = dict(root=dict(r=(5 * back - 15 * sw * k) * env,
+        p = dict(root=dict(r=(1.5 * back - 3 * sw * k) * env,
                            sx=1 + .06 * back + .04 * imp(t, 3, .4) * env, sy=1 + .06 * back - .03 * imp(t, 3, .4) * env),
                  quill=dict(r=-2.5 * imp(t, 2.8, .3) * env))
         for j, b in enumerate(CHAIN):                          # the crack runs up the feather
-            p[b] = dict(r=-(4 + 3 * j) * imp(t - .03 * (j + 1), 2.6 + .3 * j, .24) * env)
+            p[b] = dict(r=-(5 + 3.5 * j) * imp(t - .03 * (j + 1), 2.6 + .3 * j, .24) * env)
         return p
     c.run("multi", pose)
     f0 = 301 + R

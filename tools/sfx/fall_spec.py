@@ -161,18 +161,161 @@ S = {
                  (.05, .3, 3, None), ("set", "bubble_pop", -24, "bubblePop", .3, "a neighbour popping, fizzy")),
 }
 
+# ---------------- 2026-11-04: the rest of the street / Casino Machines sounds, made harvest (same files) ----------------
+# Targets are the originals' own momentary-max LUFS, so the mix in index.html stays where it was.
+H = {
+    # the spin and the HUD singles (SFX map)
+    "h_spin": (PRE + "Turning the wooden hand crank of an old cider press once, quickly: a short ratcheting "
+               "wooden clack-clack-clack rising into a soft woody whir.", 5, "foley", (.45, 1.0, 1, "gesture"),
+               ("files", ["sfx_spin.wav"], -27, "spin: cider-press crank, ratchet into a whir")),
+    "h_bet": (PRE + "An acorn tapped once on the lid of a wooden barrel: one short, hollow, woody tock.", 5, "click",
+              (.04, .32, 1, None), ("files", ["sfx_bet.wav"], -26.5, "bet +/-: acorn tock on a barrel lid")),
+    "h_toggle": (PRE + "Flipping a small wooden latch on a barn door: one quick crisp woody click-clack.", 5, "click",
+                 (.04, .32, 1, None), ("files", ["sfx_toggle.wav"], -26.5, "a switch: wooden latch click")),
+    "h_skip": (PRE + "A dry corn stalk swiped quickly through the air: one short, light, papery swish.", 5, "whoosh",
+               (.15, .4, 1, None), ("files", ["sfx_skip.wav"], -30, "skip: corn-stalk swish")),
+    "h_line": (PRE_STING + "A quick bright banjo pluck running up three notes and ringing: plink-plink-plinnng.", 5,
+               "sting", (.4, 1.0, 1, None), ("files", ["sfx_line.wav"], -17, "a cluster lights: banjo three-note run")),
+    "h_bonus_end": (PRE_STING + "A short cheerful fiddle cadence that resolves and ends on one long bright final "
+                    "note, like the end of a country hoedown tune.", 5, "sting", (1.0, 1.7, 1, None),
+                    ("files", ["sfx_bonus_end.wav"], -16, "free spins over: fiddle cadence (fetched, not played yet)")),
+    "h_bell": (PRE + "One strike of a small brass farmhouse dinner bell: a bright, clear ding ringing out and "
+               "fading.", 5, "tone", (.7, 1.5, 1, "gesture"), ("files", ["sfx_bell.wav"], -19.5, "tally end: dinner-bell ding")),
+    "h_medium_win": (PRE_STING + "A cheerful bright bluegrass banjo strum on one big major chord with a fiddle "
+                     "accent, ringing out for two seconds.", 5, "sting", (1.4, 3.0, 1, None),
+                     ("files", ["sfx_medium_win.wav"], -17.5, "total screen marks: banjo + fiddle chord (pitched up per mark)")),
+    "h_trophy": (PRE + "A big deep old harvest bell in a wooden bell tower tolling once: one warm, rich, low BONG "
+                 "with a long ringing decay.", 5, "tone", (1.4, 2.5, 1, "gesture"),
+                 ("files", ["sfx_trophy.wav"], -23, "the total arrives: one deep harvest-bell bong")),
+    "h_coins_rain": (PRE + "A big basket of acorns and walnuts poured out onto a wooden barn floor: a lively "
+                     "pattering clatter of nuts bouncing and rolling for about four seconds, thinning out at the end.",
+                     5, "foley", (2.5, 4.9, 1, "gesture"),
+                     ("files", ["sfx_coins_rain.wav"], -21, "the total arrives: acorns and walnuts raining down")),
+    "h_pop": (PRE + "A single kernel of corn popping into popcorn in a hot pan: one bright, puffy, cartoony pop.", 6,
+              "hit", (.06, .8, 1, None), ("files", ["sfx_pop.wav"], -20, "an icon popping off: popcorn pop")),
+    "h_multi_hit": (PRE + "A heavy wooden mallet striking an empty oak cider barrel: one big hollow resonant boom, "
+                    "with a bright cowbell clank on top.", 5, "impact", (.5, 1.55, 1, None),
+                    ("files", ["sfx_multi_hit.wav"], -20.5, "a Multi going off: barrel boom + cowbell")),
+    "h_alert_a": (PRE + "A big cowbell rung hard three times in quick succession: clank-clank-clank, ringing out.", 5,
+                  "tone", (.7, 1.6, 1, "gesture"),
+                  ("files", ["sfx_jackpot_alert_a.wav", "sfx_jackpot_a.wav"], -18.5, "Cork Storm / Full Harvest: cowbell x3")),
+    "h_alert_b": (PRE + "A brass dinner triangle rung rapidly around its inside: a bright, fast, jangling ring.", 5,
+                  "tone", (.7, 1.55, 1, "gesture"),
+                  ("files", ["sfx_jackpot_alert_b.wav", "sfx_jackpot_b.wav"], -18, "Cider Line: dinner triangle rung fast")),
+    "h_win_text": (PRE_STING + "A quick bright banjo 'ta-da': two fast plucked chords stepping up, the second one "
+                   "ringing.", 5, "sting", (.35, .9, 1, None),
+                   ("files", ["sfx_win_text.wav"], -20.5, "the win amount pops up: banjo ta-da")),
+    "h_auto_start": (PRE + "A heavy wooden lever on an old farm machine pulled down: a short wooden creak, then one "
+                     "solid wooden clunk.", 5, "foley", (.3, .8, 1, None),
+                     ("files", ["sfx_auto_start.wav"], -20, "autoplay on: wooden lever pulled, creak + clunk")),
+    "h_auto_stop": (PRE + "A heavy wooden lever pushed back up into place: one solid wooden clunk followed by a short "
+                    "squeak.", 5, "foley", (.3, .75, 1, None),
+                    ("files", ["sfx_auto_stop.wav"], -17.5, "autoplay off: lever pushed back, clunk + squeak")),
+    "h_menu_open": (PRE + "A small wooden cupboard door creaking open quickly: one short, soft, woody creak.", 5,
+                    "foley", (.3, .7, 1, None), ("files", ["sfx_menu_open.wav"], -26.5, "a panel opens: cupboard creak")),
+    "h_menu_close": (PRE + "A small wooden cupboard door swung shut: a short creak ending in one soft wooden clap.",
+                     5, "foley", (.3, .8, 1, None), ("files", ["sfx_menu_close.wav"], -26.5, "a panel closes: creak + clap")),
+    # the loops: a steady stretch of the take, crossfaded end-into-start (fall.py `loop`), no gate
+    "h_reels": (PRE + "An old wooden cart wheel rolling steadily along a bumpy dirt farm road: a continuous, even, "
+                "rhythmic wooden rattle and clatter that keeps going for five seconds.", 4, "foley", (1.2, 1.2, 1, None),
+                ("files", ["sfx_reels.wav"], -30, "reels spinning (loop, pitch follows the reels): cart-wheel rattle")),
+    "h_coins": (PRE + "Dry corn kernels pouring steadily from a scoop into a tin pail: a continuous, even, bright, "
+                "rattling patter that keeps going for five seconds.", 4, "foley", (.96, .96, 1, None),
+                ("files", ["sfx_coins.wav"], -31, "win tally (loop): corn kernels pouring into a tin pail")),
+    "h_hover": (PRE + "A cozy wood fire crackling softly in a stone hearth: gentle steady crackles and pops over a "
+                "low warm rumble, continuous for six seconds.", 4, "foley", (4.0, 4.0, 1, None),
+                ("files", ["sfx_hover_loop.wav"], -22, "Bonus button hover (loop): hearth fire crackle")),
+    # ---- the street pass's own sets (SFX_SETS), the same stems and take counts ----
+    # the studio ident
+    "h_intro_rise": (PRE_STING + "A fiddle bow tremolo that rises steadily in pitch and gets louder and louder for two "
+                     "seconds, building tension, and stops at its loudest, highest point.", 6, "sting",
+                     (1.0, 3.0, 3, None), ("set", "intro_rise", -18, "introRise", .5, "ident: rising fiddle tremolo, ends at its peak")),
+    "h_intro_whoosh": (PRE + "A quick gust of wind sweeping a swirl of dry autumn leaves right past the microphone: "
+                       "one short rushing whoosh.", 5, "whoosh", (.45, .9, 3, None),
+                       ("set", "intro_whoosh", -21, "introWhoosh", .45, "ident: leaf-gust whoosh")),
+    "h_intro_hit": (PRE + "A huge heavy wooden barn door slamming shut: one deep booming wooden thud with a long "
+                    "rumbling decay inside a big empty barn.", 5, "impact", (.5, 2.8, 2, "gesture"),
+                    ("set", "intro_hit", -13.5, "introHit", .72, "ident: the logo lands, barn-door boom")),
+    "h_intro_shimmer": (PRE + "Small brass and glass wind chimes stirred by a light breeze: a soft, airy, glassy "
+                        "shimmering tinkle.", 5, "tone", (.8, 1.3, 3, "gesture"),
+                        ("set", "intro_shimmer", -22, "introShimmer", .42, "ident: wind-chime shimmer")),
+    "h_intro_out": (PRE + "A soft gust of wind rushing away and carrying dry leaves off with it: one breathy whoosh "
+                    "fading out.", 5, "whoosh", (.6, .9, 2, None),
+                    ("set", "intro_out", -21.5, "introOut", .45, "ident out: wind whoosh away")),
+    # the win presentation
+    "h_glow": (PRE + "A soft warm breathy note blown across the mouth of an empty clay jug, swelling gently up and "
+               "fading away: one soft 'hooo'.", 5, "tone", (.6, 1.0, 2, "gesture"),
+               ("set", "glow_pulse", -25, "glowPulse", .26, "a symbol lights: soft jug-blow swell")),
+    "h_shine": (PRE_STING + "A quick light upward strum across the strings of an autoharp, ending in two tiny bright "
+                "plinks.", 5, "tone", (.35, .7, 2, "gesture"),
+                ("set", "shine", -24, "shine", .3, "a shine across a symbol: autoharp strum + two plinks")),
+    "h_sparkle": (PRE + "A light quick run of tiny glass wind chimes tinkling, delicate and sparkling.", 5, "tone",
+                  (.4, .95, 3, "gesture"), ("set", "sparkle", -24, "sparkle", .28, "glitter: tiny glass chimes")),
+    "h_glint": (PRE + "One single light tap on a small empty glass cider bottle with a spoon: one clear, bright, "
+                "pure ting, ringing briefly.", 6, "tone", (.25, .8, 4, "hit"),
+                ("set", "glint", -25, "glint", .24, "one bright ting per lit symbol (pitched to a scale): glass bottle tap")),
+    "h_count_tick": (PRE + "One acorn tapped on a wooden tabletop: a tiny, dry, crisp woody tick.", 5, "click",
+                     (.015, .06, 3, None), ("set", "count_tick", -26, "countTick", .26, "the figure counting: acorn tick")),
+    "h_count_end": (PRE + "A heavy wooden barrel lid set down with a solid clunk, followed right away by one bright "
+                    "ding of a brass farm bell ringing out.", 5, "tone", (.8, 1.75, 1, "gesture"),
+                    ("set", "count_end", -21, "countEnd", .5, "the figure lands: barrel-lid clunk + bell")),
+    "h_slam": (PRE + "A heavy wooden mallet slamming down on the top of an oak barrel: one deep, punchy, solid thump.",
+               5, "impact", (.2, .45, 3, None), ("set", "mult_slam", -17, "multSlam", .62, "the x<N> slams on: mallet on a barrel")),
+    "h_count_whoosh": (PRE + "A gust of autumn wind rising quickly, with dry leaves rustling and swirling upward: one "
+                       "rising whoosh.", 5, "whoosh", (.8, 1.4, 2, None),
+                       ("set", "count_whoosh", -23.5, "countWhoosh", .4, "the count climbs again: rising leaf gust")),
+    "h_float": (PRE + "A soft breeze carrying a few dry leaves away, the rustle drifting off and fading into the "
+                "distance.", 5, "whoosh", (.9, 1.8, 2, None),
+                ("set", "float_away", -24, "floatAway", .36, "the figure floats away: leaves drifting off")),
+    # board / HUD
+    "h_reel_stop": (PRE + "A small wooden crate set down firmly on a wooden barn floor: one short, solid wooden thunk.",
+                    5, "hit", (.06, .25, 3, None), ("set", "reel_stop", -22, "reelStop", .3, "a column's last tile down: crate thunk")),
+    "h_click": (PRE + "A small wooden peg pushed firmly into a wooden board: one tiny, crisp, woody click.", 5, "click",
+                (.015, .08, 3, None), ("set", "ui_click", -27, "uiClick", .32, "any button: wooden peg click")),
+    "h_hover_tick": (PRE + "A fingernail flicking a dry corn husk once: one tiny, soft, papery tick.", 5, "click",
+                     (.01, .035, 2, None), ("set", "ui_hover", -30, "uiHover", .14, "pointer on a button: corn-husk tick")),
+    "h_ratchet": (PRE + "An old wooden ratchet gear turned by one notch: one single tiny, crisp, woody click.", 6, "click",
+                  (.015, .06, 2, None), ("set", "slider_tick", -27, "sliderTick", .22,
+                                         "volume notch: wooden ratchet click (its takes also make sfx_money_tick, fall.py ticks)")),
+    "h_swish_in": (PRE + "A burlap sack whipped quickly through the air: one soft, low, airy fabric swish.", 5, "whoosh",
+                   (.2, .55, 2, None), ("set", "swish_in", -25, "swishIn", .3, "under menuOpen: burlap swish")),
+    "h_swish_out": (PRE + "A burlap sack swung quickly away through the air: one soft, low, airy fabric swish that "
+                    "fades off.", 5, "whoosh", (.2, .55, 2, None),
+                    ("set", "swish_out", -25, "swishOut", .28, "under menuClose: burlap swish away")),
+    "h_buy": (PRE + "A brass farmhouse dinner bell rung twice: a bright ding-ding, ringing out.", 5, "tone",
+              (.8, 1.4, 1, "gesture"), ("set", "buy_confirm", -21, "buyConfirm", .5, "a bonus bought: dinner bell ding-ding")),
+    "h_fs_tick": (PRE + "A wooden clothespin snapping shut: one short, crisp, woody clack.", 5, "click",
+                  (.03, .13, 2, None), ("set", "fs_tick", -25, "fsTick", .32, "free spins counter: clothespin clack")),
+}
+S.update(H)
+# made by fall.py `loop` (a seamless loop cut from the take, not build): name -> crossfade seconds
+LOOP = {"h_reels": .12, "h_coins": .1, "h_hover": .6}
+# made by fall.py `ticks` from h_ratchet's picks: the money counter's loop, one click every 125 ms, 22 of them
+TICKS = {"sfx_money_tick.wav": dict(src="h_ratchet", period=.125, n=22, tgt=-20)}
+# after the clean: keep only this many seconds ending at the loudest moment (the ident's rise ends at its peak)
+ENDPEAK = {"h_intro_rise": 1.62}
+
 # one event per take for these (no second hit inside the event)
 SINGLE = {"land_platter", "land_pie", "land_hat", "land_jug", "land_corn", "land_pumpkin", "land_leaf", "land_acorn",
           "land_apple", "land_grapes", "land_sunflower", "land_feather", "land_jelly", "land_porcelain", "land_hay",
-          "land_bottle", "crow_peck", "f_cork", "f_gravy_drop", "f_plop", "f_squash", "b_pop", "c_bonk", "c_bubble"}
-TONAL = {"land_porcelain", "land_bottle", "f_scatter", "f_bonus", "f_bust", "land_pie"}
+          "land_bottle", "crow_peck", "f_cork", "f_gravy_drop", "f_plop", "f_squash", "b_pop", "c_bonk", "c_bubble",
+          "h_bet", "h_toggle", "h_pop", "h_multi_hit", "h_intro_hit", "h_glint", "h_count_tick", "h_slam",
+          "h_reel_stop", "h_click", "h_hover_tick", "h_ratchet", "h_fs_tick"}
+TONAL = {"land_porcelain", "land_bottle", "f_scatter", "f_bonus", "f_bust", "land_pie",
+         "h_line", "h_bonus_end", "h_bell", "h_medium_win", "h_trophy", "h_alert_a", "h_alert_b", "h_win_text",
+         "h_intro_rise", "h_intro_shimmer", "h_glow", "h_shine", "h_sparkle", "h_glint", "h_count_end", "h_buy"}
 FOUT = {"f_scatter": 400, "f_bonus": 250, "f_bust": 250, "jug_slosh": 120, "straw_rustle": 90, "rope_creak": 90,
-        "wing_flap": 90, "f_sweep_long": 120, "crow_caw": 60}
+        "wing_flap": 90, "f_sweep_long": 120, "crow_caw": 60,
+        "h_bell": 300, "h_trophy": 500, "h_medium_win": 400, "h_bonus_end": 300, "h_line": 200, "h_win_text": 150,
+        "h_alert_a": 250, "h_alert_b": 250, "h_count_end": 350, "h_buy": 300, "h_coins_rain": 400,
+        "h_intro_hit": 600, "h_intro_shimmer": 250, "h_float": 300, "h_intro_out": 200, "h_glow": 200, "h_glint": 150}
 
 
 # the bed allowed under a sound that is itself a noise (a broom swish fills its whole take; outside the
 # sound the gate leaves exact zero anyway); everything else keeps clean3's -72 dBFS
-BED = {"f_sweep_long": -56}
+BED = {"f_sweep_long": -56, "h_glow": -52, "h_sparkle": -52, "h_swish_in": -52}
+# the continuous ones (a jangling triangle, a tremolo, a chime shimmer) are all "bed": fall.py `texture`
+TEXTURE = {"h_alert_b", "h_intro_rise", "h_intro_shimmer"}
 # hand picks (take files from cand/) where the scoring can't hear the difference
 MANUAL = {"f_bonus": ["5_0.wav"]}      # take 5: a clean fiddle run up to a high note in its first 1.45 s
 # time-compressed (WSOLA, pitch kept) after cleaning: the jug's four wah-wahs came back ~4 s long

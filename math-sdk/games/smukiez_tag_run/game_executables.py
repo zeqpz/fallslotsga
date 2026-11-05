@@ -74,6 +74,8 @@ class GameExecutables(GameCalculations):
         conds = self.get_current_distribution_conditions()
         if self.gametype == self.config.basegame_type and conds.get("force_cover", False):
             self.cover_board()
+        elif self.gametype == self.config.basegame_type and conds.get("force_corks", False):
+            self.drop_corks()
         elif random.random() < self.config.wall_line_chance.get(self.gametype, 0):
             self.drop_wall_line()
 
@@ -119,6 +121,24 @@ class GameExecutables(GameCalculations):
         self.get_special_symbols_on_board()
         self.wall_event = ("cover", cells)
         self.record({"kind": len(cells), "symbol": "wallcover", "gametype": self.gametype})
+
+    def drop_corks(self) -> None:
+        """Cork Storm: exactly cork_storm_count Multis, each worth cork_storm_value, replace the
+        symbols on that many cells picked at random (never a scatter). Nothing else is steered:
+        whether a cluster ever forms on the values they leave is up to the board and its refills
+        (the corkstorm strip "BRC" holds no Multis, so no other lands during the spin)."""
+        cells = [
+            (r, c)
+            for r in range(self.config.num_reels)
+            for c in range(self.config.num_rows[r])
+            if not self.board[r][c].check_attribute("scatter", "scatter_extreme")
+        ]
+        cells = sorted(random.sample(cells, self.config.cork_storm_count))
+        for r, c in cells:
+            self._wall_at(r, c, {self.config.cork_storm_value: 1})
+        self.get_special_symbols_on_board()
+        self.wall_event = ("corkstorm", cells)
+        self.record({"kind": len(cells), "symbol": "corkstorm", "gametype": self.gametype})
 
     def emit_wall_event(self) -> None:
         """Name the wall event on the board just revealed, if there was one."""

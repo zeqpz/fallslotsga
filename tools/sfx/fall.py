@@ -6,6 +6,9 @@
   python tools/sfx/fall.py build [name ...]   # clean3's strict clean + master from the raw take -> frontend/assets
   python tools/sfx/fall.py all   [name ...]
   python tools/sfx/fall.py texture name ...   # a slosh / fizz / gush the strict clean turns away: level + fade only
+  python tools/sfx/fall.py loop    [name ...]   # FS.LOOP: a seamless loop cut from the steadiest take (reels, tally, hover)
+  python tools/sfx/fall.py ticks              # FS.TICKS: the money counter loop, built from h_ratchet's built clicks
+  python tools/sfx/encode_opus.py %TEMP%/fall_sfx/written.txt   # the .ogg copies (headless Chrome, no node needed)
 
 The prompts and where each sound goes are in fall_spec.py. The work files stay in %TEMP%/fall_sfx (rebuildable);
 build writes the WAVs into frontend/assets and the list of them to %TEMP%/fall_sfx/written.txt, which
@@ -225,6 +228,8 @@ def build(names):
                 continue
             res.append((c, y, info))
         for fn, (c, y, info) in zip(fns, res):
+            if name in FS.ENDPEAK:
+                y = end_at_peak(y, FS.ENDPEAK[name])
             if name in FS.STRETCH:
                 y = wsola(y, FS.STRETCH[name], SR)
                 _, M = lufs(y, SR)                      # back to the loudness target, never over -1.5 dBFS
@@ -252,6 +257,8 @@ def texture(names):
     db = json.load(open(os.path.join(W, "cand.json")))
     picks = json.load(open(os.path.join(W, "picks.json")))
     from audiolib import read_wav
+    wl = os.path.join(W, "written.txt")
+    written = [l.strip() for l in open(wl) if l.strip()] if os.path.exists(wl) else []
     for name in names:
         _, _, kind, (mn, mx, keep, _), out = FS.S[name]
         tgt = out[2]
@@ -264,15 +271,121 @@ def texture(names):
             if y.shape[1] == 1:
                 y = np.repeat(y, 2, axis=1)
             y = signal.sosfiltfilt(signal.butter(2, 80, "hp", fs=SR, output="sos"), y, axis=0)
-            y = y[:int(mx * SR)]
+            y = y[:int(mx * SR)] if name not in FS.ENDPEAK else end_at_peak(y, FS.ENDPEAK[name])
             _, M = lufs(y, SR)
             y *= 10 ** (min(tgt - M, -1.5 - 20 * np.log10(np.abs(y).max() + 1e-12)) / 20)
             fi, fo = int(.012 * SR), int(.09 * SR)
             y[:fi] *= np.linspace(0, 1, fi)[:, None]
             y[-fo:] *= (.5 + .5 * np.cos(np.linspace(0, np.pi, fo)))[:, None]
             write_wav(os.path.join(ASSETS, fn), y, SR)
+            if fn not in written:
+                written.append(fn)
             I, M = lufs(y, SR)
             print(f"{fn:28s} {name}:{f:7s} dur {len(y) / SR:5.2f}s pk {20 * np.log10(np.abs(y).max() + 1e-12):5.1f} M {M:6.1f}")
+    open(wl, "w").write("\n".join(written) + "\n")
+
+
+def end_at_peak(y, secs):
+    """Keep `secs` ending just after the loudest 50 ms (a rise that must end on its peak, into the next
+    sound); a take shorter than that gets silence in front, so it still ends on time."""
+    e = np.sqrt(signal.convolve((y ** 2).mean(1), np.ones(int(.05 * SR)) / int(.05 * SR), mode="same"))
+    end = min(len(y), int(np.argmax(e)) + int(.04 * SR))
+    n = int(secs * SR)
+    y = y[max(0, end - n):end].copy()
+    if len(y) < n:
+        y = np.concatenate([np.zeros((n - len(y), y.shape[1])), y])
+    else:
+        fi = int(.15 * SR)                       # cut into a sound already going: ease it in
+        y[:fi] *= (np.linspace(0, 1, fi) ** 2)[:, None]
+    fo = int(.025 * SR)
+    y[-fo:] *= np.linspace(1, 0, fo)[:, None]
+    y[0] = 0; y[-1] = 0
+    return y
+
+
+def _level(y, tgt):
+    _, M = lufs(y, SR)
+    return y * 10 ** (min(tgt - M, -1.5 - 20 * np.log10(np.abs(y).max() + 1e-12)) / 20)
+
+
+# ------------------------------------------------------------------ loops (a steady stretch, end crossfaded into start)
+def loop(names):
+    """For the looped clips (reel spin, win tally, hover): from every take, the steadiest stretch of the loop's
+    length (+ the crossfade), whose end is crossfaded (equal power) into its start, so the last sample runs
+    straight on into the first. No gate: a loop has no silence. The steadiest take wins; the others are kept in
+    %TEMP%/fall_sfx/loops for listening."""
+    os.makedirs(os.path.join(W, "loops"), exist_ok=True)
+    written = [l.strip() for l in open(os.path.join(W, "written.txt")) if l.strip()] if os.path.exists(os.path.join(W, "written.txt")) else []
+    for name in names:
+        if name not in FS.LOOP:
+            continue
+        _, _, kind, (L, _, _, _), out = FS.S[name]
+        X, tgt = FS.LOOP[name], out[2]
+        nL, nX = int(L * SR), int(X * SR)
+        best = None
+        for p in sorted(p for p in glob.glob(os.path.join(RAW, f"{name}_*.pcm")) if p[len(os.path.join(RAW, name)) + 1:-4].isdigit()):
+            st = np.frombuffer(open(p, "rb").read(), "<i2").reshape(-1, 2).astype(np.float64) / 32768
+            st = st - st.mean(0)
+            st = signal.sosfiltfilt(signal.butter(4, 60, "highpass", fs=SR0, output="sos"), st, axis=0)
+            x = signal.resample_poly(st, 147, 80, axis=0)
+            w = int(.05 * SR)
+            r = 10 * np.log10(signal.convolve((x ** 2).mean(1), np.ones(w) / w, mode="same") + 1e-12)
+            top = r.max()
+            sc_best = None
+            for a in range(int(.1 * SR), len(x) - nL - nX - int(.1 * SR), int(.01 * SR)):
+                rr = r[a:a + nL + nX]
+                if rr.min() < top - 20:             # a gap or the take's fade inside the window
+                    continue
+                # steady (small spread of the 50 ms level) and level-matched across the splice
+                sc = np.percentile(rr, 95) - np.percentile(rr, 5) + .5 * abs(r[a + nL:a + nL + nX].mean() - r[a:a + nX].mean())
+                sc += .15 * (top - rr.mean())       # prefer the take's full-bodied part
+                if sc_best is None or sc < sc_best[0]:
+                    sc_best = (sc, a)
+            if sc_best is None:
+                print(f"  {os.path.basename(p)}: no steady {L + X:.2f}s stretch"); continue
+            sc, a = sc_best
+            seg = x[a:a + nL + nX]
+            y = seg[:nL].copy()
+            t = np.linspace(0, np.pi / 2, nX)[:, None]
+            y[:nX] = seg[:nX] * np.sin(t) + seg[nL:nL + nX] * np.cos(t)
+            y = _level(y, tgt)
+            write_wav(os.path.join(W, "loops", f"{name}_{os.path.basename(p)[:-4]}.wav"), y, SR)
+            print(f"  {os.path.basename(p):14s} at {a / SR:5.2f}s spread score {sc:5.2f}")
+            if best is None or sc < best[0]:
+                best = (sc, y, p)
+        if best is None:
+            print(f"  !! {name}: no loop"); continue
+        for fn in out[1]:
+            write_wav(os.path.join(ASSETS, fn), best[1], SR)
+            if fn not in written:
+                written.append(fn)
+        I, M = lufs(best[1], SR)
+        print(f"{name}: {os.path.basename(best[2])} -> {out[1]}  {len(best[1]) / SR:.2f}s M {M:.1f}")
+    open(os.path.join(W, "written.txt"), "w").write("\n".join(written) + "\n")
+
+
+# ------------------------------------------------------------------ ticks (a counter loop built from single clicks)
+def ticks(names=None):
+    from audiolib import read_wav
+    wl = os.path.join(W, "written.txt")
+    written = [l.strip() for l in open(wl) if l.strip()] if os.path.exists(wl) else []
+    for fn, t in FS.TICKS.items():
+        out = FS.S[t["src"]][4]
+        srcs = [read_wav(os.path.join(ASSETS, f"sfx_{out[1]}_{i}.wav"))[0] for i in range(1, FS.S[t["src"]][3][2] + 1)]
+        nP = int(round(t["period"] * SR))
+        y = np.zeros((nP * t["n"], 2))
+        rng = np.random.default_rng(7)
+        for k in range(t["n"]):
+            s = srcs[k % len(srcs)][:nP - int(.004 * SR)] * 10 ** (rng.uniform(-1.2, 1.2) / 20)
+            o = int(.004 * SR)
+            y[k * nP + o:k * nP + o + len(s)] += s
+        y = _level(y, t["tgt"])
+        write_wav(os.path.join(ASSETS, fn), y, SR)
+        if fn not in written:
+            written.append(fn)
+        I, M = lufs(y, SR)
+        print(f"{fn}: {t['n']} clicks of {t['src']} every {t['period'] * 1000:.0f} ms, {len(y) / SR:.2f}s M {M:.1f}")
+    open(wl, "w").write("\n".join(written) + "\n")
 
 
 def main():

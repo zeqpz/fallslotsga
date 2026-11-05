@@ -32,7 +32,7 @@ const RULES = (() => {
     L10: [0.4, 0.8, 1.2, 3.2, 8, 24],
   };
   const NAMES = {
-    M: "Cider Multi", BS: "Golden Wishbone", ES: "The Crow",
+    M: "Cider Multi", BS: "FS Scatter", ES: "XFS Scatter",
     H1: "Roast Turkey", H2: "Pumpkin Pie", H3: "Cornucopia", H4: "Pilgrim Hat", H5: "Moonshine Jug",
     H6: "Ear of Corn", H7: "Pumpkin",
     L1: "Maple Leaf", L2: "Acorn", L3: "Green Apple", L4: "Grapes", L5: "Sunflower",
@@ -121,7 +121,7 @@ const RULES = (() => {
   <h4>${t("Game modes")}</h4>
   <table class="modes">
     <tr><th>${t("Mode")}</th><th>${t("Cost")}</th><th>${t("What you get")}</th></tr>
-    <tr><td>${t("Base game")}</td><td>${x(1)} <em>${money(1)}</em></td><td>${t("One spin. Free spins trigger naturally from Golden Wishbone and Crow symbols.")}</td></tr>
+    <tr><td>${t("Base game")}</td><td>${x(1)} <em>${money(1)}</em></td><td>${t("One spin. Free spins trigger naturally from FS and XFS symbols.")}</td></tr>
     <tr><td>${t("Buy Bonus")}</td><td>${x(cost.bonus)} <em>${money(cost.bonus)}</em></td><td>${t("A spin guaranteed to trigger the Standard Bonus (10, 12 or 15 free spins). RTP ")}${RTP}.</td></tr>
     <tr><td>${t("Buy Extreme")}</td><td>${x(cost.extremebonus)} <em>${money(cost.extremebonus)}</em></td><td>${t("A spin guaranteed to trigger the Extreme Bonus. RTP ")}${RTP}.</td></tr>
   </table>
@@ -137,21 +137,21 @@ const RULES = (() => {
 <section>
   <h4>${t("Special symbols")}</h4>
   <div class="prow">${tile("M")}<div class="pname">${t("Multi — Multiplier")}<small>M</small></div>
-    <div class="ptext">${t(`Lands with a value from ${x(MULTI_MIN)} to ${x(MULTI_MAX)}, shown on the symbol. Every winning cluster on the board is paid first; only then does it blow out: the Multi and the four symbols sharing an edge with it are removed, each of those five cells keeps the Multi's value, and new symbols drop in on top. A winning cluster that covers one or more of those cells is multiplied by the SUM of the values on the cells it covers. When two Multis reach the same cell their values add. In the base game the values last for the rest of the spin, including every tumble; in a bonus they stay on the board for the whole feature. Golden Wishbone and The Crow are never removed by a Multi. The Multi does not form clusters and has no value of its own.`)}</div></div>
+    <div class="ptext">${t(`Lands with a value from ${x(MULTI_MIN)} to ${x(MULTI_MAX)}, shown on the symbol. Every winning cluster on the board is paid first; only then does it blow out: the Multi and the four symbols sharing an edge with it are removed, each of those five cells keeps the Multi's value, and new symbols drop in on top. A winning cluster that covers one or more of those cells is multiplied by the SUM of the values on the cells it covers. When two Multis reach the same cell their values add. In the base game the values last for the rest of the spin, including every tumble; in a bonus they stay on the board for the whole feature. FS and XFS symbols are never removed by a Multi. The Multi does not form clusters and has no value of its own.`)}</div></div>
   <div class="prow">${tile("M")}<div class="pname">${t("Cider Line and Full Harvest")}<small>M</small></div>
-    <div class="ptext">${t("Cider Line: a straight line of 3 or 4 Multis can land together, along a row or down a column; their blasts overlap, so the cells between them collect more than one value. It can land on any spin, and far more often in a bonus. Full Harvest: very rarely, in the base game, every cell of the board except a Golden Wishbone or Crow becomes a Multi at once; they all blow out together and the whole board drops in on top of their values.")}</div></div>
+    <div class="ptext">${t("Cider Line: a straight line of 3 or 4 Multis can land together, along a row or down a column; their blasts overlap, so the cells between them collect more than one value. It can land on any spin, and far more often in a bonus. Full Harvest: very rarely, in the base game, every cell of the board except an FS or XFS symbol becomes a Multi at once; they all blow out together and the whole board drops in on top of their values.")}</div></div>
   <div class="prow"><div class="ptile multi"><span>x1.25</span><small>DROP</small></div><div class="pname">${t("Line Drops")}</div>
     <div class="ptext">${t("Every winning cluster, once paid, leaves a small multiplier (x1.25, x1.5 or x2) on one of its own cells for every five symbols it held, chosen at random. A line drop adds to whatever value that cell already holds and lasts exactly as a Multi's value does: for the rest of the spin in the base game, for the whole feature in a bonus. It never changes the win of the cluster that left it.")}</div></div>
-  <div class="prow"><img class="ptile" src="assets/flat/BS.webp" alt="Golden Wishbone" draggable="false"><div class="pname">${t("Golden Wishbone — Bonus Scatter")}<small>BS</small></div>
-    <div class="ptext">${t("Appears anywhere. 3, 4 or 5 Golden Wishbones on one spin award 10, 12 or 15 free spins (the Standard Bonus). Golden Wishbone does not form clusters and has no value of its own.")}</div></div>
-  <div class="prow"><img class="ptile" src="assets/flat/ES.webp" alt="The Crow" draggable="false"><div class="pname">${t("The Crow — Extreme Scatter")}<small>ES</small></div>
-    <div class="ptext">${t("2 Crows anywhere on one spin award 17 free spins in the Extreme Bonus directly. 1 Crow on the same spin as a Golden Wishbone trigger upgrades that trigger to the Extreme Bonus, keeping its spin count. The Crow does not form clusters and has no value of its own.")}</div></div>
+  <div class="prow"><img class="ptile" src="assets/flat/BS.webp" alt="FS" draggable="false"><div class="pname">${t("FS — Free Spins Scatter")}<small>BS</small></div>
+    <div class="ptext">${t("Appears anywhere. 3, 4 or 5 FS symbols on one spin award 10, 12 or 15 free spins (the Standard Bonus). FS does not form clusters and has no value of its own.")}</div></div>
+  <div class="prow"><img class="ptile" src="assets/flat/ES.webp" alt="XFS" draggable="false"><div class="pname">${t("XFS — Extreme Free Spins Scatter")}<small>ES</small></div>
+    <div class="ptext">${t("2 XFS symbols anywhere on one spin award 17 free spins in the Extreme Bonus directly. 1 XFS on the same spin as an FS trigger upgrades that trigger to the Extreme Bonus, keeping its spin count. XFS does not form clusters and has no value of its own.")}</div></div>
 </section>
 
 <section>
   <h4>${t("Free spins")}</h4>
-  <p><b>${t("Standard Bonus")}</b> — ${t("3 / 4 / 5 Golden Wishbones award 10 / 12 / 15 free spins. Multis land more often than in the base game and Cider Lines far more often, and every value on the board - a Multi's or a line drop's - stays there for the whole bonus.")}</p>
-  <p><b>${t("Extreme Bonus")}</b> — ${t("2 Crows award 17 free spins; a Golden Wishbone trigger with a Crow on the same spin is upgraded to Extreme with its own spin count. Multis land more often still, every Multi is worth x2 or more, and Cider Lines land far more often than in the base game.")}</p>
+  <p><b>${t("Standard Bonus")}</b> — ${t("3 / 4 / 5 FS symbols award 10 / 12 / 15 free spins. Multis land more often than in the base game and Cider Lines far more often, and every value on the board - a Multi's or a line drop's - stays there for the whole bonus.")}</p>
+  <p><b>${t("Extreme Bonus")}</b> — ${t("2 XFS symbols award 17 free spins; an FS trigger with an XFS on the same spin is upgraded to Extreme with its own spin count. Multis land more often still, every Multi is worth x2 or more, and Cider Lines land far more often than in the base game.")}</p>
   <p><b>${t("Spins")}</b> — ${t("a bonus plays exactly the free spins its trigger awarded. Free spins are not re-triggered and no spins are added during the feature.")}</p>
   <p class="fine">${t("Free spins are played at the bet and mode of the triggering spin. If the connection drops, reload the game to finish the round.")}</p>
 </section>

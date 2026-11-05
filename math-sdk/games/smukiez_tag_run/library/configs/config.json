@@ -2,7 +2,7 @@
     "workingName": "Smukiez Tag Run",
     "frontendConfig": {
         "file": "fe_config.json",
-        "sha256": "c043d4a5e7980bc627244547d7c190d5d6c182a980802f7c6556fe906551b667"
+        "sha256": "829eee764003d02099e01d77a7e7b5e12c9039bce50849e8551eb99da49605d8"
     },
     "gameID": "smukiez_tag_run",
     "rtp": 96.7,
@@ -11,7 +11,7 @@
     "providerNumber": 0,
     "standardForceFile": {
         "file": "force.json",
-        "sha256": "0c224735d4b9bbaef45af1f13299aec86d6c48f30a9b653e371710b8924dfa08"
+        "sha256": "cf315b45218b6541a6ed850c17b153224073f4104f74dad816038086cf40357d"
     },
     "bookShelfConfig": [
         {
@@ -87,6 +87,56 @@
             "forceFile": {
                 "file": "force_record_extremebonus.json",
                 "sha256": "a91f82622c00e4205fe163dba1f73cc708b71ff6fe82384b36417f8223beeaf9"
+            }
+        },
+        {
+            "name": "boost",
+            "tables": [
+                {
+                    "file": "lookUpTable_boost_0.csv",
+                    "sha256": "0c6d900a1dfcc2ade435f023c889e97d715f798cac60002e8db8db84f13c0f93"
+                }
+            ],
+            "cost": 1.25,
+            "rtp": 0.967,
+            "std": 10.87,
+            "bookLength": 100000,
+            "feature": true,
+            "autoEndRoundDisabled": false,
+            "buyBonus": false,
+            "maxWin": 10000.0,
+            "booksFile": {
+                "file": "books_boost.jsonl.zst",
+                "sha256": "7ab768800ed641fbfb606c4807f05883b302cf4df791bbfcd94537d90b2b77fa"
+            },
+            "forceFile": {
+                "file": "force_record_boost.json",
+                "sha256": "73855fb5f27d92d8203fb00763a330cb377fc6434a95bfa1d9b019746f4d3be8"
+            }
+        },
+        {
+            "name": "corkstorm",
+            "tables": [
+                {
+                    "file": "lookUpTable_corkstorm_0.csv",
+                    "sha256": "06e68a9d014d6964b23353615832aad53a87a4362a2786e0edc9b2f40fb30c18"
+                }
+            ],
+            "cost": 250.0,
+            "rtp": 0.967,
+            "std": 4.12,
+            "bookLength": 20000,
+            "feature": false,
+            "autoEndRoundDisabled": false,
+            "buyBonus": true,
+            "maxWin": 10000.0,
+            "booksFile": {
+                "file": "books_corkstorm.jsonl.zst",
+                "sha256": "e80f3d22468e2e4dce997a41419090988854e149488668ec4171cb94bb2e8208"
+            },
+            "forceFile": {
+                "file": "force_record_corkstorm.json",
+                "sha256": "f32fb61e93ccb545b59292cec327dac5d34152929dab32033a5d1c6904597fb6"
             }
         }
     ]
