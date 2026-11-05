@@ -7158,7 +7158,8 @@ function lineSprites() {
   const core = make(LINE_CORE + 3, (g, h) => {   // the solid paint, its edge softened
     const cg = g.createRadialGradient(h, h, 0, h, h, h);
     // harvest twine (owner, 2026-11-04: the line is fall now, not spray paint): straw gold, darker at its edge
-    cg.addColorStop(0, "rgba(246,214,128,1)"); cg.addColorStop(.55, "rgba(214,160,72,1)"); cg.addColorStop(.85, "rgba(120,74,30,1)"); cg.addColorStop(1, "rgba(80,46,18,0)");
+    // a plain gold line (owner, 2026-11-04): bright at its heart, gold to its soft edge
+    cg.addColorStop(0, "rgba(255,246,200,1)"); cg.addColorStop(.5, "rgba(255,206,74,1)"); cg.addColorStop(.85, "rgba(242,170,40,1)"); cg.addColorStop(1, "rgba(242,170,40,0)");
     g.fillStyle = cg; g.fillRect(0, 0, h * 2, h * 2);
   });
   const specks = [0, 1, 2, 3, 4, 5].map(() => make(22, (g, h) => {   // the overspray: fine dots, fewer further out
@@ -7170,7 +7171,7 @@ function lineSprites() {
   }));
   const under = make(30, (g, h) => {   // the soft dark under-glow
     const ug = g.createRadialGradient(h, h, 0, h, h, h);
-    ug.addColorStop(0, "rgba(242,179,61,.16)"); ug.addColorStop(.5, "rgba(232,116,42,.07)"); ug.addColorStop(1, "rgba(232,116,42,0)");   // a warm glow under it
+    ug.addColorStop(0, "rgba(255,200,60,.32)"); ug.addColorStop(.5, "rgba(255,190,40,.12)"); ug.addColorStop(1, "rgba(255,190,40,0)");   // its gold glow
     g.fillStyle = ug; g.fillRect(0, 0, h * 2, h * 2);
   });
   return lineDabs = { core, specks, under };
@@ -7280,17 +7281,6 @@ function drawWinLine(positions) {
     for (; nCore <= s; nCore += 1) {   // the twine, laid down evenly
       const q = at(nCore);
       gp.drawImage(dabs.core, q.x - cw / 2, q.y - cw / 2, cw, cw);
-      if (nCore % 4 === 0 && nCore > 1) {   // its twist: a short dark slant across it every few px
-        const p0 = at(Math.max(0, nCore - 1)), a = Math.atan2(q.y - p0.y, q.x - p0.x) + .9;
-        gp.strokeStyle = "rgba(96,56,22,.75)"; gp.lineWidth = 1.1; gp.lineCap = "round";
-        gp.beginPath(); gp.moveTo(q.x - Math.cos(a) * cw * .42, q.y - Math.sin(a) * cw * .42); gp.lineTo(q.x + Math.cos(a) * cw * .42, q.y + Math.sin(a) * cw * .42); gp.stroke();
-      }
-    }
-    for (; nSpeck <= s; nSpeck += 34) {   // a little autumn leaf tied on now and then
-      if (nSpeck < 8) continue;
-      const q = at(nSpeck), p0 = at(Math.max(0, nSpeck - 2)), a = Math.atan2(q.y - p0.y, q.x - p0.x) + (Math.random() < .5 ? 1 : -1) * (.9 + Math.random() * .5);
-      const leaf = matSprite("leaf", LEAF_TONES[(Math.random() * LEAF_TONES.length) | 0]), L = 13 + Math.random() * 4;
-      gp.save(); gp.translate(q.x + Math.cos(a) * 5, q.y + Math.sin(a) * 5); gp.rotate(a + Math.PI / 2); gp.drawImage(leaf, -L / 2, -L / 2, L, L); gp.restore();
     }
     while (nDrip < drips.length && drips[nDrip] <= s - 6) runDrip(drips[nDrip++]);
   };
