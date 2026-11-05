@@ -7169,11 +7169,11 @@ function lineSprites() {
       g.beginPath(); g.arc(h + Math.cos(a) * r, h + Math.sin(a) * r, .35 + Math.random() * .55, 0, Math.PI * 2); g.fill();
     }
   }));
-  const under = make(52, (g, h) => {   // the soft dark under-glow
+  const under = make(30, (g, h) => {   // the soft dark under-glow
     const ug = g.createRadialGradient(h, h, 0, h, h, h);
     // its gold glow: a wide, soft bloom with a smooth (gaussian-like) falloff, warm at the heart, never a hard rim
-    ug.addColorStop(0, "rgba(255,222,120,.20)"); ug.addColorStop(.18, "rgba(255,206,90,.15)"); ug.addColorStop(.38, "rgba(255,188,60,.075)");
-    ug.addColorStop(.6, "rgba(250,170,40,.028)"); ug.addColorStop(.8, "rgba(245,160,30,.008)"); ug.addColorStop(1, "rgba(245,160,30,0)");
+    // barely there (owner, 2026-11-04): a slight, close halo
+    ug.addColorStop(0, "rgba(255,214,100,.07)"); ug.addColorStop(.3, "rgba(255,200,80,.04)"); ug.addColorStop(.6, "rgba(250,180,50,.012)"); ug.addColorStop(1, "rgba(250,180,50,0)");
     g.fillStyle = ug; g.fillRect(0, 0, h * 2, h * 2);
   });
   return lineDabs = { core, specks, under };
@@ -7274,7 +7274,7 @@ function drawWinLine(positions) {
     if (dripSounds++ < 2 && !REDUCED_MOTION) sfx("paintDrip");   // a drop or two heard, not every run
   };
   let dripSounds = 0;
-  const cw = LINE_CORE + 3, sw = 22, uw = 52;
+  const cw = LINE_CORE + 3, sw = 22, uw = 30;
   let nCore = 0, nSpeck = 0, nUnder = 0, nDrip = 0;
   const stampTo = s => {
     gp.globalCompositeOperation = "destination-over";
