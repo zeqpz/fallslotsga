@@ -37,7 +37,7 @@ import urllib.parse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONT = os.path.join(ROOT, "frontend")
-PUBLISH = os.path.join(ROOT, "math-sdk", "games", "smukiez_tag_run", "library", "publish_files")
+PUBLISH = os.path.join(ROOT, "math-sdk", "games", "tipsy_5x5", "library", "publish_files")
 TEAM, GAME = "smukiez", "tipsy-harvest"
 SKIP_DIRS, SKIP_FILES = {"__pycache__"}, {"mock_rgs.py"}   # the local dev server is not part of the bundle
 

@@ -25,7 +25,7 @@
     commit: "PASTE_THE_PUSHED_COMMIT_SHA_HERE",
     parts: {                               // engine.io bundle -> where it lives in the repo
       front: "frontend/",
-      math: "math-sdk/games/smukiez_tag_run/library/publish_files/",
+      math: "math-sdk/games/tipsy_5x5/library/publish_files/",   // the 5x5 game (its 4 big books are not on GitHub: send math with stake_upload.py)
     },
     skip: [/(^|\/)__pycache__\//, /^frontend\/mock_rgs\.py$/],   // the local dev server is not part of the game
     only: null,        // e.g. ["front/index.html"]: just these bundle paths (null: every file in the parts)
