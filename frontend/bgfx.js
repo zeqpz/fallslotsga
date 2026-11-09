@@ -7,6 +7,10 @@
 //     built by tools/fall/bg/make_bg_masks.py, which holds the image coordinates used below);
 //   - falling leaves from the two big canopies and smoke from the village chimneys: one batched
 //     quad pass from a 512x128 atlas (assets/bg/bg_fx.webp), pooled, no per-frame allocation.
+// The painting it draws is the back plate (2026-11-08): the airborne painted leaves are painted out
+// (tools/fall/bg/clean_leaves.py) and the big foreground pumpkins / vines / hay bale are cut out to
+// their own still layer, #fgwall in index.html, outside the camera (tools/fall/bg/cut_foreground.py),
+// with the field painted in behind them - so nothing here moves them; the mask's wind is 0 there.
 // 30 fps (plenty for wind), nothing while the tab is hidden, a single still frame under
 // prefers-reduced-motion. window.BGFX = { pause(), resume(), setWind(k), setFps(n), bench(n), stats }.
 (() => {

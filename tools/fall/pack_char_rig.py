@@ -4,8 +4,8 @@ Reads what tools/fall/blender/export_char_rig.py wrote (art/blender/chars/scarec
 bone matrices, faces and effect sprites; weights.npz - the skin on the GRID lattice) and the source layers
 (art/fall-src/scare at their full 1024 x 1536, ~1.6x what a 1440p screen shows of him - the old frames were 0.6x),
 and writes:
-  atlas.webp   one 2048 x 2048 page: the body (neutral face), the pole + grass patch, each other face as a patch,
-               the crow, the effect sprites, the contact shadow - all at 1:1 art px (the game mipmaps it)
+  atlas.webp   one 2048 x 2048 page: the body (neutral face), the pole + its contact shadow, each other face as a patch,
+               the crow, the effect sprites, the boots' shadow - all at 1:1 art px (the game mipmaps it)
   rig.bin      the meshes (body / pole: art px positions, atlas uvs, triangles, bone indices + weights; the face
                patch: triangles over the body's own vertices + one uv set per face) and every clip's bone
                matrices (int16: a b c d x 8192, tx ty x 8), faces (uint8)
@@ -14,15 +14,20 @@ Fixes done to the layers on the way (they are not edited in place):
   - the crow was cut as a rectangle (scarecrow_layers.py: right of x 760, above y 418): its tail tip and claws
     stayed on the body (dark specks on the arm whenever it hops away) and the top of the wrist rope went with it.
     Re-cut here: crow-dark pixels round the perch go to the crow, the rope back to the body, holes filled.
-  - the grass patch under the post ended in a hard dark outline and was cut flat by the canvas's bottom (the ground
-    line, art y 1500): it is feathered out (soft alpha falloff) into the painted field, and a soft warm contact
-    shadow is laid under it.
+  - the legs did not reach the boots (bare post between the straw cuffs and the boots): scarecrow.join_legs()
+    lengthens the trouser legs and lifts the boots under the straw cuffs, on every body layer.
+  - the grass tuft with grey stones under the post looked pasted on the painted (bare dirt) field: ground_pole()
+    clears it, carries the post's wood down into the ground and lays a warm contact shadow round its foot that
+    fades out well above the canvas's bottom (the ground line, art y 1500).
 usage: .venv/Scripts/python.exe -I tools/fall/pack_char_rig.py [--preview out.png]"""
 import io, json, os, struct, sys
 
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "blender"))
+import scarecrow as SC                 # numpy only outside Blender: join_legs (the legs reaching the boots)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LAY = os.path.join(ROOT, "art", "fall-src", "scare")
@@ -33,8 +38,16 @@ OUT = os.path.join(ROOT, "frontend", "assets", "chars", "scarecrow_rig")
 PAGE = 2048
 PAD = 4
 FX_PX = 128                        # effect sprites' size in the atlas (drawn at 80-110 art px)
-SHADOW = dict(cx=520, cy=1452, rx=360, ry=46, rgb=(52, 26, 10), a=.5)   # the contact shadow, art px
-FEATHER = dict(cx=505, top=1428, rx=312, ry=70)                       # the grass patch's fade-out, art px
+# the boots' shadows on the field (drawn live under each boot, index.html), art px: each a soft ellipse on the
+# ground under its boot's sole, fainter and wider the higher the boot hangs
+SHADOW = dict(rx=78, ry=11, rgb=(52, 26, 10), a=.3, soles=[[452, 1352], [600, 1352]], bones=["boot_l", "boot_r"],
+              ground=1458)
+# the post's foot (ground_pole), art px: post columns, rows cleared / copied, where it goes into the ground, the
+# occlusion and pool ellipses (cx, cy, rx, ry, alpha) and their colour
+GROUND = dict(post=(464, 580), clear=1318, copy=1342, rep=160, fade=22, y=1458,
+              occl=(522, 1459, 108, 17, .9), pool=(525, 1461, 285, 31, .5), rgb=(58, 30, 12),
+              ink=(62, 34, 14), strokes=[[(418, 1468), (446, 1456), (470, 1458)], [(576, 1457), (604, 1456), (628, 1469)],
+                                        [(352, 1478), (372, 1472), (396, 1476)], [(662, 1474), (686, 1471), (708, 1478)]])
 GROUND_Y = 1500
 
 
@@ -110,28 +123,74 @@ def recut_crow(bodies, crow):
     return out, new_crow
 
 
-def feather_pole(pole):
-    """Fade the grass patch out into the field below the boots, and clear everything under the ground line."""
+def ground_pole(pole):
+    """The post's foot, sat IN the painted field (round 2, 2026-11-08). The plate's grass tuft with its grey stones
+    and leaves read as a patch pasted on the farm painting (the field round him is bare ochre dirt): it is cleared
+    away, the post's wood carried on down past the old tuft (copied from higher up the post, cross-faded in) to
+    where it goes into the ground (GROUND["y"], a slightly ragged soft edge, the wood darkening into the earth), and
+    a warm contact shadow is laid round the foot - a tight dark occlusion at the post and a wide soft pool under him
+    that fades to nothing well above the canvas's bottom (the ground line, art y 1500), so no edge ever shows."""
     H, W = pole.shape[:2]
+    G = GROUND
     ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
-    F = FEATHER
-    e = ((xs - F["cx"]) / F["rx"]) ** 2 + (np.maximum(0, ys - F["top"]) / F["ry"]) ** 2
-    k = 1 - np.clip((e - .35) / .65, 0, 1)
-    k = k * k * (3 - 2 * k)
-    k = np.where(ys < F["top"], np.minimum(1, k + (F["top"] - ys) / 40), k)
-    k[ys >= GROUND_Y - 1] = 0
     out = pole.copy()
-    out[..., 3] *= k
-    return out
+    x0, x1 = G["post"]                                   # the post's columns (its outline and soft edge included)
+    out[G["clear"]:, :x0] = 0
+    out[G["clear"]:, x1:] = 0
+    # the wood below the tuft line: the post's own wood from G["rep"] px higher, cross-faded over G["fade"] rows
+    r0, rep, fd = G["copy"], G["rep"], G["fade"]
+    blend_from = r0 - fd
+    seg = out[blend_from:H, x0:x1]
+    srcb = pole[blend_from - rep:H - rep, x0:x1]
+    kk = np.clip((np.arange(blend_from, H) - blend_from) / fd, 0, 1)[:, None, None]
+    out[blend_from:H, x0:x1] = seg * (1 - kk) + srcb * kk
+    # into the ground: the wood darkens over the last px and its alpha ends on a ragged soft line
+    rng = np.random.default_rng(7)
+    rag = np.interp(np.arange(W), np.arange(0, W + 24, 24), rng.uniform(-4, 4, len(range(0, W + 24, 24))))
+    gy = G["y"] + rag[None, :]
+    dark = np.clip(1 - (gy - ys) / 46, 0, 1) ** 1.5
+    out[..., :3] *= (1 - .55 * dark)[..., None]
+    out[..., :3] = out[..., :3] * (1 - .25 * dark[..., None]) + np.array([.2, .1, .04]) * .25 * dark[..., None]
+    out[..., 3] *= np.clip((gy - ys) / 10 + .5, 0, 1)
+    # the contact shadow, under the post: warm dark brown (the painting's own ground shadows), soft falloffs
+    def ell(cx, cy, rx, ry, p):
+        e = np.hypot((xs - cx) / rx, (ys - cy) / ry)
+        v = np.clip(1 - e, 0, 1)
+        return v * v * (3 - 2 * v) if p is None else v ** p
+    sa = np.maximum(G["occl"][4] * ell(*G["occl"][:4], 1.4), G["pool"][4] * ell(*G["pool"][:4], None))
+    sa[ys >= GROUND_Y - 4] = 0
+    sh = np.zeros_like(out)
+    sh[..., :3] = np.array(G["rgb"]) / 255
+    sh[..., 3] = sa
+    a = out[..., 3:] + sh[..., 3:] * (1 - out[..., 3:])     # the post over its shadow
+    col = (out[..., :3] * out[..., 3:] + sh[..., :3] * sh[..., 3:] * (1 - out[..., 3:])) / np.maximum(a, 1e-4)
+    out = np.concatenate([np.where(a > 1e-4, col, 0), a], -1)
+    # the earth's lip round the post: short dark strokes like the painting's own ground lines (drawn 4x, smoothed)
+    from PIL import ImageDraw
+    q = 4
+    ink = Image.new("L", (W * q, H * q), 0)
+    dr = ImageDraw.Draw(ink)
+    for p0, p1, p2 in G["strokes"]:                       # a brush stroke: a curve, thick in the middle, tapered
+        for t in np.linspace(0, 1, 160):
+            x = (1 - t) ** 2 * p0[0] + 2 * t * (1 - t) * p1[0] + t * t * p2[0]
+            y = (1 - t) ** 2 * p0[1] + 2 * t * (1 - t) * p1[1] + t * t * p2[1]
+            r = (.5 + 1.6 * np.sin(np.pi * t) ** .7) * q
+            dr.ellipse([x * q - r, y * q - r, x * q + r, y * q + r], fill=255)
+    ia = np.asarray(ink.resize((W, H), Image.LANCZOS)).astype(np.float32)[..., None] / 255 * .85
+    a2 = ia + out[..., 3:] * (1 - ia)
+    col = (np.array(G["ink"]) / 255 * ia + out[..., :3] * out[..., 3:] * (1 - ia)) / np.maximum(a2, 1e-4)
+    out = np.concatenate([np.where(a2 > 1e-4, col, 0), a2], -1)
+    out[ys >= GROUND_Y - 1] = 0
+    return out.astype(np.float32)
 
 
-def shadow_sprite(w=256, h=64):
+def shadow_sprite(w=128, h=32):
     ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
     d = np.hypot((xs + .5 - w / 2) / (w / 2), (ys + .5 - h / 2) / (h / 2))
     a = np.clip(1 - d, 0, 1) ** 1.6
     img = np.zeros((h, w, 4), np.float32)
     img[..., :3] = np.array(SHADOW["rgb"]) / 255
-    img[..., 3] = a * SHADOW["a"]
+    img[..., 3] = a                      # full strength: the game sets each one's alpha (SHADOW["a"], the lift)
     return img
 
 
@@ -161,12 +220,21 @@ def main():
     wz = np.load(os.path.join(SRC, "weights.npz"))
     g, LW, LH = [int(v) for v in wz["lattice"]]
     faces = ex["faces"]
-    bodies = {f: rgba(os.path.join(LAY, f"body_{f}.png")) for f in faces}
+    # the body without its boots (the skinned mesh) and the boots alone (two rigid sprites on boot_l / boot_r,
+    # drawn under the body so the straw cuffs hang over them); the repaired layers get both, composited
+    bodies, boots = {}, None
+    for f in faces:
+        _, bodies[f], bt = SC.join_legs(rgba(os.path.join(LAY, f"body_{f}.png")), parts=True)
+        boots = bt if boots is None else boots
     bodies, crow = recut_crow(bodies, rgba(os.path.join(LAY, "crow.png")))
-    pole = feather_pole(rgba(os.path.join(LAY, "pole.png")))
+    pole = ground_pole(rgba(os.path.join(LAY, "pole.png")))
     os.makedirs(FIXED, exist_ok=True)
     for f, im in bodies.items():
-        Image.fromarray((im * 255 + .5).astype(np.uint8)).save(os.path.join(FIXED, f"body_{f}.png"))
+        a = im[..., 3:]
+        pm = im[..., :3] * a + boots[..., :3] * boots[..., 3:] * (1 - a)
+        aa = a + boots[..., 3:] * (1 - a)
+        full = np.concatenate([np.where(aa > 1e-4, pm / np.maximum(aa, 1e-4), 0), aa], -1)
+        Image.fromarray((full * 255 + .5).astype(np.uint8)).save(os.path.join(FIXED, f"body_{f}.png"))
     Image.fromarray((crow * 255 + .5).astype(np.uint8)).save(os.path.join(FIXED, "crow.png"))
     Image.fromarray((pole * 255 + .5).astype(np.uint8)).save(os.path.join(FIXED, "pole.png"))
     neutral = bodies["neutral"]
@@ -244,6 +312,14 @@ def main():
     cb = bbox(crow[..., 3])
     cb = (max(0, cb[0] - 2), max(0, cb[1] - 2), min(W, cb[2] + 2), min(H, cb[3] + 2))
     put("crow", crow, cb)
+    for side in ("l", "r"):
+        im = boots.copy()
+        if side == "l":
+            im[:, SC.BOOT_SPLIT:] = 0
+        else:
+            im[:, :SC.BOOT_SPLIT] = 0
+        bb_ = bbox(im[..., 3])
+        put("boot_" + side, im, (max(0, bb_[0] - 2), max(0, bb_[1] - 2), min(W, bb_[2] + 2), min(H, bb_[3] + 2)))
     for kind in ex["fx"]:
         im = Image.open(os.path.join(FXD, ex["fx"][kind]["file"])).convert("RGBA")
         im = im.convert("RGBa").resize((FX_PX, FX_PX), Image.LANCZOS).convert("RGBA")
@@ -335,6 +411,7 @@ def main():
     man = {
         "fps": ex["fps"], "art": ex["art"], "ground": [ex["ground"][0], GROUND_Y], "rest_height": GROUND_Y - ex["top"],
         "page": [PAGE, page_h], "bones": ex["bones"], "faces": faces, "fx": list(ex["fx"]), "rects": rects,
+        "boots": [["boot_l", "boot_l"], ["boot_r", "boot_r"]],   # [atlas rect, bone]: rigid boot pictures
         "pole_bone": pole_bone.tolist(), "bin": offs, "bytes": len(blob),
         "shadow": SHADOW, "counts": {"body_verts": len(b_pos), "body_tris": len(b_tri) // 3,
                                      "face_verts": len(f_verts), "pole_verts": len(p_pos)},

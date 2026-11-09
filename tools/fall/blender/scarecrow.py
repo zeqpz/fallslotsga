@@ -9,9 +9,10 @@ and body_<face>.png (the scarecrow with no pole, one per face), crow.png (the cr
 
 The rig (art px, 1024 x 1536; 100 px = 1 Blender unit, the art centred on the origin):
   ground (the grass patch) > pole (the post: it creaks and wobbles from the ground) > everything tied to it: the
-  wrists and sleeve ends, the boots, the crow's perch, the rope and jug, the straw hands, and the hips (his body
+  wrists and sleeve ends, the crow's perch, the rope and jug, the straw hands, and the hips (his body
   hangs on the post) > chest > head > hat > hat_tip / brim_l / brim_r, head > hair_l / hair_ll / hair_r,
-  chest > collar, hips > belt (the rope belt's dangling ends) / leg_l > cuff_l / leg_r > cuff_r, pole > sleeve_l/_r
+  chest > collar, hips > belt (the rope belt's dangling ends) / leg_l > cuff_l + boot_l / leg_r > cuff_r + boot_r
+  (the boots ride the legs, under the straw cuffs - join_legs), pole > sleeve_l/_r
   (the sleeves' sag between the shoulder and the tied wrist).
 Skin weights come from painted REGIONS (polygons in art px, each giving its pixels to one or more bones, later
 regions over earlier ones), assigned on the opaque pixels only, grown out into the see-through gaps, then blurred a
@@ -78,14 +79,67 @@ BONES = {
     "rope": ((152, 462), (150, 588), "pole"),
     "jug": ((150, 588), (128, 800), "rope"),
     "belt": ((622, 772), (622, 905), "hips"),
-    "leg_l": ((470, 860), (462, 1110), "hips"),
-    "leg_r": ((585, 860), (592, 1110), "hips"),
-    "cuff_l": ((466, 1112), (466, 1200), "leg_l"),
-    "cuff_r": ((590, 1112), (590, 1200), "leg_r"),
-    "boots": ((540, 1262), (540, 1420), "pole"),
+    "leg_l": ((470, 860), (462, 1130), "hips"),
+    "leg_r": ((585, 860), (592, 1130), "hips"),
+    "cuff_l": ((466, 1132), (466, 1220), "leg_l"),
+    "cuff_r": ((590, 1132), (590, 1220), "leg_r"),
+    # each boot hangs off its own trouser leg (pivot: the boot's top, under the straw cuff), so it goes wherever
+    # the leg swings - they were one "boots" bone tied to the post, and read as a pair floating off the legs
+    "boot_l": ((490, 1172), (452, 1350), "leg_l"),
+    "boot_r": ((558, 1172), (598, 1350), "leg_r"),
     "crow": ((878, 416), (870, 250), "pole"),
 }
 BONE_NAMES = list(BONES)
+
+# ---------------------------------------------------------------- the legs meet the boots (2026-11-08, round 2)
+# The cut-out's straw cuffs ended at art y ~1205 and the boots began at ~1238: a band of bare post showed between
+# (and through the straw fringe), and the boots read as a separate pair tied to the pole. join_legs() closes it on
+# every body layer: the trouser legs grow LEG_D px longer (a smooth stretch of the plain denim band LEG_BAND, so the
+# patches and the frayed hems keep their shape), the cuffs and straw move down with them, and the boots move BOOT_U
+# px up, their rope tops tucked right under the denim hems and drawn UNDER the straw - the fringe hangs over the
+# boots' leather, not over the bare post. Applied wherever the body layers are read: the weights
+# here, Blender's textures, and tools/fall/pack_char_rig.py (which writes the repaired layers the game and the
+# lobby covers use).
+LEG_BAND = (1020, 1110)        # out rows over which the stretch is eased in (src 1020..1080: plain denim)
+LEG_D = 20                     # the cuffs move this far down
+BOOT_SRC = 1236                # source rows >= this are the boots (the empty band above it is dropped)
+BOOT_U = 70                    # the boots move this far up
+BOOT_SPLIT = 522               # art x between the two boots (left boot left of it)
+
+
+def _rows(img, src):
+    """Resample img's rows at fractional source rows src (premultiplied, linear); out-of-range rows are empty."""
+    H = img.shape[0]
+    pm = np.concatenate([img[..., :3] * img[..., 3:], img[..., 3:]], -1)
+    s0 = np.floor(src).astype(int)
+    k = (src - s0)[:, None, None].astype(np.float32)
+    ok0 = ((s0 >= 0) & (s0 < H))[:, None, None]
+    ok1 = ((s0 + 1 >= 0) & (s0 + 1 < H))[:, None, None]
+    a = np.where(ok0, pm[np.clip(s0, 0, H - 1)], 0)
+    b = np.where(ok1, pm[np.clip(s0 + 1, 0, H - 1)], 0)
+    return a * (1 - k) + b * k
+
+
+def join_legs(img, parts=False):
+    """A body layer (H x W x 4 float 0..1, straight alpha) -> the same with the legs reaching down into the boots.
+    parts=True -> (that, the legs alone, the boots alone) (the game draws the boots as rigid sprites UNDER the
+    skinned body: a continuous mesh smeared the leather between them whenever the legs kicked apart)."""
+    H = img.shape[0]
+    y = np.arange(H, dtype=np.float64)
+    t = np.clip((y - LEG_BAND[0]) / (LEG_BAND[1] - LEG_BAND[0]), 0, 1)
+    src = y - LEG_D * t * t * (3 - 2 * t)
+    legs_src = img.copy()
+    legs_src[BOOT_SRC:] = 0
+    boots_src = img.copy()
+    boots_src[:BOOT_SRC] = 0
+    legs = _rows(legs_src, src)                        # (rows above the band: src == y, an exact copy)
+    boots = _rows(boots_src, y + BOOT_U)
+    out = legs + boots * (1 - legs[..., 3:])           # the legs (cuff straw) over the boots
+
+    def straight(pm):
+        a = pm[..., 3:]
+        return np.concatenate([np.where(a > 1e-4, pm[..., :3] / np.maximum(a, 1e-4), 0), a], -1).astype(np.float32)
+    return (straight(out), straight(legs), straight(boots)) if parts else straight(out)
 
 
 # ---------------------------------------------------------------- skin weights (numpy only: Blender and tools share it)
@@ -127,17 +181,22 @@ def regions(xs, ys, straw):
     kh = k((ys - 620) / 190)
     R.append((torso, {"chest": 1 - kh, "hips": kh}))
     # legs: from the hips (top) to each leg, split down the middle of the overalls
-    legs = _rect(xs, ys, 380, 820, 700, 1105)
+    legs = _rect(xs, ys, 380, 820, 700, 1105 + LEG_D)
     kl = k((ys - 830) / 140) ** 1.2
     left = (xs < 518).astype(float)
     R.append((legs, {"hips": 1 - kl, "leg_l": kl * left, "leg_r": kl * (1 - left)}))
-    # the straw at the cuffs flutters off each leg
-    cuffs = _rect(xs, ys, 380, 1105, 700, 1225)
-    kc = k((ys - 1112) / 70)
+    # the straw at the cuffs flutters off each leg; its tips lie over the boot's top, so they hand over to the boot
+    boot_top = BOOT_SRC - BOOT_U
+    cuffs = _rect(xs, ys, 380, 1105 + LEG_D, 700, boot_top + 60)
+    kc = k((ys - 1112 - LEG_D) / 70)
+    kb = k((ys - boot_top - 6) / 50)
     left = (xs < 520).astype(float)
-    R.append((cuffs, {"leg_l": (1 - kc) * left, "cuff_l": kc * left, "leg_r": (1 - kc) * (1 - left), "cuff_r": kc * (1 - left)}))
-    # the boots hang tied to the post
-    R.append((ys >= 1225, {"boots": 1.0}))
+    R.append((cuffs, {"leg_l": (1 - kc) * (1 - kb) * left, "cuff_l": kc * (1 - kb) * left, "boot_l": kb * left,
+                      "leg_r": (1 - kc) * (1 - kb) * (1 - left), "cuff_r": kc * (1 - kb) * (1 - left),
+                      "boot_r": kb * (1 - left)}))
+    # the boots, each on its own leg
+    left = (xs < 522).astype(float)
+    R.append((ys >= boot_top + 60, {"boot_l": left, "boot_r": 1 - left}))
     # the rope belt's dangling ends
     belt = _rect(xs, ys, 596, 780, 660, 930)
     kb = k((ys - 790) / 70)
@@ -253,6 +312,8 @@ def pole_weights(xs, ys):
     """The pole layer: the post (and its crossbar, ties, the ropes round it) on the pole bone, the grass patch on the
     ground, a soft hand-over between."""
     k = _clamp((ys - 1385) / 70)
+    # the contact shadow on the field either side of the post's foot stays on the ground (it never wobbles)
+    k = np.maximum(k, _clamp((np.abs(xs - 522) - 70) / 30) * _clamp((ys - 1300) / 30))
     return {"pole": 1 - k, "ground": k}
 
 
@@ -280,12 +341,18 @@ def body_rgba(read):
     out = read(os.path.join(LAY, "body_neutral.png")).copy()
     for f in FACES:
         out[..., 3] = np.maximum(out[..., 3], read(os.path.join(LAY, f"body_{f}.png"))[..., 3])
-    return out
+    return join_legs(out)
 
 
 def blender_read(path):
-    im = bpy.data.images.load(path, check_existing=True)
-    return np.array(im.pixels[:], np.float32).reshape(im.size[1], im.size[0], 4)[::-1]
+    """The file's own pixels (a fresh, throw-away load: the textures' pixels are replaced by join_legs)."""
+    im = bpy.data.images.load(bpy.path.abspath(path), check_existing=False)
+    im.alpha_mode = "STRAIGHT"
+    px = np.empty(im.size[0] * im.size[1] * 4, np.float32)
+    im.pixels.foreach_get(px)
+    out = px.reshape(im.size[1], im.size[0], 4)[::-1].copy()
+    bpy.data.images.remove(im)
+    return out
 
 
 # ---------------------------------------------------------------- scene
@@ -351,6 +418,10 @@ def face_material():
     for i, f in enumerate(FACES):
         tex = nt.nodes.new("ShaderNodeTexImage")
         tex.image = load(os.path.join(LAY, f"body_{f}.png"))
+        if not tex.image.get("joined"):                  # the legs reaching the boots (join_legs), as the game has it
+            px = join_legs(blender_read(tex.image.filepath))
+            tex.image.pixels.foreach_set(np.ascontiguousarray(px[::-1]).ravel())
+            tex.image["joined"] = 1
         tex.interpolation = "Linear"
         tex.extension = "CLIP"
         if col is None:
@@ -803,7 +874,8 @@ def run_clip(name, rng, warm=None):
              brim_r=Spring(2.4, .18), hair_l=Spring(2.8, .18), hair_ll=Spring(2.4, .2), hair_r=Spring(3.0, .2),
              collar=Spring(3.0, .22), sleeve_l=Spring(1.7, .25), sleeve_r=Spring(1.8, .25), hand_l=Spring(1.6, .18),
              hand_r=Spring(1.5, .18), jug=Spring(.85, .09), belt=Spring(1.9, .15), cuff_l=Spring(2.6, .2),
-             cuff_r=Spring(2.4, .2), crow=Spring(3.2, .38), hatlift=Spring(4.0, .35))
+             cuff_r=Spring(2.4, .2), crow=Spring(3.2, .38), hatlift=Spring(4.0, .35),
+             boot_l=Spring(2.0, .2), boot_r=Spring(1.9, .2))
     if warm:
         for k, (x, v) in warm.items():
             S[k].x, S[k].v = x, v
@@ -860,8 +932,14 @@ def run_clip(name, rng, warm=None):
         jv = S["jug"].step(-1.4 * d["sway"] - 1.2 * d["pole"] + (35 * d["bob"] if name in ("win", "big_win") else 0))
         jv = max(-14.0, min(14.0, jv))
         belt = S["belt"].step(-.06 * torso_v - 1.2 * d["sway"])
-        cuff_l = S["cuff_l"].step(-.05 * legs_v)
-        cuff_r = S["cuff_r"].step(.05 * legs_v)
+        # (the cuffs' straw lies over the boots' tops now: a smaller flutter, so it never lifts off them)
+        cuff_l = max(-6.0, min(6.0, S["cuff_l"].step(-.03 * legs_v)))
+        cuff_r = max(-6.0, min(6.0, S["cuff_r"].step(.03 * legs_v)))
+        # each boot dangles off its leg: it hangs back toward plumb as the leg swings out, lags and overshoots
+        leg_wl = .7 * d["pole"] + .5 * d["sway"] + d["legs"]          # the legs' angles on screen
+        leg_wr = .7 * d["pole"] + .5 * d["sway"] - .8 * d["legs"]
+        boot_l = max(-9.0, min(9.0, S["boot_l"].step(-.45 * leg_wl)))
+        boot_r = max(-9.0, min(9.0, S["boot_r"].step(-.45 * leg_wr)))
         cr = S["crow"].step(d["crow_r"]) + d["crow_hit"]
         chest_sy = 1 + d["chest_s"] + .012 * d["breath"]
         chest_sx = 1 + .5 * d["chest_s"] + .006 * d["breath"]
@@ -883,7 +961,7 @@ def run_clip(name, rng, warm=None):
             "belt": dict(r=belt),
             "leg_l": dict(r=d["legs"] - .5 * d["sway"]), "leg_r": dict(r=-d["legs"] * .8 - .5 * d["sway"]),
             "cuff_l": dict(r=cuff_l), "cuff_r": dict(r=cuff_r),
-            "boots": dict(r=.12 * d["legs"]),
+            "boot_l": dict(r=boot_l), "boot_r": dict(r=boot_r),
             "crow": dict(x=d["crow_x"], y=d["crow_y"], r=cr, sx=d["crow_flip"] * (1 + sq), sy=1 - .6 * sq),
         }
         poses.append(pose)
