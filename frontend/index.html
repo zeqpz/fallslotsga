@@ -2930,12 +2930,11 @@
     align-items: flex-end; padding: 16px 16px calc(var(--hud-top, 150px) + 12px);
     background: none; -webkit-backdrop-filter: none; backdrop-filter: none;
   }
-  /* the whole game blurs behind the rules (owner, 2026-11-04; the strip beside and below the HUD too,
-     2026-11-08) - all but the HUD bar itself, which hudTop() cuts out as a hole (--blurhole) so it stays sharp */
+  /* the whole game blurs behind the rules, the HUD included (owner, 2026-11-08: a press anywhere
+     outside the panel closes it, so nothing behind it needs to stay sharp) */
   #infoWrap::before {
     content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
     background: rgba(8, 6, 10, .3); -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px);
-    clip-path: var(--blurhole, none);
   }
   #infoWrap .infopanel {
     max-height: calc(100vh - var(--hud-top, 150px) - 44px); transform-origin: 50% 100%;
@@ -10609,10 +10608,6 @@ document.addEventListener("visibilitychange", async () => {
     if (!f) return;
     const r = f.getBoundingClientRect();
     wrap.style.setProperty("--hud-top", Math.max(0, innerHeight - r.top).toFixed(0) + "px");
-    // the blur covers the whole screen except the HUD bar: an even-odd path, the screen with the bar's box as a hole
-    const W = innerWidth, H = innerHeight, k = 2;   // 2px inside the bar's box, so its edge never shows a sharp seam
-    const [l, t, rr, b] = [r.left + k, r.top + k, r.right - k, r.bottom - k].map(v => v.toFixed(1));
-    wrap.style.setProperty("--blurhole", `path(evenodd, "M0 0H${W}V${H}H0Z M${l} ${t}H${rr}V${b}H${l}Z")`);
   }
   addEventListener("resize", () => { if (!wrap.hidden) hudTop(); });
   open.addEventListener("click", () => show(true));
