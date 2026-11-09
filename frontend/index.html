@@ -730,15 +730,16 @@
   body.features-up #app, body.features-up .charfx, body.features-up .charshadow { opacity: 0; }
   .features {
     position: fixed; inset: 0; z-index: 58;
-    /* never sideways: a plate's drift tilts it a degree past its box, and that alone would
-       put a scrollbar along the bottom. Down the page only, and only if it is ever needed */
-    overflow-x: hidden; overflow-y: auto;
+    /* never scrolls (owner, 2026-11-08: the plates' drift and tilt let the screen be scrolled):
+       the plates are fitted to the window instead (fitFeatures shrinks them when they would not fit) */
+    overflow: hidden; overscroll-behavior: none; touch-action: none;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.4vh;
     justify-content: safe center;   /* tall content grows downward, where it can be reached */
     padding: 4vh 4vw 11vh; cursor: pointer; user-select: none;
     opacity: 0; transition: opacity .6s ease;
   }
   .features.up { opacity: 1; }
+  .features > * { zoom: var(--ffit, 1); }   /* fitFeatures: the whole screen's contents shrink together to fit */
   .features.gone { opacity: 0; pointer-events: none; }
   /* the row is as wide as the screen gives it, so the plates wrap when they must rather than
      running off the side (a centred flex item is otherwise as wide as its contents) */
@@ -3089,7 +3090,12 @@
   .bonusintro .bnum, .totalwin .twamount {
     --nh: clamp(36px, 7vh, 84px);
     display: flex; align-items: center; justify-content: center; box-sizing: content-box;
-    min-width: calc(var(--nh) * 5.2); height: var(--nh); padding: 0; margin: calc(var(--nh) * 1.1) 0 calc(var(--nh) * .7);
+    /* the opening keeps the art's own shape (1260 x 174 of the 1800 x 560 plank, 7.26:1) - owner,
+       2026-11-08: at a fixed height and the digits' width the plank was squashed and stretched. The
+       width follows the figure (never under 7.26 numeral heights), the height follows the width, and
+       the digits stay centred at their own size */
+    min-width: calc(var(--nh) * 7.26); height: auto; aspect-ratio: 1260 / 174; padding: 0;
+    margin: calc(var(--nh) * 1.1) 0 calc(var(--nh) * .7);
   }
   .bonusintro .bnum::before, .bonusintro .bnum::after, .totalwin .twamount::before, .totalwin .twamount::after {
     inset: -131% -22.1% -85.5% -22.1%;
@@ -9165,7 +9171,8 @@ function assetUrls() {
   if (REDUCED_MOTION) for (const id of Object.keys(TIER)) for (const k of ["halo", "tube"]) urls.add(`assets/glow/${id}_${k}.webp`);   // set by tierGlow()
   // Not pictures, or never shown in the fall build (audit 2026-11-08): fonts load through @font-face
   // (an Image() of a .ttf fetched it twice), and the graffiti wall's tag glows are display:none here.
-  const hidden = window.WallFX ? null : /assets\/wallfx\//;
+  // (and the spray-paint rim art, only drawn under ?rim: its html.sprayfx rules never apply otherwise)
+  const hidden = new RegExp([window.WallFX ? null : "assets/wallfx/", /[?&]rim/.test(location.search) ? null : "assets/rim/"].filter(Boolean).join("|") || "$^");
   return [...urls].filter(u => !/\.(ttf|otf|woff2?)(\?|$)/i.test(u) && !(hidden && hidden.test(u)));
 }
 // Every preloaded picture is held on to, not dropped: while one is held, a new <img> of it is
@@ -10078,6 +10085,18 @@ function runFeatures() {
     `</div>` +
     `<div class="fcont"><span class="fhit"><span class="ftxt">${T("Click to play")}</span></span></div>`;
   document.body.appendChild(wrap);
+  // never scrolls (owner, 2026-11-08): when the logo, the plates and CLICK TO PLAY are taller than the
+  // window, they all shrink together until they fit (measured with the zoom reset, then once more to settle)
+  const fitFeatures = () => {
+    wrap.style.setProperty("--ffit", "1");
+    for (let i = 0; i < 2; i++) {
+      const k = Math.min(1, (wrap.clientHeight / Math.max(1, wrap.scrollHeight)) * parseFloat(wrap.style.getPropertyValue("--ffit") || "1"));
+      wrap.style.setProperty("--ffit", Math.max(.4, k * .98).toFixed(3));
+      if (wrap.scrollHeight <= wrap.clientHeight + 1) break;
+    }
+  };
+  fitFeatures();
+  addEventListener("resize", fitFeatures);
   // the plate under the mouse tips toward it, and so does CLICK TO PLAY under them
   const tilt = tiltPlates([...wrap.querySelectorAll(".fbox"), wrap.querySelector(".fcont .fhit")]);
   // the mouse coming onto a plate blows on its fire - the flames whoosh up - and a gentle breath
