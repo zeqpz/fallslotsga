@@ -7,8 +7,11 @@ Densities are atlas px per rig unit, as the old rigs' (an icon is 100 units acro
 1080p screen or a phone, 2.4 between, 3.2 for a 2x screen - the game loads the one that suits the screen.
 usage: python tools/blender/pack_frames.py <ID,ID..|all> [densities, default 1.6,2.4,3.2]
        python tools/blender/pack_frames.py fit   (re-apply FIT_TO_ART to the manifest only)
-       python tools/blender/pack_frames.py big M (the Multi's big bottle, symanim.py render_big)"""
-import glob, json, math, os, sys
+       python tools/blender/pack_frames.py big M [density] (the Multi's big bottle, symanim.py render_big: the
+                                                     frames .bin, the old sheet, the cork strip)
+       python tools/blender/pack_frames.py bigbin M <density> [outdir] (the bottle's frames .bin only; with outdir
+                                                     the .bin and the sheet go there, the manifest untouched)"""
+import glob, io, json, math, os, sys
 from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 from PIL import Image
@@ -120,9 +123,9 @@ def pack(sid, densities):
     return sid, apply_fit(sid, entry), f"{sid}: " + " | ".join(f"{dd} {t / 1e6:.2f} MB" for dd, t in totals.items())
 
 
-def pack_big(sid, density=5.0):
-    """The Multi's big bottle (symanim.py render_big): its frames cropped to their union and laid in one sheet at
-    `density` px per rig unit (as the board sheets: an icon is 100 across) -> frontend/assets/sym/big/<ID>_multi.webp, and manifest["big"][<ID>]."""
+def big_frames(sid, density):
+    """The Multi's big bottle (symanim.py render_big): its frames cropped to their union and scaled to `density` px
+    per rig unit (as the board sheets: an icon is 100 across) -> (frames, manifest entry without its file fields)."""
     files = sorted(glob.glob(os.path.join(REN, sid, "big", "*.png")))
     fs = [dehaze(Image.open(f).convert("RGBA")) for f in files]
     S = fs[0].size[0]
@@ -133,23 +136,68 @@ def pack_big(sid, density=5.0):
     ys, xs = np.nonzero(alpha)
     x0, x1, y0, y1 = max(0, xs.min() - 4), min(S, xs.max() + 5), max(0, ys.min() - 4), min(S, ys.max() + 5)
     cw, ch = round((x1 - x0) / u * density * 10), round((y1 - y0) / u * density * 10)   # rig units: 10 Blender units = 100
-    cols = max(1, min(len(fs), 4096 // cw))
-    rows = math.ceil(len(fs) / cols)
-    sheet = Image.new("RGBA", (cols * cw, rows * ch), (0, 0, 0, 0))
-    for i, im in enumerate(fs):
-        sheet.paste(resize(im.crop((x0, y0, x1, y1)), (cw, ch)), ((i % cols) * cw, (i // cols) * ch))
-    os.makedirs(os.path.join(OUT, "big"), exist_ok=True)
-    path = os.path.join(OUT, "big", f"{sid}_multi.webp")
-    sheet.save(path, "WEBP", quality=84, method=6)
+    frames = [resize(im.crop((x0, y0, x1, y1)), (cw, ch)) for im in fs]
     meta = os.path.join(REN, sid, "big", "meta.json")       # where the cork sits as it pops (symanim.py render_big)
-    entry = {"frames": len(fs), "fps": FPS, "w": cw, "h": ch, "cols": cols,
+    entry = {"frames": len(fs), "fps": FPS, "w": cw, "h": ch,
              **(json.load(open(meta)) if os.path.exists(meta) else {}),
              "box": [round((x0 - S / 2) / u, 4), round((y0 - S / 2) / u, 4), round((x1 - x0) / u, 4), round((y1 - y0) / u, 4)]}
+    return frames, entry
+
+
+BIG_QUALITY = 84
+
+
+def big_sheet(frames, cw, ch, path):
+    """The frames in one grid sheet (the old way, kept for ?bigsheet: 4008 x 6240 for the bottle, past the biggest
+    texture many phones take) -> its columns."""
+    cols = max(1, min(len(frames), 4096 // cw))
+    rows = math.ceil(len(frames) / cols)
+    sheet = Image.new("RGBA", (cols * cw, rows * ch), (0, 0, 0, 0))
+    for i, im in enumerate(frames):
+        sheet.paste(im, ((i % cols) * cw, (i // cols) * ch))
+    sheet.save(path, "WEBP", quality=BIG_QUALITY, method=6)
+    return cols
+
+
+def big_bin(frames, path):
+    """The frames as the figures ship theirs (pack_chars.py): each its own small WebP, back to back in one file, so
+    the game decodes only the few about to show and never a picture bigger than one frame (perf, 2026-11-08: the
+    sheet decoded to ~93 MB). Same encoder settings as the sheet -> {file, bytes, offsets}."""
+    offsets, blob = [0], bytearray()
+    for im in frames:
+        buf = io.BytesIO()
+        im.save(buf, "WEBP", quality=BIG_QUALITY, method=6)
+        blob += buf.getvalue()
+        offsets.append(len(blob))
+    with open(path, "wb") as fh:
+        fh.write(blob)
+    return {"file": os.path.basename(path), "bytes": len(blob), "offsets": offsets}
+
+
+def pack_big(sid, density=5.0, sheet=True, out=None):
+    """The Multi's big bottle -> frontend/assets/sym/big/<ID>_multi.bin (the frames the game plays) and, with
+    `sheet`, <ID>_multi.webp (the old sheet, ?bigsheet), and manifest["big"][<ID>] (its cork entry kept).
+    `out`: write into that folder instead, manifest untouched (to diff a rebuild against what ships)."""
+    frames, entry = big_frames(sid, density)
+    big = out or os.path.join(OUT, "big")
+    os.makedirs(big, exist_ok=True)
+    if sheet:
+        entry["cols"] = big_sheet(frames, entry["w"], entry["h"], os.path.join(big, f"{sid}_multi.webp"))
+    entry["bin"] = big_bin(frames, os.path.join(big, f"{sid}_multi.bin"))
+    print(f"{sid} big: {len(frames)} frames {entry['w']}x{entry['h']}, bin {entry['bin']['bytes'] / 1e6:.2f} MB ->", big)
+    if out:
+        json.dump(entry, open(os.path.join(out, f"{sid}_big.json"), "w"), indent=1)
+        return entry
     man_path = os.path.join(OUT, "manifest.json")
     manifest = json.load(open(man_path))
-    manifest.setdefault("big", {})[sid] = entry
+    old = manifest.setdefault("big", {}).get(sid, {})
+    if not sheet and "cols" in old:
+        entry["cols"] = old["cols"]                          # the sheet left as it is: its layout still holds
+    if "cork" in old:
+        entry["cork"] = old["cork"]
+    manifest["big"][sid] = entry
     json.dump(manifest, open(man_path, "w"), indent=1)
-    print(f"{sid} big: {len(fs)} frames {cw}x{ch}, {os.path.getsize(path) / 1e6:.2f} MB ->", path)
+    return entry
 
 
 def pack_cork(sid, px=160):
@@ -172,6 +220,10 @@ if __name__ == "__main__":
     if sys.argv[1] == "big":   # python tools/blender/pack_frames.py big M [density]
         pack_big(sys.argv[2], *(float(v) for v in sys.argv[3:4]))
         pack_cork(sys.argv[2])
+        sys.exit()
+    if sys.argv[1] == "bigbin":   # python tools/blender/pack_frames.py bigbin M 3.4 [outdir]
+        out = sys.argv[4] if len(sys.argv) > 4 else None
+        pack_big(sys.argv[2], float(sys.argv[3]), sheet=bool(out), out=out)
         sys.exit()
     if sys.argv[1] == "fit":   # re-apply FIT_TO_ART to the manifest as it stands, without re-encoding any sheet
         man_path = os.path.join(OUT, "manifest.json")

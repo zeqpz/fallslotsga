@@ -38,3 +38,11 @@ __pycache__
 
 # pre-shrink backups written by tools/shrink_books.py stay local
 *.jsonl.zst.orig
+
+# Tipsy Harvest 5x5 (2026-11-08): these books are 238-430 MB, over GitHub's 100 MB file limit.
+# Shrink them (tools/shrink_books.py) before committing or uploading; corkstorm (29 MB) is kept.
+games/tipsy_5x5/library/publish_files/books_base.jsonl.zst
+games/tipsy_5x5/library/publish_files/books_bonus.jsonl.zst
+games/tipsy_5x5/library/publish_files/books_extremebonus.jsonl.zst
+games/tipsy_5x5/library/publish_files/books_boost.jsonl.zst
+games/tipsy_5x5/logs/

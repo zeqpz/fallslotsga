@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:,">  <!-- no favicon request: a 404 on every load is a console error reviewers flag -->
+
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Tipsy Harvest</title>
 <style>
@@ -59,10 +61,10 @@
     --char-inset: -3vw;      /* how far in from each edge they stand; negative pushes them out */
     /* Board size lives here so the spin overlay's CELL_STEP can be derived from the same
        numbers — hardcoding it separately means the reels mis-align the moment a cell resizes.
-       Sized for the 7x7 cluster board: seven of these, gaps included, take about the room
-       the old 5x4 board did. */
-    --cell-w: 115px;   /* 20% up from 96 / 82 / 6 on 2026-10-06: the board fills more of the middle */
-    --cell-h: 98px;
+       Sized for the 5x5 cluster board (2026-11-08): five of these, gaps included, take the same
+       847 x 728 px the 7x7 board's 115 x 98 cells did, so the board's footprint is unchanged. */
+    --cell-w: 164px;
+    --cell-h: 140px;
     --cell-gap: 7px;
   }
   /* Tipsy Harvest sets everything in Fredoka, the round bubbly face that suits the cartoon: the graffiti
@@ -317,8 +319,10 @@
   /* two stacked players: the standby always holds the next clip decoded and ready, so the
      handover is a crossfade between two already-running videos rather than a load pause.
      They blend against each other normally; .charfx screens the result onto the wall once. */
-  /* The characters are Spine 4.2 rigs drawn on their own canvas. The canvas simply fills
-     .charfx, so every sizing and responsive rule above still governs them unchanged. */
+  /* The scarecrow is a live skinned mesh (makeCharacterRig) drawn on its own Pixi canvas at the
+     screen's density. The canvas simply fills .charfx, so every sizing and responsive rule above
+     still governs him unchanged; his grass patch fades out above the canvas's bottom edge (his
+     ground line), so the box's edge never cuts it. */
   .charfx canvas {
     position: absolute; inset: 0; width: 100%; height: 100%; display: block;
     opacity: 0; transition: opacity var(--char-fade) linear;
@@ -3260,7 +3264,7 @@
 </style>
 </head>
 <body>
-<div id="camfar" class="camlayer"><div id="bgwall"><div id="wallpaint" aria-hidden="true"></div><div id="tagspill" class="tagfx" aria-hidden="true"><i></i></div><img id="walltag" src="assets/wall_tag.webp" width="3303" height="1674" alt="" draggable="false"><div id="tagglow" class="tagfx" aria-hidden="true"><i></i><b class="sheen"><b><i></i></b></b></div></div>
+<div id="camfar" class="camlayer"><div id="bgwall"><div id="wallpaint" aria-hidden="true"></div><div id="tagspill" class="tagfx" aria-hidden="true"><i></i></div><img id="walltag" width="3303" height="1674" alt="" draggable="false"><!-- no src in the fall build: the tag is never shown (was 640 KB + 22 MB decoded) --><div id="tagglow" class="tagfx" aria-hidden="true"><i></i><b class="sheen"><b><i></i></b></b></div></div>
 </div>
 <div id="camnear" class="camlayer"><div id="charfx" class="charfx" aria-hidden="true"></div></div>
 
@@ -3423,6 +3427,7 @@
 <script src="rgs.js"></script>
 <script src="rules.js"></script>
 <script src="sprayrim.js"></script>
+<script src="bgfx.js"></script>
 <script>
 "use strict";
 
@@ -3450,11 +3455,14 @@ const SYM = {
   L9: { label: "GRAVY", sub: "BOAT",       cls: "low",  img: "assets/flat/L9.webp" },
   L10:{ label: "HAY",   sub: "BALE",       cls: "low",  img: "assets/flat/L10.webp" },
 };
+// The 5x5 game (math tipsy_5x5, 2026-11-08) keeps three lows: the others never land, so they are not
+// loaded, not drawn in a celebration's shower and not offered anywhere (their art stays in assets/).
+for (const k of ["L2", "L5", "L6", "L7", "L8", "L9", "L10"]) delete SYM[k];
 const FLAT = {};   // the flat icon pictures, kept: the paytable, the shards of a blown-out tile and the fallback all draw them
 for (const [k, def] of Object.entries(SYM)) {   // pre-warm icon cache
   if (def.img) { const i = new Image(); i.src = def.img; FLAT[k] = i; }
 }
-const REELS = 7, ROWS = 7;   // the 7x7 cluster board; the events still pad every reel by one row top and bottom
+const REELS = 5, ROWS = 5;   // the 5x5 cluster board (2026-11-08, math games/tipsy_5x5; was 7x7); the events still pad every reel by one row top and bottom
 // Cost multipliers mirror index.json. The RGS applies them server-side (it debits
 // amount x cost); these are only so the buy buttons can show the right price.
 const MODE_COST = { base: 1, bonus: 100, extremebonus: 400, boost: 1.25, corkstorm: 250 };   // boost: Bonus Boost, the bonus 1.6x as likely (math 2026-11-04)
@@ -3484,7 +3492,7 @@ const restyle = (...els) => { for (const el of els) if (el) void getComputedStyl
 const fmt = v => RGS.money(v);
 // Social casinos (Stake.us) forbid a list of gambling terms. Every player-facing string
 // goes through T(): a no-op normally, the sweeps vocabulary when the lobby says social=true.
-const SOCIAL = RGS.social;
+let SOCIAL = RGS.social;   // `let`: authenticate's jurisdiction.socialCasino can turn it on (applySocial)
 const T = s => RULES.T(s, SOCIAL);
 // the symbols' short names reach the board as alt text and the ticker: they follow the rule too
 if (SOCIAL) for (const d of Object.values(SYM)) { d.label = T(d.label); d.sub = T(d.sub); }
@@ -3758,13 +3766,17 @@ function fillCell(cell, sym) {
 // matches none of the icons next to it, so it never seems to belong to a cluster it is not in - and the Multi
 // shows itself as the big bottle when it goes off (bigBottle). The pick is kept on the symbol, so the same
 // Multi keeps the same face as it falls in a tumble.
-const STAND_INS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10"];
+const STAND_INS = ["L1", "L3", "L4"];   // the 5x5 game's only lows (math 2026-11-08); with three, a neighbour-free pick may not exist and falls back
 function shownAs(sym, near = []) {
   if (!sym || (SYM[sym.name] || {}).cls !== "booster") return sym;
   if (!sym._stand) {
     const avoid = new Set(near.filter(Boolean).map(s => (s._stand || s).name));
     const ok = STAND_INS.filter(n => !avoid.has(n));
-    sym._stand = { name: ok[Math.floor(Math.random() * ok.length)] || "L1" };
+    // Picked from the neighbours, not Math.random (audit 2026-11-08): Bet Replay must draw the very same
+    // board the round showed, and the neighbours come from the book, so the same book gives the same face.
+    let h = 2166136261;
+    for (const c of [...avoid].sort().join(",") + "|" + near.length) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+    sym._stand = { name: ok[(h >>> 0) % Math.max(1, ok.length)] || STAND_INS[0] };
   }
   return sym._stand;
 }
@@ -4102,13 +4114,87 @@ const CORK_FLIGHT = 950;     // ms at tempo 1: about how long the cork is in the
 const CORK_UNITS = 2.1;      // the cork's drawing, Blender units (symanim.py render_cork), as the seated cork's
 const AIM_MAX = 18;          // deg the bottle turns, at most, to point its neck at the cell it will hit
 const BOTTLES_MAX = 4;       // Multis that get a bottle each; the rest of a board cover go off in a ripple after them
-// The bottle's frames are cut out of their sheet once, in the background, each its own small picture (perf,
-// 2026-11-04): drawn off the whole sheet (4008 x 6240, ~100 MB, past the biggest texture most phones' GPUs take),
-// its first frame stalled the screen ~300 ms while the sheet went up to the GPU.
-const BIGF = { img: null, ok: false, frames: null };
+// The bottle's frames (perf, 2026-11-08): each its own small WebP, back to back in one file (M_multi.bin, offsets
+// in the manifest: tools/blender/pack_frames.py bigbin), kept compressed (~1.8 MB) and decoded only a few at a
+// time, as the figures' are (charFrames): the first BIG_PRE stay decoded from the moment the board is up, so a
+// bottle rises and starts its clip without waiting on anything, and while one plays the next BIG_AHEAD frames are
+// decoded ahead of it and the ones behind it let go. Never a picture bigger than one frame (501 x 480), ~22 MB
+// decoded at the most instead of ~93 MB (+ the 100 MB sheet while it was cut up). ?bigsheet: the old sheet, below.
+const BIG_PRE = 10;      // frames kept decoded all along: the clip's first third of a second
+const BIG_AHEAD = 12;    // frames decoded ahead of the one a playing bottle shows (~0.2 s at its quickest)
+const BIG_DECODES = 4;   // decodes under way at once
+const BIG_SHEET = new URLSearchParams(location.search).has("bigsheet") || typeof createImageBitmap !== "function";
+const BIGF = { img: null, ok: false, frames: null, started: false,
+               blob: null, offs: null, bmp: new Map(), bad: new Set(), inflight: 0, players: new Set(), miss: 0 };
+const bigWanted = f => f < BIG_PRE || [...BIGF.players].some(p => f >= p.cur && f <= p.cur + BIG_AHEAD);
+function bigDecode(f) {
+  if (BIGF.bmp.has(f) || BIGF.bad.has(f) || BIGF.inflight >= BIG_DECODES || f >= BIGF.offs.length - 1) return;
+  const fr = { bmp: null, busy: true };
+  BIGF.bmp.set(f, fr);
+  BIGF.inflight++;
+  createImageBitmap(BIGF.blob.slice(BIGF.offs[f], BIGF.offs[f + 1], "image/webp"))
+    .finally(() => { BIGF.inflight--; fr.busy = false; })
+    .then(bmp => { if (BIGF.bmp.get(f) === fr && bigWanted(f)) fr.bmp = bmp; else { bmp.close(); if (BIGF.bmp.get(f) === fr) BIGF.bmp.delete(f); } bigPump(); },
+          err => { BIGF.bad.add(f); if (BIGF.bmp.get(f) === fr) BIGF.bmp.delete(f); console.warn("bottle frame", f, err && err.message); });
+}
+// ask for the frames the bottles about to show want, in the order they show, and let go of the rest
+function bigPump() {
+  if (!BIGF.blob) return;
+  for (const [f, fr] of BIGF.bmp) if (!fr.busy && !bigWanted(f)) { if (fr.bmp) fr.bmp.close(); BIGF.bmp.delete(f); }
+  for (let f = 0; f < BIG_PRE; f++) bigDecode(f);
+  for (const p of BIGF.players) for (let f = p.cur; f <= p.cur + BIG_AHEAD; f++) bigDecode(f);
+}
+// One bottle's canvas: draw(f) shows frame f (a frame not decoded yet keeps the last one up, and is asked for);
+// done() when it has played, so the frames behind it go. With the .bin the canvas is a CPU one (willReadFrequently,
+// measured 2026-11-08): on a GPU canvas Chrome caches every freshly decoded frame it is handed as a texture of its
+// own (renderer cc +270 MB, GPU transfer cache +190 MB after two shows); drawn on a CPU canvas a frame is a plain
+// copy and only the canvas (501 x 480) goes up to the GPU.
+function bigDrawer(cv, e) {
+  const g = cv.getContext("2d", BIGF.blob ? { willReadFrequently: true } : undefined);
+  let shown = -1;
+  const p = BIGF.blob ? { cur: 0 } : null;
+  if (p) BIGF.players.add(p);
+  const draw = f => {
+    if (f === shown) return;
+    let src = BIGF.frames ? BIGF.frames[f] : null;
+    if (p) {
+      if (f !== p.cur) { p.cur = f; bigPump(); }
+      const fr = BIGF.bmp.get(f);
+      src = fr && fr.bmp;
+      if (!src) { BIGF.miss++; bigPump(); return; }
+    }
+    shown = f;
+    g.clearRect(0, 0, e.w, e.h);
+    if (src) g.drawImage(src, 0, 0); else g.drawImage(BIGF.img, (f % e.cols) * e.w, Math.floor(f / e.cols) * e.h, e.w, e.h, 0, 0, e.w, e.h);
+  };
+  const done = () => { if (p && BIGF.players.delete(p)) bigPump(); };
+  return { draw, done };
+}
 function bigBottleLoad() {
   const e = SYMF.man && SYMF.man.big && SYMF.man.big.M;
-  if (!e || BIGF.img) return;
+  if (!e || BIGF.started) return;
+  BIGF.started = true;
+  for (const n of ["cork_up", "fizz_drop", "fizz_bubble", "foam_puff"]) fxPic(n);
+  if (BIG_SHEET || !e.bin) return bigSheetLoad(e);
+  const url = "assets/sym/big/" + e.bin.file;
+  fetch(url).then(r => r.ok ? r.blob() : Promise.reject(new Error(url + " " + r.status))).then(async b => {
+    if (b.size !== e.bin.bytes) throw new Error(url + ": " + b.size + " bytes, the manifest says " + e.bin.bytes);
+    BIGF.blob = b; BIGF.offs = e.bin.offsets;
+    bigPump();
+    for (let t = 0; t < 500; t++) {   // the first frames in, up to ~5 s
+      let all = true;
+      for (let f = 0; f < BIG_PRE; f++) if (!(BIGF.bmp.get(f) || {}).bmp) all = false;
+      if (all) break;
+      await new Promise(r => setTimeout(r, 10));
+      bigPump();
+    }
+    BIGF.ok = true;
+  }).catch(err => { console.warn("bottle frames:", err.message); BIGF.blob = null; bigSheetLoad(e); });
+}
+// The old way (?bigsheet, or no createImageBitmap): the frames cut out of their sheet once, in the background,
+// each its own small picture (perf, 2026-11-04): drawn off the whole sheet (4008 x 6240, ~100 MB, past the biggest
+// texture most phones' GPUs take), its first frame stalled the screen ~300 ms while the sheet went up to the GPU.
+function bigSheetLoad(e) {
   BIGF.img = new Image();
   const url = "assets/sym/big/M_multi.webp";
   if (typeof createImageBitmap === "function") {
@@ -4127,7 +4213,6 @@ function bigBottleLoad() {
     BIGF.img.src = url;
     BIGF.img.decode().then(() => { BIGF.ok = true; }, () => { BIGF.img = null; });
   }
-  for (const n of ["cork_up", "fizz_drop", "fizz_bubble", "foam_puff"]) fxPic(n);
 }
 
 /* ---------- the splash simulation ---------- */
@@ -4341,9 +4426,7 @@ function bigBottle(target) {
   neck.style.top = ((-e.seat[1] - e.box[1]) / e.box[3] * 100).toFixed(2) + "%";
   wrap.append(cv, neck);
   document.body.append(wrap);
-  const g = cv.getContext("2d");
-  let shown = -1;
-  const draw = f => { if (f === shown) return; shown = f; g.clearRect(0, 0, e.w, e.h); if (BIGF.frames) g.drawImage(BIGF.frames[f], 0, 0); else g.drawImage(BIGF.img, (f % e.cols) * e.w, Math.floor(f / e.cols) * e.h, e.w, e.h, 0, 0, e.w, e.h); };
+  const { draw, done: framesDone } = bigDrawer(cv, e);
   draw(0);
   let hit;
   const landed = new Promise(r => { hit = r; });
@@ -4385,7 +4468,7 @@ function bigBottle(target) {
           sfx("corkWhirr", .95 + Math.random() * .1);
           corkFly({ x: n.x, y: n.y, ang, size: u * CORK_UNITS }, target, hit);
         }
-        if (ms < dur) requestAnimationFrame(step); else res();
+        if (ms < dur) requestAnimationFrame(step); else { framesDone(); res(); }
       };
       requestAnimationFrame(step);
     });
@@ -4439,13 +4522,11 @@ function bottleRow(targets) {
     neck.style.top = ((-e.seat[1] - e.box[1]) / e.box[3] * 100).toFixed(2) + "%";
     wrap.append(cv, neck);
     clip.append(wrap);
-    const g = cv.getContext("2d");
-    let shown = -1;
-    const draw = f => { if (f === shown) return; shown = f; g.clearRect(0, 0, e.w, e.h); if (BIGF.frames) g.drawImage(BIGF.frames[f], 0, 0); else g.drawImage(BIGF.img, (f % e.cols) * e.w, Math.floor(f / e.cols) * e.h, e.w, e.h, 0, 0, e.w, e.h); };
+    const { draw, done } = bigDrawer(cv, e);
     draw(0);
     const rise = wrap.animate([{ translate: `0 ${drop.toFixed(0)}px` }, { translate: "0 0" }],
       { duration: 680 * t, delay: i * 70 * t, easing: "cubic-bezier(.2, 1.25, .4, 1)", fill: "both" });
-    return { wrap, neck, target, draw, rise, rot: UP };
+    return { wrap, neck, target, draw, done, rise, rot: UP };
   });
   sfx("bottleWhoosh");
   const ready = Promise.all(bottles.map(b => b.rise.finished.catch(() => {})));
@@ -4479,13 +4560,14 @@ function bottleRow(targets) {
           sfx("corkWhirr", .95 + Math.random() * .1);
           corkFly({ x: p.x, y: p.y, ang: (aim + neck0 * 180 / Math.PI) * Math.PI / 180, size: u * CORK_UNITS }, b.target, hit);
         }
-        if (ms < dur) requestAnimationFrame(step); else res();
+        if (ms < dur) requestAnimationFrame(step); else { b.done(); res(); }
       };
       requestAnimationFrame(step);
     });
     return { landed, done };
   }
   async function leave() {
+    bottles.forEach(b => b.done());
     sfx("bottleWhooshOut");
     await Promise.all(bottles.map((b, i) => b.wrap.animate([{ translate: "0 0" }, { translate: `0 ${drop.toFixed(0)}px` }],
       { duration: 460 * t, delay: i * 50 * t, easing: "cubic-bezier(.5, 0, .8, .4)", fill: "forwards" }).finished.catch(() => {})));
@@ -5454,7 +5536,7 @@ function stripsFor(gameType) {
   return (typeof STRIP_SETS !== "undefined" && STRIP_SETS[key]) || null;
 }
 
-const FALLBACK_STRIP = ["L1", "H4", "L3", "H1", "L5", "H3", "L2", "H5", "L4", "H2"];
+const FALLBACK_STRIP = ["L1", "H4", "L3", "H1", "L4", "H3", "L1", "H5", "L3", "H2"];   // 5x5 symbol set: no L2 / L5-L10
 
 // Two Golden Wishbones down and a reel held for the third: the board leans in. It eases up a touch
 // bigger, about a point part way toward the held column, over the rest of the reveal - full
@@ -6408,7 +6490,13 @@ const OPUS_OK = (() => { try { return !!new Audio().canPlayType('audio/ogg; code
 const musicRaw = {};
 const fetchMusic = name => musicRaw[name] || (musicRaw[name] =
   fetch(OPUS_OK ? MUSIC[name].ogg : MUSIC[name].aac).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null));
-fetchMusic("base").then(() => Object.keys(MUSIC).forEach(name => fetchMusic(name)));
+// The other cues (~4 MB) wait until the page has loaded, so they never compete with the first
+// playable download (audit 2026-11-08); musicTrack still fetches any cue on demand if it is wanted sooner.
+fetchMusic("base").then(() => {
+  const rest = () => Object.keys(MUSIC).forEach(name => fetchMusic(name));
+  const later = () => (window.requestIdleCallback ? requestIdleCallback(rest, { timeout: 4000 }) : setTimeout(rest, 1500));
+  if (document.readyState === "complete") later(); else addEventListener("load", later, { once: true });
+});
 const musicTrack = {};   // name -> Promise<{ buf, at } | null>; at: where the cue's first frame sits in buf, in seconds
 function loadTrack(name) {
   if (musicTrack[name]) return musicTrack[name];
@@ -7654,14 +7742,18 @@ function paintBonus() {
   const wrap = $("bonusWrap");
   if (!wrap || wrap.hidden) return;
   const row = $("bshopRow");
-  const live = BUYS.filter(o => MODE_COST[o.mode] > 0);
+  // a mode the RGS switched off for this session (gameModes[].maxBet 0, e.g. under XGC) is not offered at all
+  const live = BUYS.filter(o => MODE_COST[o.mode] > 0 && RGS.maxBetOf(o.mode) !== 0);
+  if (state.boost && !RGS.modeAllowed("boost", bet())) state.boost = false;   // over Boost's cap: back to plain spins
   if (row.dataset.modes !== live.map(o => o.mode).join()) {
     row.replaceChildren(...live.map(bshopCard));
     row.dataset.modes = live.map(o => o.mode).join();
   }
   for (const card of row.children) {
     const o = BUYS.find(x => x.mode === card.dataset.mode), cost = MODE_COST[o.mode], price = cost * bet();
+    const capped = !RGS.modeAllowed(o.mode, bet());   // this bet is over the mode's own max bet (gameModes[].maxBet)
     const over = price > state.balance, btn = card.querySelector(".bsget");
+    card.classList.toggle("capped", capped);
     card.querySelector(".bsprice").textContent = fmt(price);
     card.querySelector(".bsx").textContent = o.toggle ? T(`${fmtMult(cost)}× per spin`) : T(`${fmtMult(cost)}× play`);
     const mx = card.querySelector(".bsmax");
@@ -7669,15 +7761,15 @@ function paintBonus() {
     mx.lastChild.textContent = MAX_WIN_ODDS[o.mode] || "";
     if (o.toggle) {
       card.classList.toggle("on", !!state.boost);
-      btn.textContent = state.boost ? T("On") : T("Activate");
+      btn.textContent = capped ? T("Lower bet") : state.boost ? T("On") : T("Activate");
       btn.classList.toggle("lit", !!state.boost);
-      btn.disabled = false;
+      btn.disabled = capped;
     } else {
-      const armed = bshopArmed === o.mode;
+      const armed = bshopArmed === o.mode && !capped;
       card.classList.toggle("on", armed);
       btn.classList.toggle("armed", armed && !over);
-      btn.textContent = over ? T("Low balance") : armed ? T("Confirm") : T("Get");
-      btn.disabled = over;
+      btn.textContent = capped ? T("Lower bet") : over ? T("Low balance") : armed ? T("Confirm") : T("Get");
+      btn.disabled = over || capped;
     }
   }
   $("bshopBal").textContent = fmtBal(state.balance);
@@ -7746,7 +7838,9 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("bonusW
  *  failed — autoplay stops on false. */
 async function playRound(mode) {
   if (REPLAY) return false;
-  if (mode === "base" && state.boost && MODE_COST.boost > 0) mode = "boost";   // Bonus Boost is on: every base spin is boosted                              // a replay is watched, never played
+  if (mode === "base" && state.boost && MODE_COST.boost > 0 && RGS.modeAllowed("boost", bet())) mode = "boost";   // Bonus Boost is on: every base spin is boosted (a replay is watched, never played)
+  // the RGS's own cap per mode (gameModes[].maxBet; 0 = switched off): never send a play it will refuse
+  if (!RGS.modeAllowed(mode, bet())) { notice(T("<b>Not available at this bet</b> — lower the bet."), true); return false; }
   if (state.playing) { if (!state.noSkip) state.skip = true; return false; }   // fast-forward
   if (screensUp()) return false;                         // nothing is staked behind the opening screens
   if (!RGS.state.authenticated) { notice(T("<b>Not connected</b> — reopen the game from the lobby."), true); return false; }
@@ -8042,6 +8136,8 @@ function refreshBet() {
 }
 
 /* ---------- character ---------- */
+// (2026-11-08: the scarecrow is now drawn LIVE from his rig - makeCharacterRig below; this frame player is kept
+// behind ?charframes for A/B.)
 // The two characters are made and animated in Blender (tools/blender/chars/<char>/: a cutout rig, every clip
 // keyed there, the skull's smoke drawn there too), rendered to frames and packed by tools/blender/pack_chars.py:
 // each clip one file of small WebP frames back to back (assets/chars/<char>/<density>/<clip>.bin). A figure is
@@ -8362,7 +8458,7 @@ function footShadow(app, fig, root) {
   });
 }
 
-async function makeCharacter({ el, name, flavour, swap = {}, shadow = true }) {
+async function makeCharacterFrames({ el, name, flavour, swap = {}, shadow = true }) {
   const root = document.getElementById(el);
   if (!root || typeof PIXI === "undefined") return null;
   const headroom = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--char-headroom")) || 1;
@@ -8628,10 +8724,333 @@ async function makeCharacter({ el, name, flavour, swap = {}, shadow = true }) {
   return { react, enter, exit };
 }
 
+// ---- the LIVE rig (2026-11-08, the shipped default; ?charframes plays the old frames above for A/B)
+// The figure is not frames but its own pictures, skinned: tools/fall/blender/scarecrow.py animates a cut-out on a
+// bone rig in Blender, tools/fall/blender/export_char_rig.py reads every clip's bone matrices off it (30 a second),
+// tools/fall/pack_char_rig.py packs them with the layers at their full painted size (assets/chars/<name>_rig/:
+// atlas.webp, rig.json, rig.bin - ~1 MB, where the frames were 147 MB). Here every tick lerps the pose between the
+// two keys either side of now (so it moves at the screen's rate, not 30), and bends the body mesh on the CPU
+// (linear blend skinning, up to 4 bones a vertex - what Blender's armature does, so it matches the render): the
+// body with its neutral face, the face patch for the face showing (the same vertices, its own uvs), the pole and
+// its grass patch, the crow, the effect sprites, and a soft contact shadow under the grass. Drawn at the screen's
+// own density from a mipmapped atlas painted at ~1.6x the size a 1440p screen shows him, so he is as crisp as
+// the painted field behind him. A cut between clips is a short blend between the two POSES (not a cross-fade of
+// two pictures), so a reaction can cut in at once without a pop.
+const CHAR_FRAMES = /[?&]charframes\b/.test(location.search);
+const CHAR_RIG = {
+  cueWait: 420,    // ms a reaction waits for the playing clip's next rest pose before cutting in anyway (blended)
+  blend: 200,      // ms a cut blends the poses over (off a rest pose: cueBlend)
+  cueBlend: 90,
+  backBlend: 140,  // ms a finished one-shot blends back into the idle (its first pose is the idle's, near enough)
+};
+async function charRig(name) {
+  const base = `assets/chars/${name}_rig`;
+  const get = async (f, kind) => {   // a dropped request is tried again (twice) before the figure gives up
+    for (let n = 0; ; n++) {
+      try {
+        const r = await fetch(`${base}/${f}`);
+        if (!r.ok) throw new Error(`${base}/${f} -> HTTP ${r.status}`);
+        return await r[kind]();
+      } catch (e) { if (n >= 2) throw e; await new Promise(res => setTimeout(res, 400 * (n + 1))); }
+    }
+  };
+  const [man, bin, atlasBlob] = await Promise.all([get("rig.json", "json"), get("rig.bin", "arrayBuffer"), get("atlas.webp", "blob")]);
+  const T = { f4: Float32Array, u2: Uint16Array, u4: Uint32Array, u1: Uint8Array, i2: Int16Array };
+  const arr = key => {
+    const [off, dt, shape] = man.bin[key];
+    return new T[dt](bin, off, shape.reduce((a, b) => a * b, 1));
+  };
+  // the atlas: decoded once, uploaded once with mipmaps (he is drawn at a half to two thirds of its size)
+  // premultiplied by the decoder: WebGL ignores its premultiply-on-upload flag for an ImageBitmap (straight alpha
+  // there drew a light fringe round every part)
+  const bmp = await createImageBitmap(atlasBlob, { premultiplyAlpha: "premultiply" });
+  const source = new PIXI.ImageSource({ resource: bmp, autoGenerateMipmaps: true, alphaMode: "premultiplied-alpha" });
+  source.style.minFilter = "linear"; source.style.magFilter = "linear"; source.style.mipmapFilter = "linear";
+  const atlas = new PIXI.Texture({ source });
+  const sub = r => new PIXI.Texture({ source, frame: new PIXI.Rectangle(r[0], r[1], r[2], r[3]) });
+  return { man, arr, atlas, sub };
+}
+
+async function makeCharacterRig({ el, name, flavour, swap = {} }) {
+  const root = document.getElementById(el);
+  if (!root || typeof PIXI === "undefined" || !PIXI.MeshSimple) return null;
+  const headroom = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--char-headroom")) || 1;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  let R;
+  try { R = await charRig(name); }
+  catch (e) { console.warn("character rig failed to load:", name, e.message); return null; }
+  const { man, arr } = R, fps = man.fps, NB = man.bones.length;
+  const has = clip => !!man.clips[clip];
+  if (!has("idle")) { console.warn("character has no idle:", name); return null; }
+
+  const app = new PIXI.Application();
+  await app.init({ backgroundAlpha: 0, antialias: false, autoDensity: true, resolution: dpr, resizeTo: root, preference: "webgl" });
+  app.ticker.maxFPS = CHAR_FPS;
+  root.appendChild(app.canvas);
+  // drawn only when the pose (or the light on it) changes - the canvas keeps the last picture in between
+  let dirty = true, renderMs = 0;
+  const touch = () => { dirty = true; };
+  app.ticker.remove(app.render, app);
+  app.ticker.add(() => {
+    if (!dirty) return;
+    dirty = false;
+    const t0 = performance.now();
+    app.render();
+    renderMs = renderMs * .95 + (performance.now() - t0) * .05;
+  }, null, PIXI.UPDATE_PRIORITY.LOW);
+  app.renderer.on("resize", touch);
+
+  // ---- the figure, in art px (the layers' own frame: x right, y down); fit() scales and places it
+  const fig = new PIXI.Container();
+  app.stage.addChild(fig);
+  const rect = k => man.rects[k];
+  // the contact shadow on the field, under the grass patch
+  const SH = man.shadow, shadow = new PIXI.Sprite(R.sub(rect("shadow")));
+  shadow.anchor.set(.5); shadow.position.set(SH.cx, SH.cy);
+  shadow.scale.set(2 * SH.rx / rect("shadow")[2], 2 * SH.ry / rect("shadow")[3]);
+  fig.addChild(shadow);
+  // a skinned mesh: rest positions, the bones and weights of each vertex (k per vertex), its skinned positions
+  const skinned = (pos, uv, tri, bones, weights, k) => {
+    const n = pos.length / 2;
+    const mesh = new PIXI.MeshSimple({ texture: R.atlas, vertices: new Float32Array(pos), uvs: uv, indices: tri instanceof Uint32Array ? tri : new Uint32Array(tri) });
+    mesh.autoUpdate = false;
+    return { mesh, n, pos, bones, weights, k, out: mesh.vertices };
+  };
+  const bw = arr("body_w"), bodyW = new Float32Array(bw.length);
+  for (let i = 0; i < bw.length; i++) bodyW[i] = bw[i] / 255;
+  const pw = arr("pole_w"), pn = pw.length, poleB = new Uint8Array(pn * 2), poleW = new Float32Array(pn * 2);
+  for (let i = 0; i < pn; i++) { poleB[2 * i] = man.pole_bone[0]; poleB[2 * i + 1] = man.pole_bone[1]; poleW[2 * i] = pw[i] / 255; poleW[2 * i + 1] = 1 - pw[i] / 255; }
+  const pole = skinned(arr("pole_pos"), arr("pole_uv"), arr("pole_tri"), poleB, poleW, 2);
+  const body = skinned(arr("body_pos"), arr("body_uv"), arr("body_tri"), arr("body_bone"), bodyW, 4);
+  fig.addChild(pole.mesh, body.mesh);
+  // the face patch: the body's own vertices under the face, drawn over it with the uvs of the face showing
+  const fv = arr("face_verts"), ft = arr("face_tri"), remap = new Map();
+  fv.forEach((v, i) => remap.set(v, i));
+  const ftri = new Uint32Array(ft.length);
+  for (let i = 0; i < ft.length; i++) ftri[i] = remap.get(ft[i]);
+  const faceUV = {};
+  for (const f of man.faces) if (f !== "neutral") faceUV[f] = arr("face_uv_" + f);
+  const face = new PIXI.MeshSimple({ texture: R.atlas, vertices: new Float32Array(fv.length * 2), uvs: new Float32Array(fv.length * 2), indices: ftri });
+  face.autoUpdate = false; face.visible = false;
+  fig.addChild(face);
+  let faceShown = -1;
+  // the crow: one rigid picture on its bone
+  const crowR = rect("crow"), crow = new PIXI.Sprite(R.sub(crowR)), crowBone = man.bones.indexOf("crow");
+  fig.addChild(crow);
+  // effect sprites (straw, leaves, feathers, bubbles, sparkles), pooled
+  const fxTex = man.fx.map(k => R.sub(rect("fx_" + k))), fxPool = [], FXS = rect("fx_" + man.fx[0])[2];
+  const fxLayer = new PIXI.Container();
+  fig.addChild(fxLayer);
+  const mtx = new PIXI.Matrix();
+
+  const fit = () => {
+    const w = app.screen.width, h = app.screen.height;
+    if (!w || !h) return;
+    // his standing height fills the box less its headroom, his ground on the box's bottom, centred
+    const s = h / headroom() / man.rest_height;
+    fig.scale.set(s);
+    fig.position.set(w / 2 - man.ground[0] * s, h - man.ground[1] * s);
+    touch();
+  };
+  fit();
+  app.renderer.on("resize", fit);
+  addEventListener("resize", fit);
+  const repose = neonRim(app, fig, null, touch);   // the tag's light, where the scene has one (not in this reskin)
+
+  // ---- poses: a clip's bone matrices at a (fractional) frame, lerped between its keys; a cut blends from the last shown pose
+  const Q = {}, FACES = {};
+  for (const c of Object.keys(man.clips)) { Q[c] = arr("clip_" + c); FACES[c] = arr("faces_" + c); }
+  const M = new Float32Array(NB * 6), shownM = new Float32Array(NB * 6), fromM = new Float32Array(NB * 6);
+  const poseAt = (clip, ff, out) => {
+    const C = man.clips[clip], n = C.frames, q = Q[clip];
+    let i0 = Math.floor(ff), k = ff - i0, i1;
+    if (C.loop) { i0 = ((i0 % n) + n) % n; i1 = (i0 + 1) % n; }
+    else if (i0 >= n - 1) { i0 = i1 = n - 1; k = 0; }
+    else { if (i0 < 0) { i0 = 0; k = 0; } i1 = i0 + 1; }
+    const a = i0 * NB * 6, b = i1 * NB * 6;
+    for (let j = 0; j < NB * 6; j += 6) {
+      for (let e = 0; e < 6; e++) {
+        const v = q[a + j + e] + (q[b + j + e] - q[a + j + e]) * k;
+        out[j + e] = e < 4 ? v / 8192 : v / 8;
+      }
+    }
+    return C.loop ? Math.round(ff) % n : Math.min(n - 1, Math.max(0, Math.round(ff)));   // the nearest key (faces, sprites)
+  };
+  const skin = S => {
+    const { n, pos, bones, weights, k, out } = S;
+    for (let v = 0; v < n; v++) {
+      const x = pos[2 * v], y = pos[2 * v + 1];
+      let sx = 0, sy = 0;
+      for (let j = 0; j < k; j++) {
+        const w = weights[v * k + j];
+        if (w === 0) continue;
+        const m = bones[v * k + j] * 6;
+        sx += w * (M[m] * x + M[m + 2] * y + M[m + 4]);
+        sy += w * (M[m + 1] * x + M[m + 3] * y + M[m + 5]);
+      }
+      out[2 * v] = sx; out[2 * v + 1] = sy;
+    }
+    S.mesh.geometry.getBuffer("aPosition").update();
+  };
+  const show = (clip, key) => {
+    skin(pole); skin(body);
+    // the face
+    const fi = FACES[clip][key], fname = man.faces[fi];
+    if (fname === "neutral") face.visible = false;
+    else {
+      const fo = face.vertices, bo = body.out;
+      for (let i = 0; i < fv.length; i++) { fo[2 * i] = bo[2 * fv[i]]; fo[2 * i + 1] = bo[2 * fv[i] + 1]; }
+      face.geometry.getBuffer("aPosition").update();
+      if (fi !== faceShown) { const ub = face.geometry.getBuffer("aUV"); ub.data.set(faceUV[fname]); ub.update(); faceShown = fi; }
+      face.visible = true;
+    }
+    // the crow, on its bone (its picture sits at its art px)
+    const m = crowBone * 6, x0 = crowR[4], y0 = crowR[5];
+    mtx.set(M[m], M[m + 1], M[m + 2], M[m + 3], M[m] * x0 + M[m + 2] * y0 + M[m + 4], M[m + 1] * x0 + M[m + 3] * y0 + M[m + 5]);
+    crow.setFromMatrix(mtx);
+    // the effect sprites of the nearest key: each a unit square -> art px
+    const list = man.clips[clip].spr[key] || [];
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      let sp = fxPool[i];
+      if (!sp) { sp = fxPool[i] = new PIXI.Sprite(fxTex[0]); fxLayer.addChild(sp); }
+      sp.texture = fxTex[s[0]];
+      mtx.set(s[1] / FXS, s[2] / FXS, s[3] / FXS, s[4] / FXS, s[5], s[6]);
+      sp.setFromMatrix(mtx);
+      sp.alpha = s[7];
+      sp.visible = true;
+    }
+    for (let i = list.length; i < fxPool.length; i++) fxPool[i].visible = false;
+    shownM.set(M);
+    if (repose) repose();
+    touch();
+  };
+
+  // ---- the clock: what plays, from when, and what waits for the playing clip's next rest pose
+  let cur = { clip: "idle", t0: performance.now(), rank: -1 }, next = null, blendT0 = 0, blendMs = 0;
+  let rank = -1, until = 0, away = true, timer = 0, fadeTimer = 0, lastFF = -1, lastClip = null, skinMs = 0;
+  const lengthOf = clip => man.clips[clip].frames * 1000 / fps;
+  const ffOf = (c, now) => (now - c.t0) * fps / 1000;
+  const start = (clip, now, blend, r = -1) => {
+    if (blend > 0 && lastClip) { fromM.set(shownM); blendT0 = now; blendMs = blend; } else blendMs = 0;
+    cur = { clip, t0: now, rank: r };
+    if (clip !== "idle") until = now + lengthOf(clip);
+  };
+  // on a rest pose: a frame the packer found within a few px of the rest pose, passed since the last tick
+  const passedCue = (clip, from, to) => (man.clips[clip].cues || []).some(c => c > from && c <= to);
+  let frozen = null;   // QA: a pose held still (__chars[i].freeze)
+  app.ticker.add(() => {
+    const now = performance.now();
+    if (frozen) {
+      if (frozen.drawn) return;
+      show(frozen.clip, poseAt(frozen.clip, frozen.ff, M)); frozen.drawn = true; lastClip = null;
+      return;
+    }
+    const C = man.clips[cur.clip];
+    // a one-shot over: on into a reaction waiting behind it, else back to the idle (the exit holds its last pose)
+    if (!C.loop && ffOf(cur, now) >= C.frames - 1 && cur.clip !== "exit") {
+      const endAt = Math.min(now, cur.t0 + lengthOf(cur.clip));
+      if (next) { charSfx(name, next.clip); start(next.clip, endAt, CHAR_RIG.cueBlend, next.rank); next = null; }
+      else { start("idle", endAt, CHAR_RIG.backBlend); rank = -1; }
+    }
+    // a waiting clip cuts in on the playing clip's next rest pose, or, past cueWait, at once with a pose blend.
+    // A bigger moment cuts off a smaller one-shot the same way; enter / exit are never cut.
+    if (next && cur.clip !== "enter" && cur.clip !== "exit" && (cur.clip === "idle" || next.rank > cur.rank)) {
+      const ff = ffOf(cur, now), n = man.clips[cur.clip].frames;
+      const f0 = lastClip === cur.clip ? lastFF : ff, a = Math.floor(f0), b = Math.floor(ff);
+      const onCue = cur.clip === "idle" ? passedCue("idle", a % n, b % n) || (b % n) < (a % n) : passedCue(cur.clip, a, b);
+      const late = now - next.at > CHAR_RIG.cueWait;
+      if (onCue || late) {
+        charSfx(name, next.clip);
+        start(next.clip, now, onCue ? CHAR_RIG.cueBlend : CHAR_RIG.blend, next.rank);
+        next = null;
+      }
+    }
+    const ff = Math.max(0, ffOf(cur, now));
+    const blending = blendMs > 0 && now - blendT0 < blendMs;
+    if (!blending && cur.clip === lastClip && Math.abs(ff - lastFF) < 1e-3) return;   // nothing moved
+    const t0 = performance.now();
+    const key = poseAt(cur.clip, ff, M);
+    if (blending) {
+      let e = (now - blendT0) / blendMs; e = e * e * (3 - 2 * e);
+      for (let j = 0; j < M.length; j++) M[j] = fromM[j] + (M[j] - fromM[j]) * e;
+    }
+    show(cur.clip, key);
+    skinMs = skinMs * .95 + (performance.now() - t0) * .05;
+    lastFF = ff; lastClip = cur.clip;
+  });
+
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+  const oneShot = (clip, want) => {
+    if (!has(clip)) return false;
+    const now = performance.now();
+    if (want <= rank && now < until) return false;   // a bigger moment still has the floor
+    if (next && want <= next.rank) return false;      // one is already waiting for its cue
+    next = { clip, rank: want, at: now };
+    const startsAt = cur.clip !== "idle" && cur.clip !== "exit" && want <= cur.rank ? Math.max(now, cur.t0 + lengthOf(cur.clip)) : now + CHAR_RIG.cueWait;
+    rank = want; until = startsAt + lengthOf(clip);
+    return true;
+  };
+  // idle breaks, re-armed after every clip, skipped (not banked) while busy or hidden
+  const armFlavour = () => {
+    clearTimeout(timer);
+    if (REDUCED_MOTION || away || !flavour.length) return;
+    timer = setTimeout(() => {
+      if (!document.hidden && !state.playing && performance.now() >= until) oneShot(pick(pick(flavour)), CHAR_RANK.flavour);
+      armFlavour();
+    }, CHAR_FLAVOUR_GAP[0] + Math.random() * (CHAR_FLAVOUR_GAP[1] - CHAR_FLAVOUR_GAP[0]));
+  };
+  const react = kind => {
+    if (REDUCED_MOTION || away) return;
+    const want = CHAR_RANK[kind];
+    if (want === undefined) return;
+    const clip = swap[kind] || kind;
+    if (oneShot(clip, want)) armFlavour();
+  };
+  const enter = () => {
+    if (!away) return;
+    away = false;
+    rank = -1; until = 0; next = null;
+    clearTimeout(fadeTimer);
+    app.canvas.classList.add("on");
+    if (REDUCED_MOTION) { app.ticker.stop(); start("idle", performance.now(), 0); poseAt("idle", 0, M); show("idle", 0); app.render(); return; }
+    if (has("enter")) charSfx(name, "enter");
+    start(has("enter") ? "enter" : "idle", performance.now(), 0);
+    rank = has("enter") ? CHAR_RANK.enter : -1;
+    armFlavour();
+  };
+  const exit = () => {
+    if (away) return;
+    away = true;
+    clearTimeout(timer);
+    next = null;
+    clearTimeout(fadeTimer);
+    if (REDUCED_MOTION || !has("exit")) { app.canvas.classList.remove("on"); return; }
+    charSfx(name, "exit");
+    start("exit", performance.now(), CHAR_RIG.blend);
+    rank = CHAR_RANK.exit; until = performance.now() + lengthOf("exit");
+    const fadeMs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--char-fade")) || 280;
+    fadeTimer = setTimeout(() => app.canvas.classList.remove("on"), Math.max(0, lengthOf("exit") - fadeMs));
+  };
+  // the first pose drawn (and the atlas uploaded) before the loading screen lifts
+  poseAt("enter", 0, M); show("enter", 0);
+  if (app.renderer.prepare) { try { await app.renderer.prepare.upload(fig); } catch (e) { /* drawn on first render instead */ } }
+  app.render();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) fit(); });
+  // debug / QA handle: play(clip) cuts straight to a clip; perf() the mean ms per tick of skinning and of drawing
+  (window.__chars || (window.__chars = [])).push({
+    name, app, rig: true, state: () => ({ cur, next, rank }),
+    play: clip => { frozen = null; start(clip, performance.now(), CHAR_RIG.blend, 5); rank = 5; until = performance.now() + lengthOf(clip); },
+    freeze: (clip, ff) => { frozen = clip ? { clip, ff, drawn: false } : null; },
+    perf: () => ({ skinMs, renderMs, verts: body.n + pole.n + fv.length, bones: NB }),
+  });
+  return { react, enter, exit };
+}
+
 // the loading screen waits for both characters (their walk-on and idle decoded)
 let charsLoaded = Promise.resolve([]);
 (async function characters() {
-  charsLoaded = Promise.all(CHARACTERS.map(makeCharacter));
+  charsLoaded = Promise.all(CHARACTERS.map(c => (CHAR_FRAMES ? makeCharacterFrames : makeCharacterRig)(c)));
   const rigs = (await charsLoaded).filter(Boolean);
   if (!rigs.length) return;
   charReact = kind => rigs.forEach(r => r.react(kind));
@@ -8813,7 +9232,7 @@ if (window.ResizeObserver) {
 }
 
 buildBoard();
-eachCell((el, r, y) => setCell(r, y, { name: ["L1","L2","L3","L4","L5"][(r + y) % 5] }));
+eachCell((el, r, y) => setCell(r, y, { name: ["L1","H7","L3","H6","L4"][(r + y) % 5] }));   // only symbols the 5x5 game has
 fitToScreen();   // fit once the board exists; `load` and fonts.ready refine it after art settles
 
 // the button doubles as Skip mid-round — only clunk when it actually starts a spin
@@ -8904,10 +9323,13 @@ function assetUrls() {
   // the win screen's lettering, named rather than read off WIN_TIERS: that list is declared
   // further down the file than this screen runs
   for (const n of ["total_win", "big_win", "mega_win", "xtreme_win"]) urls.add("assets/" + n + ".webp");
-  urls.add("assets/wall_tag.webp");   // the tag on the wall is an <img>, so no rule names it
+  if (window.WallFX) urls.add("assets/wall_tag.webp");   // the graffiti build's tag is an <img>, so no rule names it
   urls.add("assets/xbonus_text.webp");   // the Extreme Bonus intro's XTREME BONUS, an <img> too
   if (REDUCED_MOTION) for (const id of Object.keys(TIER)) for (const k of ["halo", "tube"]) urls.add(`assets/glow/${id}_${k}.webp`);   // set by tierGlow()
-  return [...urls];
+  // Not pictures, or never shown in the fall build (audit 2026-11-08): fonts load through @font-face
+  // (an Image() of a .ttf fetched it twice), and the graffiti wall's tag glows are display:none here.
+  const hidden = window.WallFX ? null : /assets\/wallfx\//;
+  return [...urls].filter(u => !/\.(ttf|otf|woff2?)(\?|$)/i.test(u) && !(hidden && hidden.test(u)));
 }
 // Every preloaded picture is held on to, not dropped: while one is held, a new <img> of it is
 // ready the moment it is made, so a figure or a headline shown for the first time is there on
@@ -9179,9 +9601,11 @@ runIntro();
 // the tag on the wall wanders at random for as long as the page is up: a slow, small drift
 // with a slight lean, never the same path twice (the win popups' own wander, at a stroll)
 $("walltag")._followers = [...document.querySelectorAll(".tagfx")];   // its glow and its light wander with it
-if (window.WallFX) WallFX.start();
-hoverWin($("walltag"), { x: 1.1, y: 1, r: .6, s: 0, unit: "vw", pace: 4.5 }, 0,
-  v => ({ transform: `translate(${v.x.toFixed(3)}vw, ${v.y.toFixed(3)}vw) rotate(${v.r.toFixed(3)}deg)` }));   // centring stays on its translate
+if (window.WallFX) {   // the graffiti build only: the fall build hides the tag, so nothing wanders a frame loop for it
+  WallFX.start();
+  hoverWin($("walltag"), { x: 1.1, y: 1, r: .6, s: 0, unit: "vw", pace: 4.5 }, 0,
+    v => ({ transform: `translate(${v.x.toFixed(3)}vw, ${v.y.toFixed(3)}vw) rotate(${v.r.toFixed(3)}deg)` }));   // centring stays on its translate
+}
 // so does the bonus's counter plate, more gently, on a path of its own (its jumps are on scale)
 hoverWin(document.querySelector("#fsCard .fsplate"), { x: .35, y: .45, r: .4, s: 0, unit: "vh", pace: 2.6 }, 0,
   v => ({ transform: `translate(${v.x.toFixed(3)}vh, ${v.y.toFixed(3)}vh) rotate(${v.r.toFixed(3)}deg)` }));
@@ -10194,9 +10618,10 @@ $("rapidBtn").addEventListener("click", () => { setRapid(!$("turbo").checked); s
 let rapidWas = false;
 try { rapidWas = localStorage.getItem("tipsyharvest.rapid") === "1"; } catch (e) { /* storage blocked */ }
 setRapid(rapidWas);
-if (SOCIAL) {   // restricted vocabulary: every static word on the page goes through T() too -
-                // labels, buttons, the chooser, the loading screen - and so do the names
-                // screen readers and tooltips use
+// restricted vocabulary: every static word on the page goes through T() too - labels, buttons, the
+// chooser, the loading screen - and so do the names screen readers and tooltips use. Run at load for
+// social=true, and again after authenticate when only the jurisdiction says socialCasino.
+function applySocial() {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     if (n.parentElement && /^(SCRIPT|STYLE)$/.test(n.parentElement.tagName)) continue;
@@ -10210,6 +10635,7 @@ if (SOCIAL) {   // restricted vocabulary: every static word on the page goes thr
     }
   }
 }
+if (SOCIAL) applySocial();
 setAutoBtn();
 
 // Phones suspend the audio context and may drop the session's balance display while the
@@ -10364,6 +10790,11 @@ async function boot() {
     fatal(T("Can't connect"), `<b>${RGS_MESSAGE[err.code] || T("Could not connect to the game server.")}</b><br>` +
       T("Reopen the game from the lobby, or reload to try again.") + `<br><small class="errcode">${detail}</small>`);
     return;
+  }
+  if (RGS.social && !SOCIAL) {   // the jurisdiction says social casino though the URL did not
+    SOCIAL = true;
+    for (const d of Object.values(SYM)) { d.label = T(d.label); d.sub = T(d.sub); }
+    applySocial();
   }
 
   const lbl = $("balanceLbl");
