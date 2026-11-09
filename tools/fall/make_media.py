@@ -126,14 +126,12 @@ def cover():
 
 
 def tile():
-    """The scarecrow and the title only - no symbols (owner, 2026-11-08)."""
+    """The scarecrow only - no title, no symbols (owner, 2026-11-08)."""
     W, H = 1200, 1600
     im = background(W, H, focus_x=.43, focus_y=.42, zoom=1.15)
-    warm_glow(im, 600, 980, 660, .45)
-    word, glow = wordmark(1080)
-    im.alpha_composite(glow, (round(600 - glow.width / 2), round(260 - glow.height / 2)))
-    place(im, word, 600 - word.width / 2, 260 - word.height / 2, blur=16, alpha=.45)
-    sc = fit_h(scarecrow("happy"), 1200)
+    warm_glow(im, 600, 820, 700, .45)
+    # no title on the tile (owner, 2026-11-08): just the scarecrow, big, in the field
+    sc = fit_h(scarecrow("happy"), 1420)
     place(im, sc, 600 - sc.width / 2, H - sc.height + 40, blur=22, alpha=.5)
     return vignette(im, .38)
 
