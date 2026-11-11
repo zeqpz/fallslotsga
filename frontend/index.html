@@ -3429,7 +3429,6 @@
 </div>
 
 <script src="assets/spine/pixi.min.js"></script>
-<script src="strips.js"></script>
 <script src="rgs.js"></script>
 <script src="rules.js"></script>
 <script src="sprayrim.js"></script>
@@ -3924,7 +3923,7 @@ function rigScale() {
   if (Math.abs(k - RIGL.k) > .5) { RIGL.k = k; RIGL.gen++; }
 }
 async function rigLiveLoad() {
-  if (new URLSearchParams(location.search).has("sheets") || typeof createImageBitmap !== "function") return false;
+  if (typeof createImageBitmap !== "function") return false;
   const data = await fetch("assets/rig/rigs.json").then(r => r.ok ? r.json() : Promise.reject(new Error("rigs.json " + r.status)));
   const force = +new URLSearchParams(location.search).get("rigt");             // QA: ?rigt=40 pins a tier
   const px = rigPx() * 1.1, have = Object.keys(data.tiers).map(Number).sort((a, b) => a - b);
@@ -4022,10 +4021,13 @@ function loadSymFrames() {
     if (REDUCED_MOTION) return false;
     const man = await fetch("assets/sym/manifest.json").then(r => r.ok ? r.json() : Promise.reject(new Error("manifest " + r.status)));
     SYMF.man = man;
-    if (await rigLiveLoad().catch(e => { console.warn("live rigs unavailable, frame sheets instead:", e); return false; })) {
-      setTimeout(fxPreload, 1500);   // the Multi's cork and cider pictures (~60 KB): after the board is up
-      return Object.keys(RIGL.data.rigs).length > 0;
-    }
+    // the rigs, tried twice (a fresh CDN version can 404 for a moment); without them the board keeps its flat
+    // icons - the old frame sheets are not shipped any more, so that path is never taken (audit, 2026-11-11)
+    const live = await rigLiveLoad().catch(() => new Promise(r => setTimeout(r, 1200)).then(rigLiveLoad)).catch(() => false);
+    if (!live) return false;
+    setTimeout(fxPreload, 1500);   // the Multi's cork and cider pictures (~60 KB): after the board is up
+    return Object.keys(RIGL.data.rigs).length > 0;
+    // eslint-disable-next-line no-unreachable
     SYMF.density = symWantDensity();
     SYMF.k = symHoldScale();
     const ids = Object.keys(man.symbols).filter(id => (SYM[id] || {}).cls !== "booster");   // the Multi is never on the board
@@ -5432,15 +5434,6 @@ function measureCellStep() {
 }
 measureCellStep();
 let shownStop = null;   // paddingPositions of the reveal currently on the board
-// Reel strips ship with the client (strips.js) — the RGS serves no strips endpoint.
-// Extreme rounds run on their own strip set, which the old local server never served.
-function stripsFor(gameType) {
-  const extreme = state.mode === "extremebonus";
-  const key = gameType === "freegame" ? (extreme ? "FRE" : "FR0") : (extreme ? "BRE" : "BR0");
-  return (typeof STRIP_SETS !== "undefined" && STRIP_SETS[key]) || null;
-}
-
-const FALLBACK_STRIP = ["L1", "H4", "L3", "H1", "L4", "H3", "L1", "H5", "L3", "H2"];   // 5x5 symbol set: no L2 / L5-L10
 
 // Two Golden Wishbones down and a reel held for the third: the board leans in. It eases up a touch
 // bigger, about a point part way toward the held column, over the rest of the reveal - full
@@ -7559,7 +7552,6 @@ async function presentRound(round, { settle = true } = {}) {
   // the round's whole payout, known from the start: the bonus counter never shows more than this
   // leaves for the free spins (paintFsWin), whatever the cap
   state.roundPayout = typeof round.payout === "number" ? round.payout : Math.round(mult * bet());
-  console.debug(`round ${round.betID ?? round.id} pays ${mult.toFixed(2)}x bet`);
   const evs = round.events || [];
   for (let i = 0; i < evs.length; i++) {
     const ev = evs[i];
