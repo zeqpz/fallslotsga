@@ -3231,6 +3231,43 @@
   .fbox .fin { justify-content: center; gap: 2cqw; }
   .fbox h3 { font-size: 9cqw; }
   .fbox p { font-size: 5.6cqw; line-height: 1.3; }
+
+  /* ---- review round, 2026-11-10 ---- */
+  /* the box-shaped shine is gone: the sweep is drawn on the icon's own pixels (rigDraw) */
+  .wfx .shine { display: none; }
+  /* a tile playing its break-apart: over its neighbours, nothing clipped */
+  .cell.popping { z-index: 4; }
+  .reel.tumbling { clip-path: none; }
+  /* no hop of the wall, the tag or the scarecrow on a spin: only the board answers the press */
+  #bgwall.bounce, #walltag.bounce, .tagfx.bounce, .charfx.bounce { animation: none; }
+  /* the Bonus button: bigger, lifted off the corner, on a dark plate with a gold rim that breathes -
+     it was lost against the pumpkins */
+  .hud .bonusbtn { width: calc(176px * var(--hs, 1)); height: calc(89px * var(--hs, 1)); left: 26px; bottom: 26px; z-index: 6; }
+  .hud .bonusbtn .bglow {
+    display: block; position: absolute; inset: -9% -7%; z-index: -1; border-radius: calc(22px * var(--hs, 1));
+    background: radial-gradient(120% 120% at 50% 40%, rgba(46, 28, 14, .92), rgba(16, 10, 6, .9));
+    border: calc(3px * var(--hs, 1)) solid #F2B33D; opacity: 1; filter: none; transform: none;
+    box-shadow: 0 0 0 calc(2px * var(--hs, 1)) rgba(0, 0, 0, .65), 0 6px 18px rgba(0, 0, 0, .55), 0 0 22px rgba(242, 179, 61, .55);
+    animation: bonusRim 2.2s ease-in-out infinite;
+  }
+  @keyframes bonusRim {
+    0%, 100% { box-shadow: 0 0 0 calc(2px * var(--hs, 1)) rgba(0, 0, 0, .65), 0 6px 18px rgba(0, 0, 0, .55), 0 0 14px rgba(242, 179, 61, .4); }
+    50%      { box-shadow: 0 0 0 calc(2px * var(--hs, 1)) rgba(0, 0, 0, .65), 0 6px 18px rgba(0, 0, 0, .55), 0 0 34px rgba(255, 201, 60, .95); }
+  }
+  .hud .bonusbtn:disabled .bglow { animation: none; opacity: .75; }
+  @media (prefers-reduced-motion: reduce) { .hud .bonusbtn .bglow { animation: none; } }
+
+  /* the tease's vignette: dark round the edges with a gold rim that beats; only opacity animates */
+  #teasefx {
+    position: fixed; inset: 0; z-index: 30; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse 62% 70% at 50% 46%, rgba(0, 0, 0, 0) 52%, rgba(255, 190, 60, .16) 66%, rgba(12, 6, 2, .78) 100%);
+    transition: opacity .45s ease;
+  }
+  body.tease #teasefx { opacity: 1; animation: teaseBeat .46s ease-in-out infinite alternate; }
+  @keyframes teaseBeat { from { opacity: .72; } to { opacity: 1; } }
+  #teasefx.flash { animation: teaseFlash .5s ease-out; }
+  @keyframes teaseFlash { 0% { opacity: 1; background: rgba(255, 236, 170, .85); } 100% { opacity: 0; background: rgba(255, 236, 170, 0); } }
+  @media (prefers-reduced-motion: reduce) { #teasefx { display: none; } }
 </style>
 </head>
 <body>
@@ -3239,6 +3276,7 @@
 <div id="fgwall" aria-hidden="true"><div class="fgpic"><img id="fgl" src="assets/bg/fg_left.webp" width="1065" height="364" alt="" draggable="false" decoding="async"><img id="fgr" src="assets/bg/fg_right.webp" width="2066" height="646" alt="" draggable="false" decoding="async"></div></div>
 <div id="camnear" class="camlayer"><div id="charfx" class="charfx" aria-hidden="true"></div></div>
 
+<div id="teasefx" aria-hidden="true"></div>
 <div id="app">
 <div class="main">
   <div class="stage">
@@ -3779,6 +3817,8 @@ const SYM_DENSITY = [1.6, 2.4, 3.2];   // sheet px per rig unit (an icon is 100 
 const SYM_HEADROOM = 1.25;            // sheet px per screen px at rest: crisp at rest, through the lit pop and the hit
 const SYM_IDLE_STAGGER = 2400;
 const IDLE_SPEED = .28;               // the idle loop at a little over a quarter speed: ~8.5 s round (owner, 2026-11-04)
+const IDLE_FULL = { BS: 1, ES: 1 };   // the bonus symbols idle at full speed and size (review, 2026-11-10)
+const idleSpeed = name => IDLE_FULL[name] ? 1 : IDLE_SPEED;
 const IDLE_AMP = .5;                  // and its parts move half as far (live rigs: eased toward the rest pose)        // ms over which a resting board's idles start up, each symbol at its own moment
 const SYMF = { man: null, density: "d16", sheets: new Map(), k: 1 };   // sheets: "<ID>_<clip>" -> { img, ok, ready, frames }
 // The clips every symbol plays all the time - its landing and its idle - are held as ready frames (perf,
@@ -3895,6 +3935,29 @@ async function rigLiveLoad() {
   for (const rig of Object.values(data.rigs))
     for (const c of Object.values(rig.clips))
       c.idx = c.frames.map(fr => new Map(fr.map(it => [it[0], it])));   // object -> its item, for the glide
+  // How far each clip reaches from the icon's middle (review, 2026-11-10: glows, rings and shines were cut
+  // off square at the canvas's edge): `span`, half the side of the square that holds every picture of every
+  // frame - packed with the rig, or measured here from the pictures' corners. The everyday clips share one
+  // canvas size per icon (rig.span); the break-apart (`pop`) flies further and takes its own.
+  for (const [id, rig] of Object.entries(data.rigs)) {
+    let base = rig.units / 2;
+    for (const [name, c] of Object.entries(rig.clips)) {
+      if (!(c.span > 0)) {
+        let m = 0;
+        for (const fr of c.frames) for (const it of fr) {
+          if (it[8] < .02) continue;
+          const pc = tier.pics[it[1]];
+          for (const u of [pc[5], pc[7]]) for (const v of [pc[6], pc[8]])
+            m = Math.max(m, Math.abs(it[2] * u + it[4] * v + it[6]), Math.abs(it[3] * u + it[5] * v + it[7]));
+        }
+        c.span = Math.max(rig.units / 2, Math.ceil(m * 2) / 2);
+      }
+      if (name !== "pop") base = Math.max(base, c.span);
+      const mc = SYMF.man && SYMF.man.symbols[id] && SYMF.man.symbols[id].clips;   // a clip the sheets never had
+      if (mc && !mc[name]) mc[name] = { frames: c.frames.length, fps: c.fps, loop: !!c.loop, hold: !!c.hold };
+    }
+    rig.span = Math.min(base, 10);
+  }
   Object.assign(RIGL, { on: true, data, tier, pages });
   rigScale();
   return true;
@@ -3908,15 +3971,16 @@ function rigDraw(el, clip, ft) {
   const q = Math.floor(ft * RIG_SUB) / RIG_SUB, key = clip + q + "/" + RIGL.gen;
   if (el._shown === key) return;
   const f0 = Math.floor(q), f1 = c.loop ? (f0 + 1) % n : Math.min(f0 + 1, n - 1), t = f1 === f0 ? 0 : q - f0;
-  const K = RIGL.k, size = Math.ceil(rig.units * K), cv = el._cv;
-  if (el._box !== "live") {
-    const m = el._m, u = rig.units * 10;
+  const span = clip === "pop" ? Math.max(c.span, rig.span) : rig.span;
+  const K = RIGL.k, size = Math.ceil(2 * span * K), cv = el._cv;
+  if (el._box !== span) {
+    const m = el._m, u = 2 * span * 10;
     cv.style.cssText = `left:${(m.icon[0] * 5 - u / 2).toFixed(2)}px;top:${(m.icon[1] * 5 - u / 2).toFixed(2)}px;width:${u}px;height:${u}px`;
-    el._box = "live";
+    el._box = span;
   }
   if (cv.width !== size) cv.width = cv.height = size;
   const g = el._ctx, pics = RIGL.tier.pics, pages = RIGL.pages, next = t > 0 ? c.idx[f1] : null, o = size / 2;
-  const rest = clip === "idle" && IDLE_AMP < 1 ? c.idx[0] : null;
+  const rest = clip === "idle" && IDLE_AMP < 1 && !IDLE_FULL[el._name] ? c.idx[0] : null;
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalAlpha = 1;
   g.clearRect(0, 0, size, size);
@@ -3939,6 +4003,17 @@ function rigDraw(el, clip, ft) {
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalAlpha = 1;
+  if (clip === "hit") {   // the shine sweeps the lit icon once, early in its hit, clipped by what is drawn
+    const u = q / n;
+    if (u > .05 && u < .5) {
+      const pp = (u - .05) / .45, x = size * (-.25 + 1.5 * pp), w = size * .14;
+      const gr = g.createLinearGradient(x - w, 0, x + w, w * .7);
+      gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(.5, "rgba(255,255,255,.6)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+      g.globalCompositeOperation = "source-atop";
+      g.fillStyle = gr; g.fillRect(0, 0, size, size);
+      g.globalCompositeOperation = "source-over";
+    }
+  }
   el._shown = key;
 }
 function loadSymFrames() {
@@ -4036,7 +4111,7 @@ function symStep(now) {
         // straight back into the idle from the very moment the clip ended (both meet on the rest pose): a
         // symbol never stands still between a landing, a hit or a Multi and its idle
         const end = el._t0 + c.frames / c.fps / el._rate * 1000;
-        Object.assign(el, { _clip: "idle", _t0: end, _rate: IDLE_SPEED / tempo(), _loop: true });
+        Object.assign(el, { _clip: "idle", _t0: end, _rate: idleSpeed(el._name) / tempo(), _loop: true });
         const ci = el._m.clips.idle;
         ft = ((now - end) * el._rate / 1000 * ci.fps) % ci.frames;
       }
@@ -4432,7 +4507,7 @@ function symIdleTick() {
     const cell = cellEls[r][y], el = rigOf(cell);
     if (!el || el._held || symPlaying.has(el) || !(RIGL.on || SYMF.sheets.get(el._name + "_idle")?.ok)) continue;
     if (!el._idleAt) el._idleAt = now + Math.random() * SYM_IDLE_STAGGER;
-    else if (now >= el._idleAt) { el._idleAt = 0; rigPlay(cell, "idle", { loop: true, speed: IDLE_SPEED }); }
+    else if (now >= el._idleAt) { el._idleAt = 0; rigPlay(cell, "idle", { loop: true, speed: idleSpeed(el._name) }); }
   }
 }
 // What a tile does as it drops in: its own clip as it lands (`hit`, the moment of contact), and -
@@ -4819,9 +4894,21 @@ function boardFlash(kind, v = 1) {
     SprayFX.stoke(b, { peak: .8 });
   }
 }
+// The colour a value wears (its plate's rim, glow and leaf): one colour per step of the ladder, all the way
+// up - straw gold, harvest gold, pumpkin, ember, cranberry, magenta, violet, and electric blue-white for
+// the x2,500s. (2026-11-10: the old ramp put everything over x20 in nearly the same red and wrapped
+// x1,000+ back to gold, so the big values showed no colour of their own.) [value, hue, sat %, light %]
+const HEAT_FALL = [[1.25, 48, 88, 58], [3, 42, 92, 56], [5, 34, 94, 54], [10, 24, 96, 53], [20, 12, 96, 52],
+                   [50, 0, 92, 52], [100, -18, 88, 52], [250, -40, 90, 56], [500, -65, 92, 60],
+                   [1000, -90, 96, 64], [2500, -165, 100, 68]];
 function heatColour(v) {
-  const hue = heatHue(v);
-  return `hsl(${Math.round(Math.max(0, Math.min(48, hue * .42)))} 88% ${hue > 40 ? 56 : 50}%)`;   // fall: straw gold -> pumpkin -> cranberry
+  const x = Math.max(HEAT_FALL[0][0], Math.min(HEAT_FALL[HEAT_FALL.length - 1][0], v));
+  let c = HEAT_FALL[0];
+  for (let i = 1; i < HEAT_FALL.length; i++) {
+    const a = HEAT_FALL[i - 1], b = HEAT_FALL[i];
+    if (x <= b[0]) { const t = Math.log(x / a[0]) / Math.log(b[0] / a[0]); c = a.map((q, k) => q + (b[k] - q) * t); break; }
+  }
+  return `hsl(${Math.round((c[1] + 360) % 360)} ${Math.round(c[2])}% ${Math.round(c[3])}%)`;
 }
 function paintCell(r, y) {
   const g = multEls[r][y], v = (state.grid[r] || [])[y] || 0;
@@ -5453,7 +5540,7 @@ function boardThud(r) {
 // barely moves at all (owner, later the same day): every zoom, pan, lean and rumble is CAM_STRENGTH
 // of the moves it was tuned with - the scene breathes with a win rather than being filmed.
 // Skip: no new moves; Rapid: a little quicker; a phone: smaller; reduced motion: no camera at all.
-const CAM_DEPTH = { far: .45, near: 1.12 };   // the wall and the figures, against the board's 1
+const CAM_DEPTH = { far: .1, near: .1 };   // (review, 2026-11-10: was .45 / 1.12 - the wall shook, and out of step with the scarecrow)   // the wall and the figures, against the board's 1
 const CAM_PUNCH_MIN = 5;                      // a Multi worth a camera move: 5x and up
 const CAM_STRENGTH = .25;                     // how much it moves at all, of the moves below (1: as tuned)
 const Cam = (() => {
@@ -5642,7 +5729,7 @@ const Cam = (() => {
 // under the gold, then its tiles come in slower than usual, each a little later than the one before
 // (slow > 1: the fall, the gaps and the notes all stretch by it), for an edge-of-the-seat build.
 // Skip lands the whole column at once.
-const OUT_MS = 300;    // the top tile's fall out of the frame, at tempo 1 (a lower tile is out sooner)
+const OUT_MS = 260;    // the top tile's fall out of the frame, at tempo 1 (a lower tile is out sooner)
 const OUT_GAP = 12;    // ms between the rows starting to fall out, bottom first
 const IN_GAP = 46;     // ms between a held reel's tiles coming in, bottom first
 function dropReel(r, ev, wait, inExtra = 0, onCrewLeader = null, slow = 1) {
@@ -5710,7 +5797,9 @@ function dropReel(r, ev, wait, inExtra = 0, onCrewLeader = null, slow = 1) {
       const crew = c.classList.contains("scat");
       if (crew || c.classList.contains("escat")) {
         c.classList.add("scatland");
-        sfxGap("scatterLand", 140, 1 + r * .02);
+        state.scatDown = (state.scatDown || 0) + 1;
+        sfxGap("scatterLand", 140, Math.min(1.6, 1 + .12 * (state.scatDown - 1)));   // each one a step up the scale
+        if (!state.skip) Cam.punch(c, Math.min(1, .3 + .25 * state.scatDown));       // and a harder knock
         later(800 * tt, () => c.classList.remove("scatland"));
         // only the Golden Wishbone counts towards the gold. The hold is set by two of those and
         // never by a Crow, so counting a Crow would light the frame for a symbol that
@@ -5775,7 +5864,9 @@ async function renderReveal(ev) {
 
   // reels go left to right; a reel held back for a near miss means a bonus symbol is down
   // and one or two more would pay it off: it waits, and the characters lean in
-  const t = tempo(), stagger = 80 * t, anticExtra = 800 * t, revealStart = performance.now();
+  // (2026-11-10: the everyday reveal a touch quicker, the held reel's wait longer - the contrast is the tension)
+  const t = tempo(), stagger = 66 * t, anticExtra = 1150 * t, revealStart = performance.now();
+  state.scatDown = 0;
   if (ev.anticipation && ev.anticipation.some(a => a > 0)) {
     state.anticipated = true;
     charReact("anticipation");
@@ -5789,7 +5880,7 @@ async function renderReveal(ev) {
   // A held reel's icons come in slower than usual, and each held reel slower than the one
   // before it - 1.225x, 1.45x, 1.675x and no more - so the wait stretches without dragging
   const heldOrder = reelEls.map((_, r) => r).filter(r => (ev.anticipation?.[r] || 0) > 0);
-  const slowOf = r => { const i = heldOrder.indexOf(r); return i < 0 ? 1 : Math.min(1.675, 1.225 + .225 * i); };
+  const slowOf = r => { const i = heldOrder.indexOf(r); return i < 0 ? 1 : Math.min(2.1, 1.4 + .35 * i); };
   const maxSlow = heldOrder.length ? slowOf(heldOrder[heldOrder.length - 1]) : 1;
   // how long a column takes from its first tile falling out to its last one settled: out under
   // gravity, then straight back in; a held reel (slow > 1) empties first, and its tiles come in one
@@ -5800,6 +5891,7 @@ async function renderReveal(ev) {
   const onCrewLeader = () => {
     if (++crewDown !== 2) return;
     goldReels.forEach(el => el.classList.add("antic"));
+    teaseOn();
     // and the board leans in for the wait, reaching full size as the last held icon lands
     boardZoom(true, goldReels, revealMs - (performance.now() - revealStart) - 250 * t);
   };
@@ -5819,6 +5911,31 @@ async function renderReveal(ev) {
     eachCell(el => { if (el.className.includes("scat")) el.classList.add("pulse"); });
     await delay(320);
   }
+  teaseOff(state.scatDown >= 3);
+}
+// The tease: two bonus symbols are down and a reel is held. The scene dims to a vignette round the board with
+// a gold rim that beats like a pulse, a rising tremolo plays under it and a low beat thumps faster and faster;
+// it lets go the moment the board is in - with a flash if the third landed, a sigh if it did not.
+let teaseBeat = 0;
+function teaseOn() {
+  if (REDUCED_MOTION || state.skip || document.body.classList.contains("tease")) return;
+  document.body.classList.add("tease");
+  sfx("introRise", .9);
+  let gap = 520;
+  const beat = () => {
+    if (!document.body.classList.contains("tease")) return;
+    sfx("multSlam", .55);
+    gap = Math.max(210, gap * .86);
+    teaseBeat = setTimeout(beat, gap * tempo());
+  };
+  teaseBeat = setTimeout(beat, 200);
+}
+function teaseOff(hit) {
+  clearTimeout(teaseBeat);
+  if (!document.body.classList.contains("tease")) return;
+  document.body.classList.remove("tease");
+  if (hit) { const v = $("teasefx"); if (v) { v.classList.remove("flash"); restyle(v); v.classList.add("flash"); } }
+  else sfx("floatAway", .8);
 }
 
 /* ---------- rail widgets ---------- */
@@ -6749,11 +6866,15 @@ const handlers = {
     // is about to rebuild the column is dropped, so no pop can ever land on a new tile.
     const gap = Math.min(55, Math.floor(420 / order.length)) * tempo();
     const timers = [];
+    let anyPop = false;
     const geo = order.map(([r, y]) => burstMeasure(r, y, showSym(r, y)));   // every tile's burst, measured once up front
     order.forEach(([r, y], i) => {
       const go = () => {
-        burstIcon(geo[i]);   // the icon strains, then comes apart
-        cellEls[r][y].classList.add("explode");
+        // the icon's own break-apart (its `pop` clip, Blender's: unique to each icon, its blow on the frame
+        // the cell's timing expects) - the torn pieces and flecks are only the fallback now (2026-11-10)
+        const cell = cellEls[r][y], el = RIGL.on && rigOf(cell), pc = el && RIGL.data.rigs[el._name] && RIGL.data.rigs[el._name].clips.pop;
+        if (pc && rigPlay(cell, "pop", { speed: (pc.blow || 8) / pc.fps * 1000 / BURST_AT })) { cell.classList.add("popping"); anyPop = true; }
+        else { burstIcon(geo[i]); cell.classList.add("explode"); }
         // every pop its own pitch, drifting up through a run - on the blow, not as the strain starts;
         // the value under it pops forward on the blow too, not while the tile still covers it
         const rate = .8 + Math.random() * .55 + i * .01;
@@ -6765,7 +6886,7 @@ const handlers = {
     });
     await new Promise(r => setTimeout(r, gap * (order.length - 1)));   // every scheduled pop has fired
     timers.forEach(clearTimeout);
-    await delay(BURST_AT + 200);                     // the last tile's strain and blow (cellExplode)
+    await delay(BURST_AT + (anyPop ? 430 : 200));    // the last tile's strain and blow, and its pieces flying off
     // the bare cells show their multipliers at full strength: give them a beat to be read
     // before the drop covers them (longer when there is actually a number to read)
     const numbers = order.some(([r, y]) => ((state.grid[r] || [])[y] || 0) > 0);
@@ -6773,7 +6894,7 @@ const handlers = {
     // 2. gravity, per column
     const landers = [];   // every tile that drops: the row it lands on and its pace
     for (let r = 0; r < REELS; r++) {
-      for (let y = 0; y < ROWS; y++) { cellEls[r][y].classList.remove("explode", "tdrop"); cellEls[r][y].style.removeProperty("--fall"); }
+      for (let y = 0; y < ROWS; y++) { cellEls[r][y].classList.remove("explode", "popping", "tdrop"); cellEls[r][y].style.removeProperty("--fall"); }
       const goneRows = goneByReel[r];
       if (!goneRows.size) continue;                         // untouched column: nothing moves
       cellEls[r][0].parentElement.classList.add("tumbling"); // clip this column's incoming tiles
@@ -6830,7 +6951,7 @@ const handlers = {
     }
     await delay(500 * slowest);   // until the slowest tile has settled
     eachCell((el, r, y) => {
-      el.classList.remove("tdrop", "explode");
+      el.classList.remove("tdrop", "explode", "popping");
       for (const v of ["--fall", "--droptime", "--blur", "--bnc"]) el.style.removeProperty(v);
       multEls[r][y].classList.remove("bare");
     });
@@ -7427,6 +7548,7 @@ async function presentRound(round, { settle = true } = {}) {
   state.grid = emptyGrid();
   state.anticipated = false;
   boardZoom(false);   // never carried into a new round
+  clearTimeout(teaseBeat); document.body.classList.remove("tease");   // nor the tease
   state.bonusHit = false;
   state.multiCount = 0; state.multiTotal = 0;
 
