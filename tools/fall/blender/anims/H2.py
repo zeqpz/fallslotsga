@@ -122,3 +122,67 @@ def multi(c):
         c.pools["crumb"].particle(fs, fs + 18, lambda t, vx=vx, vz=vz: (1.4 + vx * t * .75, -1.0 + (vz * t - 9 * t * t) * .75),
                                   c.rng, spin=360, grow=(.9, .5), fade=(1, .7))
     c.glow_curve("multi", lambda u: min(1, u / .43) if u < .43 else max(0, 1 - (u - .43) / .4))
+
+
+# ---------------------------------------------------------------- pop: served - every slice at once
+# strain  the pie swells, the big swirl of cream stretching up and wobbling; cut lines appear: six more slices
+# BLOW    the slices shoot out from the middle one after another round the tin (a fan dealt in a flash), tip and drop;
+#         the cut slice goes first with its cream hopping off it; the big swirl is fired straight up and bursts into
+#         dollops; crust crumbs and custard everywhere; the tin's bare floor drops away
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "cream": dict(files=["parts:fx_cream"], n=10, size=1.6),
+    "custard": dict(files=["parts:fx_custard"], n=10, size=1.1),
+    "crust": dict(files=["parts:fx_crust"], n=14, size=1.0),
+}
+SLICES = ["s0", "s1", "s2", "s3", "s4", "s5"]                    # round the tin, counter-clockwise from the gap
+MID = (.22, .08)                                               # where the cuts meet (units)
+OUT = (math.cos(math.radians(-32)), math.sin(math.radians(-32)))   # the way the cut slice points
+
+
+def pop(c):
+    B = P.BLOW
+    D = {s: P.unit(c.pivot[s][0] - MID[0], c.pivot[s][1] - MID[1]) for s in SLICES + ["floor"]}
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            p = dict(root=P.swell(1 + .1 * k, 1 + .1 * k - .03 * S(i * 2.8) * k, x=.05 * S(i * 3.1) * k),
+                     cream_big=dict(sy=1 + .3 * k * (.6 + .4 * S(i * 2.4)), sx=1 - .1 * k, r=6 * S(i * 2.9) * k, a=1),
+                     slice=dict(x=OUT[0] * .3 * k, y=OUT[1] * .3 * k, a=1), cream_small=dict(r=-9 * S(i * 3.3) * k))
+            if i >= 5:                                         # cut: six more slices, a hair apart
+                p["pie"] = dict(a=0)
+                for s in SLICES + ["floor"]:
+                    p[s] = dict(a=1, x=D[s][0] * .035 * (i - 4), y=D[s][1] * .035 * (i - 4))
+            return p
+        p = dict(root=P.swell(1.04), pie=dict(a=0))
+        z = 1 - .4 * P.st(i, 18, 24)
+        for j, s in enumerate(SLICES):
+            t = max(0.0, i - B - j * .8) / 30
+            go = .1 + 5.6 * (1 - math.exp(-8 * t))             # out fast, then it hangs
+            sg = 1 if D[s][0] < 0 else -1
+            p[s] = dict(a=P.gone(i, 20, 24), x=D[s][0] * go, y=D[s][1] * go * .85 - 20 * max(0, t - .2) ** 2,
+                        r=sg * (26 * (1 - math.exp(-6 * t)) + 70 * max(0, t - .2) ** 1.5), sx=z, sy=z)
+        p["floor"] = dict(a=P.gone(i, 9, 13), y=-.14 * (i - B), sx=1 - .05 * (i - B), sy=1 - .05 * (i - B))
+        t = (i - B) / 30
+        go = .3 + 6.6 * (1 - math.exp(-9 * t))
+        p["slice"] = dict(a=P.gone(i, 19, 23), x=OUT[0] * go, y=OUT[1] * go - 16 * max(0, t - .2) ** 2,
+                          r=-30 * (1 - math.exp(-5 * t)), sx=z, sy=z)
+        p["cream_small"] = P.fly(i, B, 3, 12, g=36, spin=-300, a=P.gone(i, 15, 19))
+        up = math.exp(-t * 9)
+        p["cream_big"] = P.fly(i, B, -1.0, 19, g=40, a=P.gone(i, 13, 15), sy=1 + .45 * up - .3 * P.st(i, 12, 15),
+                               sx=1 - .2 * up + .5 * P.st(i, 12, 15))
+        return p
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    P.burst(fx["crust"], rng, B, 14, at=MID, speed=(20, 34), ang=(0, 360), g=30, life=(10, 14), grow=(1.0, .7),
+            spin=700, spread=1.2, even=True, drag=3.2)
+    P.burst(fx["custard"], rng, B, 10, at=MID, speed=(16, 28), ang=(20, 160), g=34, life=(10, 13), grow=(1.0, .6),
+            aim="tail", spread=.8, even=True, drag=3)
+    P.burst(fx["cream"], rng, B, 3, at=(-.3, 1.0), speed=(8, 14), ang=(40, 140), g=30, life=(8, 11), grow=(.7, .4),
+            spread=.4)
+    P.burst(fx["cream"], rng, 13, 7, at=(-.6, 4.3), speed=(14, 24), ang=(0, 360), g=34, life=(8, 11), grow=(1.0, .5),
+            spread=.3, even=True, drag=3)
+    c.glow_out(lambda i: .25 + .6 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .08 * P.strain(i) if i < B else 1.14)

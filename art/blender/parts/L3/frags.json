@@ -1,0 +1,50 @@
+{
+ "frags": [
+  {
+   "name": "half_l",
+   "png": "x_half_l.png",
+   "pivot": [
+    297.5,
+    559.7
+   ],
+   "parent": "body",
+   "depth": -0.054
+  },
+  {
+   "name": "half_r",
+   "png": "x_half_r.png",
+   "pivot": [
+    663.4,
+    585.5
+   ],
+   "parent": "body",
+   "depth": -0.0548
+  },
+  {
+   "name": "half_l_in",
+   "png": "x_half_l_in.png",
+   "pivot": [
+    297.5,
+    559.7
+   ],
+   "parent": "half_l",
+   "depth": -0.0536
+  },
+  {
+   "name": "half_r_in",
+   "png": "x_half_r_in.png",
+   "pivot": [
+    663.4,
+    585.5
+   ],
+   "parent": "half_r",
+   "depth": -0.0544
+  }
+ ],
+ "sprites": [
+  "flesh",
+  "juice",
+  "petal",
+  "seed"
+ ]
+}

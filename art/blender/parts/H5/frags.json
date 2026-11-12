@@ -1,0 +1,118 @@
+{
+ "frags": [
+  {
+   "name": "shard0",
+   "png": "x_shard0.png",
+   "pivot": [
+    529.2,
+    160.7
+   ],
+   "parent": "jug",
+   "depth": -0.054
+  },
+  {
+   "name": "shard1",
+   "png": "x_shard1.png",
+   "pivot": [
+    321.9,
+    343.4
+   ],
+   "parent": "jug",
+   "depth": -0.0548
+  },
+  {
+   "name": "shard2",
+   "png": "x_shard2.png",
+   "pivot": [
+    567.0,
+    354.5
+   ],
+   "parent": "jug",
+   "depth": -0.0556
+  },
+  {
+   "name": "shard3",
+   "png": "x_shard3.png",
+   "pivot": [
+    764.7,
+    318.5
+   ],
+   "parent": "jug",
+   "depth": -0.0564
+  },
+  {
+   "name": "shard4",
+   "png": "x_shard4.png",
+   "pivot": [
+    212.4,
+    522.6
+   ],
+   "parent": "jug",
+   "depth": -0.0572
+  },
+  {
+   "name": "shard5",
+   "png": "x_shard5.png",
+   "pivot": [
+    447.9,
+    520.7
+   ],
+   "parent": "jug",
+   "depth": -0.058
+  },
+  {
+   "name": "shard6",
+   "png": "x_shard6.png",
+   "pivot": [
+    706.6,
+    533.8
+   ],
+   "parent": "jug",
+   "depth": -0.0588
+  },
+  {
+   "name": "shard7",
+   "png": "x_shard7.png",
+   "pivot": [
+    271.3,
+    756.7
+   ],
+   "parent": "jug",
+   "depth": -0.0596
+  },
+  {
+   "name": "shard8",
+   "png": "x_shard8.png",
+   "pivot": [
+    508.8,
+    719.9
+   ],
+   "parent": "jug",
+   "depth": -0.0604
+  },
+  {
+   "name": "shard9",
+   "png": "x_shard9.png",
+   "pivot": [
+    700.9,
+    732.1
+   ],
+   "parent": "jug",
+   "depth": -0.0612
+  },
+  {
+   "name": "shard10",
+   "png": "x_shard10.png",
+   "pivot": [
+    494.0,
+    894.2
+   ],
+   "parent": "jug",
+   "depth": -0.062
+  }
+ ],
+ "sprites": [
+  "chip",
+  "chip2"
+ ]
+}

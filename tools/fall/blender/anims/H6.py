@@ -137,3 +137,66 @@ def multi(c):
         c.pools["sparkle"].particle(f0 + R, f0 + R + 12, lambda t, a=a: (.6 + math.cos(a) * (3.4 + 1.5 * c.ease_out(t)),
                                     .7 + math.sin(a) * (3.4 + 1.5 * c.ease_out(t))), c.rng, spin=180, grow=(.8, .05))
     c.glow_curve("multi", lambda u: min(1, (u / .57) ** 1.5) if u < .57 else max(0, 1 - (u - .57) / .38))
+
+
+# ---------------------------------------------------------------- pop: the kernels machine-gun off the cob
+# strain  the cob shudders and heats, the husks peeling back from it; a first kernel or two pings off
+# BLOW    the husks are flung wide and wilt, and the kernels fire off the cob in a burst that runs from the stalk end
+#         to the tip - rat-a-tat, to both sides, the cob kicking with it - some popping into popcorn as they fly;
+#         the bare cob they leave recoils down its own line and is gone
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "kernel": dict(files=["parts:fx_kernel"], n=30, size=.8),
+    "pop": dict(files=["popcorn"], n=9, size=1.5),
+}
+HUSK = dict(husk_r=-72, husk_lt=78, husk_ll=56, husk_front=-48)   # how far each husk is flung (degrees, ccw)
+FIRE = 9                                                       # frames the burst takes to run up the cob
+
+
+def pop(c):
+    B = P.BLOW
+    rows = sorted([b for b in c.extras if b.startswith("rows")], key=lambda b: c.pivot[b][1])   # stalk end first
+    nx, ny = -AX[1], AX[0]                                       # across the cob
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            q = S(i * 3.1) * k
+            p = dict(root=P.swell(1 + .07 * k), cob=dict(x=nx * .07 * q, y=ny * .07 * q, sx=1 + .06 * k, sy=1 + .06 * k))
+            for h, r in HUSK.items():
+                p[h] = dict(r=r * .2 * k + 3 * S(i * 3.5 + r) * k)
+            return p
+        t = (i - B) / 30
+        u = (i - B) / FIRE                                     # how far up the cob the burst has run
+        open_ = 1 - c.damp(t, 2.4, .32)
+        wilt = P.st(i, 15, 23)
+        p = dict(root=P.swell(1.02), stalk=dict(y=-20 * max(0, t - .25) ** 2, a=P.gone(i, 18, 22)),
+                 husks_back=dict(sx=1 - .5 * wilt, sy=1 - .5 * wilt, a=P.gone(i, 17, 22)))
+        for h, r in HUSK.items():
+            p[h] = dict(r=r * open_, sx=1 - .45 * wilt, sy=1 - .45 * wilt, y=-14 * max(0, t - .25) ** 2,
+                        a=P.gone(i, 18, 23))
+        jolt = (.1 if i % 2 else -.1) * (1 if u < 1 else 0)    # it kicks with every shot
+        back = 34 * max(0, t - .32) ** 2                       # then recoils down its line
+        p["cob"] = dict(a=0, x=nx * jolt - AX[0] * back, y=ny * jolt - AX[1] * back, r=30 * max(0, t - .32))
+        p["cob_bare"] = dict(a=P.gone(i, 19, 23))
+        for j, b in enumerate(rows):
+            p[b] = dict(a=1 if u < (j + .6) / len(rows) else 0)
+        return p
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    shots = [(4, .3, 1), (6, .6, -1)] + [(B + int(m / 26 * FIRE), m / 26, 1 if m % 2 else -1) for m in range(26)]
+    for m, (f, u, side) in enumerate(shots):
+        x, z = cob_point(u)
+        a = math.atan2(ny * side, nx * side) + rng.uniform(-.5, .5) + .25 * side
+        v = rng.uniform(26, 38)
+        L = rng.randint(8, 11)
+        path = P.arc(x + nx * side * .8, z + ny * side * .8, v * math.cos(a), v * math.sin(a), 26, L, 3.0)
+        fx["kernel"].emit(f, f + L, path, rng, spin=rng.choice((-1, 1)) * 500, grow=(1.1, .9),
+                          fade=(1, 1) if m % 3 == 0 else P.tail(.6))
+        if m % 3 == 0:                                         # this one pops
+            ex, ez = path(1.0)
+            fx["pop"].emit(f + L, f + L + 5, lambda t, ex=ex, ez=ez: (ex, ez - 1.2 * t * t), rng, spin=120,
+                           grow=lambda t: .3 + .8 * (1 - (1 - t) ** 3), fade=P.tail(.5))
+    c.glow_out(lambda i: .25 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .1 * P.strain(i) if i < B else 1.12)

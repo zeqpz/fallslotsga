@@ -112,3 +112,59 @@ def multi(c):
         c.pools["sparkle"].particle(f0 + R, f0 + R + 12, lambda t, a=a: (math.cos(a) * (3.6 + 1.5 * c.ease_out(t)),
                                     .2 + math.sin(a) * (3.6 + 1.5 * c.ease_out(t))), c.rng, spin=180, grow=(.8, .05))
     c.glow_curve("multi", lambda u: .8 * min(1, u / .57) if u < .57 else max(0, .8 - (u - .57) / .45))
+
+
+# ---------------------------------------------------------------- pop: a gust tears it to bits and carries them off
+# strain  it leans into a rising wind, its lobes curling in and shivering; wind lines begin to streak past
+# BLOW    the gust hits: the leaf tears into ragged bits that peel off from the windward side one after another and
+#         are whirled away down the wind, fluttering and dwindling, with specks and small leaves among the wind lines
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "gust": dict(files=["parts:fx_gust"], n=9, size=5.0),
+    "speck": dict(files=["parts:fx_speck"], n=14, size=.9),
+    "leaflet": dict(files=["leaf_red", "leaf_orange"], n=5, size=1.5),
+}
+CURL = dict(top=1, left=1, right=-1, low_l=1, low_r=-1)
+
+
+def pop(c):
+    B = P.BLOW
+    bits = [b for b in c.extras if b.startswith("bit")]
+    xs = [c.pivot[b][0] for b in bits]
+    lo, hi = min(xs), max(xs)
+    R = {b: (B + 4.0 * (c.pivot[b][0] - lo) / (hi - lo), c.rng.uniform(0, 6.28),
+             c.rng.choice((-1, 1)) * c.rng.uniform(280, 520), c.rng.uniform(.8, 1.25)) for b in bits}
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            env = k * (1 - P.st(i, 6, 8))
+            p = dict(root=P.swell(1 + .1 * k, x=-.3 * k + .05 * S(i * 3.2) * k), stem=dict(r=-10 * env))
+            for l, sg in CURL.items():
+                p[l] = dict(r=sg * 10 * env + 5 * S(i * 3.6 + sg) * env)
+            return p
+        p = dict(root=P.swell(1.1, x=-.3), mid=dict(a=0))
+        for b in bits:
+            r0, ph, sp, v = R[b]
+            if i < r0:                                         # still holding on, shaking
+                p[b] = dict(a=1, x=.05 * S(i * 4 + ph), r=4 * S(i * 5 + ph))
+            else:
+                t = (i - r0) / 30
+                z = max(.35, 1 - 1.1 * t)
+                p[b] = dict(a=P.gone(i, 20, 24), x=v * (12 * t + 16 * t * t),
+                            y=(3 + 5 * S(ph * 3)) * t + 1.3 * S(9 * t + ph) * min(1, 4 * t), r=sp * t,
+                            sx=z * (.3 + .7 * abs(P.C(11 * t + ph))), sy=z)
+        return p
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    for j in range(9):                                         # the wind
+        f = 3 + int(j * 1.7)
+        z0, w = rng.uniform(-3.6, 3.6), rng.uniform(.9, 1.5)
+        fx["gust"].emit(f, f + 6, lambda t, z0=z0: (-7.5 + 15 * t, z0 + .5 * S(5 * t)), rot=0,
+                        grow=lambda t, w=w: (w * (.6 + .8 * S(math.pi * t)), .5), fade=lambda t: S(math.pi * t) ** .7)
+    P.burst(fx["speck"], rng, B, 14, at=(-.5, 0), speed=(14, 26), ang=(-8, 34), g=5, life=(10, 14), grow=(1.0, .6),
+            spin=700, stagger=.5, spread=2.8, drag=.6)
+    P.burst(fx["leaflet"], rng, B + 1, 5, at=(0, 0), speed=(12, 18), ang=(0, 30), g=4, life=(12, 15),
+            grow=(.7, .4), spin=500, stagger=1.2, spread=2.2, drag=.5)
+    c.glow_out(lambda i: .2 + .5 * P.strain(i) if i < B else .8 if i == B else 0.0)

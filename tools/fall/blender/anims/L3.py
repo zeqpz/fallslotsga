@@ -119,3 +119,68 @@ def multi(c):
         c.pools["sparkle"].particle(f0 + CH, f0 + CH + 12, lambda t, a=a: (math.cos(a) * (3.5 + 1.4 * c.ease_out(t)),
                                     math.sin(a) * (3.5 + 1.4 * c.ease_out(t))), c.rng, spin=180, grow=(.8, .05))
     c.glow_curve("multi", lambda u: min(1, u / .52) if u < .52 else max(0, 1 - (u - .52) / .4))
+
+
+# ---------------------------------------------------------------- pop: sliced in two
+# strain  it swells and trembles, the leaf buzzing; a blade of light flashes across it and a cut opens down its middle
+# BLOW    the two halves spring apart, each turning away from the cut and showing its cream flesh; the stem and leaf
+#         flip up off the top; juice sprays, pips and flesh fly, apple-blossom petals flutter down after them
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "juice": dict(files=["parts:fx_juice"], n=16, size=1.15),
+    "seed": dict(files=["parts:fx_seed"], n=4, size=1.0),
+    "petal": dict(files=["parts:fx_petal"], n=7, size=1.3),
+    "flesh": dict(files=["parts:fx_flesh"], n=5, size=1.1),
+    "blade": dict(files=["sparkle_w"], n=2, size=3.0),
+}
+CUT = (-.15, -.9)                                              # the cut's middle (units)
+
+
+def pop(c):
+    B = P.BLOW
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            s = 1 + .17 * k - .04 * S(math.pi * min(1, i / 3))   # a small gather first, then the swell
+            p = dict(root=P.swell(s, s * (1 + .03 * k), x=.07 * S(i * 2.9) * k),
+                     stem=dict(r=5 * S(i * 3.3) * k), leaf=dict(r=14 * S(i * 3.7) * k, sy=1 - .1 * k))
+            if i >= 6:                                         # the cut is through: the halves, a hair apart
+                o = .05 * (i - 5)
+                p.update(skin=dict(a=0), body=dict(a=0), half_l=dict(a=1, x=-o), half_r=dict(a=1, x=o),
+                         stem=dict(r=5 * S(i * 3.3) * k, a=1))
+            return p
+        s = 1.06 + .14 * math.exp(-(i - B) / 1.6)
+        a = P.gone(i, 20, 24)
+        z = 1 - .45 * P.st(i, 17, 24)                          # they dwindle as they go
+        p = dict(root=P.swell(s), skin=dict(a=0), body=dict(a=0),
+                 half_l=P.fly(i, B, -15.0, 9.0, g=34, spin=330, drag=2.2, at=(-.15, 0), a=a, sx=z, sy=z),
+                 half_r=P.fly(i, B, 16.0, 7.0, g=34, spin=-380, drag=2.2, at=(.15, 0), a=a, sx=z, sy=z),
+                 stem=P.fly(i, B, 1.5, 17.0, g=40, spin=-560, a=P.gone(i, 18, 22)),
+                 leaf=dict(r=30 * S((i - B) * 1.3)))
+        o = .62 * P.st(i, B, B + 3)                            # the flesh shows on the cut side
+        p["half_l_in"] = dict(a=a, x=o)
+        p["half_r_in"] = dict(a=a, x=-o)
+        return p
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    fx["blade"].emit(4, 7, lambda t: (2.6 - 5.2 * t, 3.4 - 7.6 * t), rot=-34,      # the knife: a streak of light
+                     grow=lambda t: (.35, 1.5 + 1.2 * S(math.pi * t)), fade=lambda t: 1 - t ** 3)
+    P.flash(fx["blade"], B, CUT, size=(.4, 1.3), life=3, rot=20, spin=40)
+    P.burst(fx["juice"], rng, B, 11, at=CUT, speed=(22, 38), ang=(20, 160), g=34, life=(10, 14), grow=(.95, .6),
+            aim="tail", spread=.5, even=True, drag=3)
+    P.burst(fx["juice"], rng, B + 1, 5, at=CUT, speed=(16, 26), ang=(200, 340), g=30, life=(9, 12), grow=(.8, .5),
+            aim="tail", spread=.4, even=True, drag=3)
+    P.burst(fx["flesh"], rng, B, 5, at=CUT, speed=(14, 24), ang=(30, 150), g=34, life=(10, 14), grow=(1.0, .6),
+            spread=.6, even=True, drag=3)
+    P.burst(fx["seed"], rng, B, 4, at=CUT, speed=(18, 28), ang=(40, 140), g=36, life=(11, 14), grow=(1.0, .9),
+            spin=700, even=True, drag=2.6)
+    for j in range(7):                                         # blossom petals: thrown up, then they flutter down
+        x0, vx, ph = rng.uniform(-1.2, 1.2), rng.uniform(-5, 5), rng.uniform(0, 6)
+        fx["petal"].emit(B + j % 3, 23 - j % 2, lambda t, x0=x0, vx=vx, ph=ph: (
+            x0 + vx * (1 - math.exp(-2.4 * t)) + .5 * S(7 * t + ph), 1.0 + 5.2 * (1 - math.exp(-4 * t)) - 4.2 * t * t),
+            rng, spin=rng.choice((-1, 1)) * 260, grow=lambda t, ph=ph: (.9 * abs(C(5 * t + ph)) + .25, .9),
+            fade=P.tail(.6))
+    c.glow_out(lambda i: .25 + .6 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .08 * P.strain(i) if i < B else 1.14)

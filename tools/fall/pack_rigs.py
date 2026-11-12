@@ -97,6 +97,7 @@ def pack(ids=None):
     table, need, remap = gather(rigs)
     srcs = [tinted(t["file"], t["tint"]) for t in table]
     out = dict(tiers={}, rigs={})
+    boxes = None                                                 # each picture's crop in its unit square (coarsest tier)
     for D in TIERS:
         crops, entries = [], []
         for g, im in enumerate(srcs):
@@ -132,6 +133,7 @@ def pack(ids=None):
         pics = [[place[i][0], place[i][1], place[i][2], *crops[i].size, *[round(v, 5) for v in entries[i]]]
                 for i in range(len(crops))]
         out["tiers"][str(D)] = dict(pages=pages, pics=pics)
+        boxes = boxes or entries
         kb = sum(os.path.getsize(os.path.join(OUT, p["file"])) for p in pages) // 1024
         mb = sum(p["w"] * p["h"] * 4 for p in pages) / 1e6
         print(f"r{D}: {len(pics)} pictures on {n} pages, {kb} KB, {mb:.1f} MB decoded")
@@ -142,7 +144,19 @@ def pack(ids=None):
             frames = []
             for fr in c["frames"]:
                 frames.append([[it[0], m[it[1]], *[round(v, 3) for v in it[2:8]], round(it[8], 2)] for it in fr])
-            clips[name] = dict(fps=c["fps"], loop=c["loop"], frames=frames)
+            # span: half the side of the square, centred on the icon, that holds everything any frame of the clip
+            # draws (units, rounded up to .5, at least the old 13-unit frame) - the game sizes the clip's canvas by it
+            reach = 0.0
+            for fr in c["frames"]:
+                for it in fr:
+                    u0, v0, u1, v1 = boxes[m[it[1]]]
+                    a, b, cc, d, tx, ty = it[2:8]
+                    for u, v in ((u0, v0), (u1, v0), (u0, v1), (u1, v1)):
+                        reach = max(reach, abs(a * u + cc * v + tx), abs(b * u + d * v + ty))
+            clips[name] = dict(fps=c["fps"], loop=c["loop"], span=max(6.5, math.ceil(reach * 2 - 1e-6) / 2), frames=frames)
+            for k in ("hold", "blow"):                           # the pop: it ends on nothing; the frame of its blow
+                if k in c:
+                    clips[name][k] = c[k]
         out["rigs"][sid] = dict(units=r["units"], clips=clips)
     out["note"] = ("tiers[D].pics[g] = [page, x, y, w, h, u0, v0, u1, v1]: picture g's crop in the atlas and the part "
                    "of its unit square (-0.5..0.5, v down) the crop covers; a frame item = [object, g, a, b, c, d, tx, "
@@ -151,13 +165,13 @@ def pack(ids=None):
     print("rigs.json", os.path.getsize(os.path.join(OUT, "rigs.json")) // 1024, "KB,", len(out["rigs"]), "rigs")
 
 
-def draw(sid, clip, k, D=40, size=512):
+def draw(sid, clip, k, D=40, size=512, units=None):
     """the frame as the game will draw it from the atlas: straight-alpha 'over', back to front"""
     rj = json.load(open(os.path.join(OUT, "rigs.json")))
     tier = rj["tiers"][str(D)]
     pages = [Image.open(os.path.join(OUT, p["file"])).convert("RGBA") for p in tier["pages"]]
     rig = rj["rigs"][sid]
-    P = size / rig["units"]
+    P = size / (units or rig["units"])
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     for it in rig["clips"][clip]["frames"][k]:
         pg, x, y, w, h, u0, v0, u1, v1 = tier["pics"][it[1]]
@@ -178,7 +192,7 @@ def draw(sid, clip, k, D=40, size=512):
 
 
 def check(sid, clip, k):
-    mine = draw(sid, clip, int(k))
+    mine = draw(sid, clip, int(k), units=26.0 if clip == "pop" else None)   # the pop is filmed 26 units across
     ref = Image.open(os.path.join(RENDERS, sid, clip, f"{int(k):04d}.png")).convert("RGBA").resize(mine.size)
     bg = Image.new("RGBA", mine.size, (40, 40, 52, 255))
     a, b = Image.alpha_composite(bg, mine), Image.alpha_composite(bg, ref)

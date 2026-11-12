@@ -18,8 +18,18 @@ FX = os.path.join(ROOT, "art", "fall-src", "fx")
 REN = os.path.join(ROOT, "art", "blender", "renders")
 BLEND = os.path.join(ROOT, "art", "blender", "symbols")
 FPS = 30
-CLIPS = {"idle": 72, "land": 24, "hit": 46, "multi": 42}
-START = {"idle": 1, "land": 101, "hit": 201, "multi": 301}     # each clip's first frame on the timeline
+CLIPS = {"idle": 72, "land": 24, "hit": 46, "multi": 42, "pop": 25}
+START = {"idle": 1, "land": 101, "hit": 201, "multi": 301, "pop": 401}     # each clip's first frame on the timeline
+BASE = ("idle", "land", "hit", "multi")                       # the clips that start and end on the rest pose
+# "pop" (owner, 2026-11-10: every icon its own break-apart, no generic shards): the icon's removal from the board after
+# a win. 26 frames (0..25) at 30 fps; frame 0 is the rest pose (it follows the hit), frames 0-7 the strain, frame
+# POP_BLOW the blow (the game syncs its sound and the cell's timing to it), then the parts fly, fall and dissolve; the
+# last frame is EMPTY and the game holds it (the cell is empty). Its parts travel into the neighbouring cells: it is
+# filmed POP_VIEW units across (the other clips 13), and the game sizes its canvas from the clip's "span"
+# (tools/fall/pack_rigs.py). Only the part rigs have it (partsanim.py; anims/<ID>.py pop(c)).
+POP_BLOW = 8
+POP_VIEW = 26.0
+FX_VIEW = None                                                # a wider frame for Pool.particle's clamp, while set
 HALF = 4.7                                                    # half the art's longer side, units (940 px)
 VIEW = {"M": 24.0}                                            # a bigger view (units across) where the effects need it:
                                                               # the Multi's cider fountain; same px per unit (512 / 13)
@@ -63,7 +73,7 @@ def setup_scene(sid):
         sc.eevee.taa_render_samples = 16
     except AttributeError:
         pass
-    sc.frame_start, sc.frame_end = 1, START["multi"] + CLIPS["multi"] - 1
+    sc.frame_start, sc.frame_end = 1, START["pop"] + CLIPS["pop"]
     cam_data = bpy.data.cameras.new("cam")
     cam_data.type = "ORTHO"
     cam_data.ortho_scale = CAM
@@ -328,7 +338,7 @@ class Pool:
             t = (f - f0) / max(1, f1 - f0)
             x, z = path(t)
             g = grow[0] + (grow[1] - grow[0]) * t
-            lim = CAM / 2 - .2 - self.size * g * .72            # keep the whole sprite inside the frame
+            lim = (FX_VIEW or CAM) / 2 - .2 - self.size * g * .72   # keep the whole sprite inside the frame
             x, z = max(-lim, min(lim, x)), max(-lim, min(lim, z))
             key_obj(ob, f, x=x, z=z, s=max(.01, g), r=r0 + spin * t)
             a = fade[0] + (fade[1] - fade[0]) * t
@@ -1138,18 +1148,26 @@ def fcurves(act):
 
 
 def render(sid, clips=None):
+    """The four rest-to-rest clips by default (the frame sheets, tools/blender/pack_frames.py); "pop" only when asked
+    for - it is filmed POP_VIEW units across at the same px per unit (for `pack_rigs.py check`), never packed."""
     sc = bpy.context.scene
-    for clip in (clips or CLIPS):
+    for clip in (clips or BASE):
         d = os.path.join(REN, sid, clip)
         os.makedirs(d, exist_ok=True)
         for old in os.listdir(d):
             os.remove(os.path.join(d, old))
         n = CLIPS[clip]
         frames = range(START[clip], START[clip] + n) if clip == "idle" else range(START[clip], START[clip] + n + 1)
+        was = (sc.camera.data.ortho_scale, sc.render.resolution_x)
+        if clip == "pop":
+            sc.camera.data.ortho_scale = POP_VIEW
+            sc.render.resolution_x = sc.render.resolution_y = round(was[1] * POP_VIEW / was[0])
         for k, f in enumerate(frames):
             sc.frame_set(f)
             sc.render.filepath = os.path.join(d, f"{k:04d}.png")
             bpy.ops.render.render(write_still=True)
+        sc.camera.data.ortho_scale = was[0]
+        sc.render.resolution_x = sc.render.resolution_y = was[1]
 
 
 def render_big(sid="M", scale=1.5):

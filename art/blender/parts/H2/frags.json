@@ -1,0 +1,79 @@
+{
+ "frags": [
+  {
+   "name": "s0",
+   "png": "x_s0.png",
+   "pivot": [
+    768.3,
+    423.6
+   ],
+   "parent": "pie",
+   "depth": -0.004
+  },
+  {
+   "name": "s1",
+   "png": "x_s1.png",
+   "pivot": [
+    603.9,
+    311.4
+   ],
+   "parent": "pie",
+   "depth": -0.0048
+  },
+  {
+   "name": "s2",
+   "png": "x_s2.png",
+   "pivot": [
+    393.3,
+    315.8
+   ],
+   "parent": "pie",
+   "depth": -0.0056
+  },
+  {
+   "name": "s3",
+   "png": "x_s3.png",
+   "pivot": [
+    224.9,
+    486.1
+   ],
+   "parent": "pie",
+   "depth": -0.0064
+  },
+  {
+   "name": "s4",
+   "png": "x_s4.png",
+   "pivot": [
+    349.3,
+    695.9
+   ],
+   "parent": "pie",
+   "depth": -0.0072
+  },
+  {
+   "name": "s5",
+   "png": "x_s5.png",
+   "pivot": [
+    583.7,
+    738.0
+   ],
+   "parent": "pie",
+   "depth": -0.008
+  },
+  {
+   "name": "floor",
+   "png": "x_floor.png",
+   "pivot": [
+    771.1,
+    632.5
+   ],
+   "parent": "pie",
+   "depth": -0.0088
+  }
+ ],
+ "sprites": [
+  "cream",
+  "crust",
+  "custard"
+ ]
+}

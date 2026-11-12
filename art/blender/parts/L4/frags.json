@@ -1,0 +1,99 @@
+{
+ "frags": [
+  {
+   "name": "lump0",
+   "png": "x_lump0.png",
+   "pivot": [
+    522.7,
+    153.8
+   ],
+   "parent": "bunch",
+   "depth": -0.054
+  },
+  {
+   "name": "lump1",
+   "png": "x_lump1.png",
+   "pivot": [
+    501.8,
+    337.1
+   ],
+   "parent": "bunch",
+   "depth": -0.0548
+  },
+  {
+   "name": "lump2",
+   "png": "x_lump2.png",
+   "pivot": [
+    700.9,
+    335.6
+   ],
+   "parent": "bunch",
+   "depth": -0.0556
+  },
+  {
+   "name": "lump3",
+   "png": "x_lump3.png",
+   "pivot": [
+    377.7,
+    533.4
+   ],
+   "parent": "bunch",
+   "depth": -0.0564
+  },
+  {
+   "name": "lump4",
+   "png": "x_lump4.png",
+   "pivot": [
+    571.4,
+    517.0
+   ],
+   "parent": "bunch",
+   "depth": -0.0572
+  },
+  {
+   "name": "lump5",
+   "png": "x_lump5.png",
+   "pivot": [
+    805.8,
+    521.7
+   ],
+   "parent": "bunch",
+   "depth": -0.058
+  },
+  {
+   "name": "lump6",
+   "png": "x_lump6.png",
+   "pivot": [
+    458.9,
+    691.5
+   ],
+   "parent": "bunch",
+   "depth": -0.0588
+  },
+  {
+   "name": "lump7",
+   "png": "x_lump7.png",
+   "pivot": [
+    638.8,
+    741.0
+   ],
+   "parent": "bunch",
+   "depth": -0.0596
+  },
+  {
+   "name": "lump8",
+   "png": "x_lump8.png",
+   "pivot": [
+    793.3,
+    839.3
+   ],
+   "parent": "bunch",
+   "depth": -0.0604
+  }
+ ],
+ "sprites": [
+  "juice",
+  "skin",
+  "splat"
+ ]
+}

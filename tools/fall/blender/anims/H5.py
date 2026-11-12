@@ -117,3 +117,70 @@ def multi(c):
         c.pools["sparkle"].particle(f0 + 18, f0 + 30, lambda t, a=a: (math.cos(a) * (3.6 + 1.5 * c.ease_out(t)),
                                     math.sin(a) * (3.6 + 1.5 * c.ease_out(t))), c.rng, spin=180, grow=(.8, .05))
     c.glow_curve("multi", lambda u: min(1, u / .43) if u < .43 else max(0, 1 - (u - .43) / .4))
+
+
+# ---------------------------------------------------------------- pop: it blows its cork and shatters
+# strain  the jug swells and judders, the cork chattering; the cork BLOWS (frame 5) on a jet of cider and cracks race
+#         over the stoneware
+# BLOW    the jug bursts: its shards fly out from the middle, tumbling, on a burst of cider behind them; cider drops
+#         and foam everywhere, chips of glaze; the drip is flung off
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "jet": dict(files=["fizz_jet", "fizz_jet_b", "fizz_jet_c"], n=3, size=6.0, depth=.2),
+    "gush": dict(files=["fizz_burst", "fizz_burst_b"], n=2, size=9.0, depth=.2),
+    "cider": dict(files=["drop"], n=18, size=1.3),
+    "foam": dict(files=["foam_puff"], n=5, size=2.6),
+    "chip": dict(files=["parts:fx_chip", "parts:fx_chip2"], n=10, size=.9),
+}
+MOUTH = (.62, 3.75)                                            # the open neck (units)
+CORE = (0.0, -.7)                                              # where it bursts from
+
+
+def pop(c):
+    B, CK = P.BLOW, 5
+    SH = [s for s in c.extras if s.startswith("shard")]
+    D = {s: P.unit(c.pivot[s][0] - CORE[0], c.pivot[s][1] - CORE[1]) for s in SH}
+    V = {s: (c.rng.uniform(13, 20), c.rng.choice((-1, 1)) * c.rng.uniform(260, 620)) for s in SH}
+
+    def pose(i, n):
+        k = P.strain(i)
+        cork = dict(y=.12 * abs(S(i * 2.6)) * k, r=9 * S(i * 3.4) * k, a=1) if i < CK else \
+            P.fly(i, CK, 2.2, 24, g=34, spin=-560, at=(0, .3), a=P.gone(i, 15, 20))
+        if i < B:
+            q = S(i * 3.0) * k
+            p = dict(root=P.swell((1 + .14 * k) * (1 + .02 * q), (1 + .14 * k) * (1 - .02 * q), x=.07 * q),
+                     cork=cork, drip=dict(sy=1 + .25 * k, a=1))
+            if i >= CK:                                        # cracked through
+                p["jug"] = dict(a=0)
+                for s in SH:
+                    p[s] = dict(a=1, x=D[s][0] * .03 * (i - CK + 1), y=D[s][1] * .03 * (i - CK + 1))
+            return p
+        a = P.gone(i, 20, 24)
+        z = 1 - .4 * P.st(i, 18, 24)
+        p = dict(root=P.swell(1.05), jug=dict(a=0), cork=cork,
+                 drip=P.fly(i, B, 5, 9, g=36, spin=-500, a=P.gone(i, 14, 18)))
+        for s in SH:
+            v, sp = V[s]
+            p[s] = P.fly(i, B, D[s][0] * v, D[s][1] * v + 5, g=32, spin=sp, drag=1.8,
+                         at=(D[s][0] * .15, D[s][1] * .15), a=a, sx=z, sy=z)
+        return p
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    for j, f in enumerate(range(CK, 13, 2)):                   # the jet out of the neck, boiling (three drawings)
+        g0 = min(1.0, .45 + .25 * j)
+        fx["jet"].emit(f, f + 1, lambda t, g0=g0: (MOUTH[0], MOUTH[1] + .42 * 6.0 * g0), rot=0,
+                       grow=(g0, g0 * 1.06), fade=(1, 1) if f < 11 else (.8, .3))
+    for j in range(2):                                         # the burst of cider behind the shards
+        fx["gush"].emit(B + j * 2, B + j * 2 + 3, lambda t: (CORE[0], CORE[1] + .6), rot=0,
+                        grow=lambda t, j=j: .55 + .25 * j + .3 * t, fade=(1, .5) if j == 0 else (.9, 0))
+    P.burst(fx["cider"], rng, B, 14, at=CORE, speed=(22, 38), ang=(0, 360), g=34, life=(11, 15), grow=(1.0, .6),
+            aim="tail", spread=1.0, even=True, drag=3)
+    P.burst(fx["cider"], rng, CK, 4, at=MOUTH, speed=(14, 22), ang=(60, 120), g=34, life=(9, 12), grow=(.8, .5),
+            aim="tail", spread=.2, drag=2.5)
+    P.burst(fx["foam"], rng, B, 5, at=CORE, speed=(8, 16), ang=(20, 160), g=14, life=(10, 13), grow=(.5, 1.0),
+            spin=120, spread=1.2, even=True, drag=3, fade=P.tail(.4))
+    P.burst(fx["chip"], rng, B, 10, at=CORE, speed=(20, 34), ang=(0, 360), g=34, life=(10, 14), grow=(1.0, .7),
+            spin=800, spread=1.5, even=True, drag=2.6)
+    c.glow_out(lambda i: .25 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .1 * P.strain(i) if i < B else 1.18)

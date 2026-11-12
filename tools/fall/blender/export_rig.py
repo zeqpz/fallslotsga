@@ -71,8 +71,9 @@ def export(sid):
                           cx=(max(xs) + min(xs)) / 2, cz=(max(zs) + min(zs)) / 2,
                           fade=ob.active_material.node_tree.nodes["fade"].outputs[0]))
     clips = {}
+    has_pop = any(fc.range()[1] >= SA.START["pop"] for a in bpy.data.actions for fc in SA.fcurves(a))
     for clip, n in SA.CLIPS.items():
-        if clip not in SA.START:
+        if clip not in SA.START or (clip == "pop" and not has_pop):
             continue
         f0 = SA.START[clip]
         count = n if clip == "idle" else n + 1                  # the same frames the renders had
@@ -94,6 +95,10 @@ def export(sid):
             row.sort(key=lambda r: (-r[0], r[1]))                # far (larger y) first
             frames.append([[r[1], r[2], *r[3], r[4]] for r in row])
         clips[clip] = dict(fps=SA.FPS, loop=clip == "idle", frames=frames)
+        if clip == "pop":                                        # it ends on nothing and stays there; its blow's frame
+            clips[clip].update(hold=True, blow=SA.POP_BLOW)
+            left = len(frames[-1])
+            print("POP", sid, "last frame:", "empty" if not left else f"{left} PICTURES LEFT")
     rig = dict(id=sid, units=SA.CAM, pics=pics, clips=clips,
                note="frame item: [object id, pic, a, b, c, d, tx, ty, alpha] - a 2D affine (Blender units, y down) "
                     "taking the picture's unit square (u, v in -0.5..0.5, v down) into the icon's frame")

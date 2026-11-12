@@ -1,0 +1,59 @@
+{
+ "frags": [
+  {
+   "name": "wedge0",
+   "png": "x_wedge0.png",
+   "pivot": [
+    215,
+    850
+   ],
+   "parent": "body",
+   "depth": -0.104
+  },
+  {
+   "name": "wedge1",
+   "png": "x_wedge1.png",
+   "pivot": [
+    345,
+    910
+   ],
+   "parent": "body",
+   "depth": -0.1048
+  },
+  {
+   "name": "wedge2",
+   "png": "x_wedge2.png",
+   "pivot": [
+    480,
+    935
+   ],
+   "parent": "body",
+   "depth": -0.1056
+  },
+  {
+   "name": "wedge3",
+   "png": "x_wedge3.png",
+   "pivot": [
+    640,
+    915
+   ],
+   "parent": "body",
+   "depth": -0.1064
+  },
+  {
+   "name": "wedge4",
+   "png": "x_wedge4.png",
+   "pivot": [
+    770,
+    855
+   ],
+   "parent": "body",
+   "depth": -0.1072
+  }
+ ],
+ "sprites": [
+  "pulp",
+  "seed",
+  "string"
+ ]
+}

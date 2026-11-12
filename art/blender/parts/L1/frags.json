@@ -1,0 +1,148 @@
+{
+ "frags": [
+  {
+   "name": "bit0",
+   "png": "x_bit0.png",
+   "pivot": [
+    521.4,
+    152.0
+   ],
+   "parent": "root",
+   "depth": -0.654
+  },
+  {
+   "name": "bit1",
+   "png": "x_bit1.png",
+   "pivot": [
+    418.7,
+    287.8
+   ],
+   "parent": "root",
+   "depth": -0.6548
+  },
+  {
+   "name": "bit2",
+   "png": "x_bit2.png",
+   "pivot": [
+    600.9,
+    318.8
+   ],
+   "parent": "root",
+   "depth": -0.6556
+  },
+  {
+   "name": "bit3",
+   "png": "x_bit3.png",
+   "pivot": [
+    173.4,
+    370.5
+   ],
+   "parent": "root",
+   "depth": -0.6564
+  },
+  {
+   "name": "bit4",
+   "png": "x_bit4.png",
+   "pivot": [
+    311.5,
+    433.7
+   ],
+   "parent": "root",
+   "depth": -0.6572
+  },
+  {
+   "name": "bit5",
+   "png": "x_bit5.png",
+   "pivot": [
+    816.8,
+    475.0
+   ],
+   "parent": "root",
+   "depth": -0.658
+  },
+  {
+   "name": "bit6",
+   "png": "x_bit6.png",
+   "pivot": [
+    650.1,
+    504.8
+   ],
+   "parent": "root",
+   "depth": -0.6588
+  },
+  {
+   "name": "bit7",
+   "png": "x_bit7.png",
+   "pivot": [
+    482.4,
+    504.4
+   ],
+   "parent": "root",
+   "depth": -0.6596
+  },
+  {
+   "name": "bit8",
+   "png": "x_bit8.png",
+   "pivot": [
+    198.2,
+    639.1
+   ],
+   "parent": "root",
+   "depth": -0.6604
+  },
+  {
+   "name": "bit9",
+   "png": "x_bit9.png",
+   "pivot": [
+    343.7,
+    610.8
+   ],
+   "parent": "root",
+   "depth": -0.6612
+  },
+  {
+   "name": "bit10",
+   "png": "x_bit10.png",
+   "pivot": [
+    713.3,
+    711.3
+   ],
+   "parent": "root",
+   "depth": -0.662
+  },
+  {
+   "name": "bit11",
+   "png": "x_bit11.png",
+   "pivot": [
+    552.0,
+    684.8
+   ],
+   "parent": "root",
+   "depth": -0.6628
+  },
+  {
+   "name": "bit12",
+   "png": "x_bit12.png",
+   "pivot": [
+    432.2,
+    769.8
+   ],
+   "parent": "root",
+   "depth": -0.6636
+  },
+  {
+   "name": "bit13",
+   "png": "x_bit13.png",
+   "pivot": [
+    341.2,
+    875.5
+   ],
+   "parent": "root",
+   "depth": -0.6644
+  }
+ ],
+ "sprites": [
+  "gust",
+  "speck"
+ ]
+}

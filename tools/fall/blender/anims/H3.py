@@ -141,3 +141,63 @@ def multi(c):
         c.pools["leaf"].particle(fs, fs + 20, lambda t, a=a, sp=sp: (-1 + math.cos(a) * sp * t, .5 + math.sin(a) * sp * t - 2 * t * t),
                                  c.rng, spin=300, grow=(.55, .4), fade=(1, 0))
     c.glow_curve("multi", lambda u: min(1, u / .43) if u < .43 else max(0, 1 - (u - .43) / .4))
+
+
+# ---------------------------------------------------------------- pop: the horn spills the lot and unrolls
+# strain  the horn squeezes and shudders, the fruit crowding out of its mouth, the tip curling tighter
+# BLOW    the harvest shoots out of the mouth one piece after another - corn, apple, pumpkin, apples, grapes - each
+#         tumbling its own way, the leaves fluttering after; the empty horn kicks back, its tip uncurling straight,
+#         and shrivels away to its point; leaves and berries
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "leaf": dict(files=["leaf_red", "leaf_orange", "leaf_gold"], n=8, size=1.6),
+    "berry": dict(files=["parts:fx_berry"], n=10, size=.8),
+    "wicker": dict(files=["parts:fx_wicker"], n=8, size=1.2),
+}
+# what leaves the horn: (bone, frame it goes, vx, vy, gravity, spin, fade from, to)
+SPILL = [("corn", 8, -9, 17, 38, 520, 18, 23), ("apple_top_fill", 8, 2, 20, 40, -420, 18, 22),
+         ("pumpkin_fill", 9, -8, 9, 36, 380, 19, 24), ("apples_fill", 9, -15, 7, 34, 300, 19, 24),
+         ("grapes", 10, 8, 10, 38, -340, 19, 24), ("leaf_maple", 8, -5, 15, 20, 300, 16, 21),
+         ("leaf_gold", 10, 11, 13, 22, -360, 17, 22), ("leaf_vine", 11, 13, 4, 20, -300, 17, 22)]
+
+
+def pop(c):
+    B = P.BLOW
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            q = S(i * 3.0) * k
+            p = dict(root=P.swell(1 + .06 * k, x=.06 * q),
+                     horn=dict(sx=1 - .05 * k + .02 * q, sy=1 + .06 * k - .02 * q), horn_tip=dict(r=22 * k),
+                     leaf_front=dict(r=8 * q), leaf_red=dict(r=-8 * q))
+            for j, (b, *_) in enumerate(SPILL[:5]):            # crowding out of the mouth
+                p[b] = dict(x=-.22 * k + .05 * S(i * 3.4 + j) * k, y=-.12 * k + .05 * S(i * 2.9 + j) * k)
+            return p
+        t = (i - B) / 30
+        kick = c.damp(t, 2.6, .35)
+        z = 1 - .8 * P.st(i, 14, 22)                           # it shrivels to its point
+        horn = dict(x=.9 * (1 - kick), y=.5 * (1 - kick), r=-24 * (1 - kick), sx=(1 + .2 * (1 - kick)) * z,
+                    sy=(1 - .12 * (1 - kick)) * z, a=P.gone(i, 18, 23))
+        p = dict(root=P.swell(1.0), horn=horn, horn_tip=dict(r=22 - 95 * (1 - c.damp(t, 2.2, .3))))
+        for b, f, vx, vy, g, sp, a0, a1 in SPILL:
+            p[b] = P.free(c, b, horn, P.fly(i, f, vx, vy, g=g, spin=sp, a=P.gone(i, a0, a1)) if i >= f
+                          else dict(x=-.22, y=-.12, a=1))
+        p["leaf_front"] = dict(r=40 * S((i - B) * .9))
+        p["leaf_red"] = dict(r=-40 * S((i - B) * 1.1))
+        return p
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    for j in range(8):                                         # leaves tumbling out after the fruit
+        x0, z0, vx, ph = rng.uniform(-2.5, .5), rng.uniform(-2, .5), rng.uniform(-12, 4), rng.uniform(0, 6)
+        fx["leaf"].emit(B + j % 4, 21 + j % 3, lambda t, x0=x0, z0=z0, vx=vx, ph=ph: (
+            x0 + vx * (1 - math.exp(-2.5 * t)) + .5 * S(7 * t + ph), z0 + 5.5 * (1 - math.exp(-4 * t)) - 5 * t * t),
+            rng, spin=rng.choice((-1, 1)) * 300, grow=lambda t, ph=ph: (.75 * abs(P.C(5 * t + ph)) + .2, .75),
+            fade=P.tail(.6))
+    P.burst(fx["berry"], rng, B, 10, at=(-1.4, -1.2), speed=(18, 30), ang=(60, 230), g=40, life=(11, 14),
+            grow=(1.0, .9), spin=300, spread=.8, even=True, drag=2.4)
+    P.burst(fx["wicker"], rng, B + 4, 8, at=(1.4, .4), speed=(14, 24), ang=(0, 360), g=30, life=(9, 12),
+            grow=(1.0, .7), spin=700, spread=1.2, even=True, drag=3, stagger=.5)
+    c.glow_out(lambda i: .25 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .1 * P.strain(i) if i < B else 1.16)

@@ -109,3 +109,59 @@ def multi(c):
         c.pools["steam"].particle(f0 + 18 + j, f0 + 36 + j, lambda t, x0=x0: (x0 * (1 + t), 2.5 + 3.4 * t), c.rng,
                                   spin=60, grow=(.6, 1.5), fade=(.9, 0))
     c.glow_curve("multi", lambda u: min(1, u / .43) if u < .43 else max(0, 1 - (u - .43) / .4))
+
+
+# ---------------------------------------------------------------- pop: overstuffed - it bursts at the joints
+# strain  the roast puffs up, quaking, the drumsticks and wing straining at their joints, steam hissing
+# BLOW    the body slams flat on the platter and the drumsticks and the wing are shot off it, tumbling end over end;
+#         the body gasps back up and withers away in a cloud of steam; the garnish is flung off, berries bouncing;
+#         the platter rattles and drops away
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "puff": dict(files=["steam"], n=8, size=3.2),
+    "juice": dict(files=["drop"], n=12, size=1.2),
+    "berry": dict(files=["parts:fx_berry"], n=10, size=.85),
+    "skin": dict(files=["parts:fx_skin"], n=8, size=.9),
+}
+
+
+def pop(c):
+    B = P.BLOW
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            return dict(root=P.swell(1 + .04 * k, x=.05 * S(i * 3.0) * k),
+                        body=dict(sx=1 + .14 * k, sy=1 + .17 * k),
+                        leg_back=dict(r=11 * S(i * 3.3) * k, y=.2 * k), leg_front=dict(r=-13 * S(i * 3.1 + 1) * k, x=.2 * k),
+                        wing=dict(r=9 * S(i * 3.7) * k), platter=dict(sx=1 + .03 * k),
+                        garnish_m=dict(y=.1 * abs(S(i * 2.6)) * k))
+        t = (i - B) / 30
+        z = 1 - .75 * P.st(i, 12, 18)
+        body = dict(sx=(1 + .5 * c.damp(t, 3.2, .3)) * z, sy=(1 - .55 * c.damp(t, 3.2, .3)) * z, a=P.gone(i, 14, 18))
+        plat = dict(r=7 * S(t * 44) * math.exp(-t * 7), y=-24 * max(0, t - .22) ** 2, sx=1 + .05 * math.exp(-t * 8),
+                    a=P.gone(i, 17, 22))
+        fl = lambda name, par, want: P.free(c, name, par, want)
+        return dict(root=P.swell(1.0), body=body, platter=plat,
+                    leg_back=fl("leg_back", body, P.fly(i, B, -7, 23, g=42, spin=760, a=P.gone(i, 20, 24))),
+                    leg_front=fl("leg_front", body, P.fly(i, B, 13, 19, g=42, spin=-680, a=P.gone(i, 20, 24))),
+                    wing=fl("wing", body, P.fly(i, B, -15, 9, g=34, spin=460, a=P.gone(i, 18, 22))),
+                    garnish_l=fl("garnish_l", plat, P.fly(i, B, -11, 10, g=36, spin=300, a=P.gone(i, 15, 19))),
+                    garnish_m=fl("garnish_m", plat, P.fly(i, B, 1, 13, g=36, spin=-200, a=P.gone(i, 15, 19))),
+                    garnish_r=fl("garnish_r", plat, P.fly(i, B, 11, 10, g=36, spin=-300, a=P.gone(i, 15, 19))))
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    for f, x0 in ((3, -1.2), (5, 1.0)):                        # it hisses
+        fx["puff"].emit(f, f + 5, lambda t, x0=x0: (x0 * (1 + t), 2.2 + 2.4 * t), rng, spin=40, grow=(.3, .8),
+                        fade=(.8, 0))
+    P.burst(fx["puff"], rng, B + 1, 6, at=(-.2, .6), speed=(8, 16), ang=(20, 160), g=-6, life=(10, 13),
+            grow=(.5, 1.25), spin=90, spread=1.0, even=True, drag=3.5, fade=lambda t: .95 * (1 - t) ** .8)
+    P.burst(fx["juice"], rng, B, 12, at=(-.2, -.2), speed=(22, 36), ang=(15, 165), g=36, life=(10, 14),
+            grow=(1.0, .6), aim="tail", spread=1.0, even=True, drag=3)
+    P.burst(fx["skin"], rng, B, 8, at=(-.2, 0), speed=(18, 30), ang=(0, 360), g=34, life=(10, 13), grow=(1.0, .7),
+            spin=700, spread=1.2, even=True, drag=3)
+    P.burst(fx["berry"], rng, B, 10, at=(0, -2.2), speed=(16, 28), ang=(25, 155), g=44, life=(12, 15),
+            grow=(1.0, .9), spin=300, spread=2.0, even=True, drag=2)
+    c.glow_out(lambda i: .25 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .1 * P.strain(i) if i < B else 1.16)

@@ -145,3 +145,64 @@ def multi(c):
         c.pools["leaf"].particle(f0 + R + 1 + j, f0 + R + 17 + j, lambda t, dx=dx: (
             .9 + dx * c.ease_out(t), 3.0 + 2.0 * t - 3.6 * t * t), c.rng, spin=260, grow=(.6, .8), fade=(1, 0))
     c.glow_curve("multi", lambda u: min(1, (u / .62) ** 1.4) if u < .62 else max(0, 1 - (u - .62) / .33))
+
+
+# ---------------------------------------------------------------- pop: it splits along its ribs and falls open
+# strain  it swells, quaking; cracks run down its ribs and light leaks out of them
+# BLOW    the five wedges fall open like a flower (each hinged at its foot, springing past and rocking), the middle
+#         one slumping forward; the stem is blown off the top with its vine and leaf flailing; a fountain of seeds,
+#         pulp and strings; the wedges sink away
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "seed": dict(files=["parts:fx_seed"], n=16, size=1.1),
+    "pulp": dict(files=["parts:fx_pulp"], n=8, size=1.6),
+    "string": dict(files=["parts:fx_string"], n=6, size=1.7),
+    "flare": dict(files=["sparkle"], n=1, size=4.0, depth=.2),
+}
+OPEN = (86, 42, 0, -42, -86)                                   # how far each wedge falls open (degrees, ccw)
+
+
+def pop(c):
+    B = P.BLOW
+    W = [f"wedge{k}" for k in range(5)]
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            q = S(i * 2.7) * k
+            p = dict(root=P.swell((1 + .13 * k) * (1 + .025 * q), (1 + .13 * k) * (1 - .025 * q), x=.06 * S(i * 3.3) * k),
+                     stem=dict(r=7 * S(i * 3.4) * k, a=1), leaf=dict(r=12 * S(i * 4.1) * k),
+                     vine=dict(r=-10 * S(i * 3.7) * k))
+            if i >= 4:                                         # cracked along the ribs, the wedges easing apart
+                p["body"] = dict(a=0)
+                for j, w in enumerate(W):
+                    p[w] = dict(a=1, r=OPEN[j] * .016 * (i - 3))
+            return p
+        t = (i - B) / 30
+        a = P.gone(i, 19, 24)
+        fall = 1 - c.damp(t, 2.5, .3)                          # open, past it, and rocking
+        sink = 55 * max(0, t - .2) ** 2
+        p = dict(root=P.swell(1.05), body=dict(a=0))
+        for j, w in enumerate(W):
+            if j == 2:
+                p[w] = dict(a=a, y=-.5 * fall - sink, sy=1 - .42 * min(1.1, fall), sx=1 + .1 * fall)
+            else:
+                p[w] = dict(a=a, r=OPEN[j] * fall, x=(j - 2) * .35 * fall, y=-sink)
+        p["stem"] = P.fly(i, B, 1.2, 21, g=42, spin=-430, a=P.gone(i, 19, 23))
+        p["leaf"] = dict(r=40 * S((i - B) * 1.4))
+        p["vine"] = dict(r=-50 * S((i - B) * 1.1))
+        return p
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    P.flash(fx["flare"], B, (0, -.6), size=(.5, 1.5), life=5, spin=50)
+    P.burst(fx["seed"], rng, B, 12, at=(0, -.4), speed=(22, 36), ang=(48, 132), g=40, life=(12, 15), grow=(1.0, .8),
+            spin=600, spread=.7, even=True, drag=2.6)
+    P.burst(fx["seed"], rng, B + 2, 4, at=(0, -.4), speed=(14, 22), ang=(60, 120), g=40, life=(11, 13),
+            grow=(.9, .7), spin=600, spread=.5, drag=2.6)
+    P.burst(fx["pulp"], rng, B, 8, at=(0, -.8), speed=(14, 26), ang=(20, 160), g=36, life=(10, 14), grow=(1.0, .6),
+            spread=.8, even=True, drag=3)
+    P.burst(fx["string"], rng, B, 6, at=(0, -.6), speed=(16, 26), ang=(30, 150), g=30, life=(10, 13), grow=(1.0, .7),
+            spin=500, spread=.6, even=True, drag=3)
+    c.glow_out(lambda i: .25 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .1 * P.strain(i) if i < B else 1.16)

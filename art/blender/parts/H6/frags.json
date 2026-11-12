@@ -1,0 +1,77 @@
+{
+ "frags": [
+  {
+   "name": "cob_bare",
+   "png": "x_cob_bare.png",
+   "pivot": [
+    400,
+    730
+   ],
+   "parent": "cob",
+   "depth": -0.454
+  },
+  {
+   "name": "rows0",
+   "png": "x_rows0.png",
+   "pivot": [
+    361.3,
+    770.5
+   ],
+   "parent": "cob",
+   "depth": -0.4548
+  },
+  {
+   "name": "rows1",
+   "png": "x_rows1.png",
+   "pivot": [
+    436.4,
+    619.4
+   ],
+   "parent": "cob",
+   "depth": -0.4556
+  },
+  {
+   "name": "rows2",
+   "png": "x_rows2.png",
+   "pivot": [
+    488.5,
+    488.6
+   ],
+   "parent": "cob",
+   "depth": -0.4564
+  },
+  {
+   "name": "rows3",
+   "png": "x_rows3.png",
+   "pivot": [
+    569.9,
+    374.5
+   ],
+   "parent": "cob",
+   "depth": -0.4572
+  },
+  {
+   "name": "rows4",
+   "png": "x_rows4.png",
+   "pivot": [
+    660.7,
+    265.3
+   ],
+   "parent": "cob",
+   "depth": -0.458
+  },
+  {
+   "name": "rows5",
+   "png": "x_rows5.png",
+   "pivot": [
+    754.1,
+    145.8
+   ],
+   "parent": "cob",
+   "depth": -0.4588
+  }
+ ],
+ "sprites": [
+  "kernel"
+ ]
+}
