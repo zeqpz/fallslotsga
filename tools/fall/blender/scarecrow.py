@@ -46,10 +46,16 @@ GRID = 16                                  # the body mesh's cell, art px (the g
 GROUND_Y, TOP_Y = 1500, 10                 # art px: the grass under the post, the post's top
 FACES = json.load(open(os.path.join(LAY, "meta.json")))["faces"] if os.path.exists(os.path.join(LAY, "meta.json")) else []
 
-CLIPS = {          # frames, loop  (lengths are what CHAR_SFX in index.html is timed against - keep them)
-    "idle": (240, True), "enter": (44, False), "exit": (30, False), "anticipation": (54, False),
-    "win": (96, False), "big_win": (132, False), "lose": (90, False), "hiccup": (72, False), "peck": (84, False),
+CLIPS = {          # frames, loop  (CHAR_SFX in index.html is timed against these keys - see each clip's docstring)
+    "idle": (300, True), "enter": (48, False), "exit": (30, False),
+    "anticipate": (58, False),        # the bonus tease, with a held middle the game can repeat (HOLD)
+    "anticipation": (82, False),      # the same played straight through with two holds (the old name, still called)
+    "spin": (22, False), "spin2": (24, False),
+    "win": (60, False), "big_win": (138, False), "lose": (76, False), "hiccup": (68, False), "peck": (84, False),
 }
+HOLD_AT = (16, 24)          # the tease's held middle: first frame, frames a cycle
+HOLD = {"anticipate": (HOLD_AT[0], HOLD_AT[0] + HOLD_AT[1])}     # clip -> (a, b): frame b shows frame a's pose exactly
+PECKS = (24, 36, 42)        # the crow's beak on his hat in "peck" (CHAR_SFX crowPeck)
 
 
 def u(x, y):
@@ -88,6 +94,12 @@ BONES = {
     "boot_l": ((490, 1172), (452, 1350), "leg_l"),
     "boot_r": ((558, 1172), (598, 1350), "leg_r"),
     "crow": ((878, 416), (870, 250), "pole"),
+    # the crow's wings (tools/fall/gen_crow_wing.py): each a small drawn layer on its own bone, folded along the
+    # crow's back at rest - wholly behind its body, so the rest pose shows nothing - and spread by a turn about the
+    # shoulder and a scale-up (run_clip: the wing / flap drivers). Both start from the same fold; wing_r's picture
+    # is wing_l's mirrored across the bone, and it opens the other way.
+    "wing_l": ((858, 292), (818, 384), "crow"),
+    "wing_r": ((858, 292), (818, 384), "crow"),
 }
 BONE_NAMES = list(BONES)
 
@@ -554,10 +566,14 @@ def build():
     skin(body, arm, lambda xs, ys: sample(maps, xs, ys))
     crow = plane("crow", W_PX / 100, H_PX / 100, 1, 1, plain_material("crow", os.path.join(LAY, "crow.png")), -0.1)
     skin(crow, arm, lambda xs, ys: (np.full((len(xs), 1), BONE_NAMES.index("crow")), np.ones((len(xs), 1))))
+    for wn in ("wing_l", "wing_r"):                      # behind the body, as the game draws them (gen_crow_wing.py)
+        if os.path.exists(os.path.join(LAY, wn + ".png")):
+            w = plane(wn, W_PX / 100, H_PX / 100, 1, 1, plain_material(wn, os.path.join(LAY, wn + ".png")), 0.25)
+            skin(w, arm, lambda xs, ys, wn=wn: (np.full((len(xs), 1), BONE_NAMES.index(wn)), np.ones((len(xs), 1))))
     # effect sprites: hiccup bubbles, straw bits, leaves, feathers, sparkles - farm, not glitter
     fx = {}
     for kind, n, size in (("bubble", 6, 0.8), ("straw", 14, 1.0), ("leaf_red", 5, 1.1), ("leaf_orange", 5, 1.1),
-                          ("leaf_gold", 5, 1.1), ("feather", 8, 0.9), ("sparkle", 8, 0.9)):
+                          ("leaf_gold", 5, 1.1), ("feather", 8, 0.9), ("sparkle", 8, 0.9), ("star", 6, 0.9), ("drop", 8, 0.7)):
         fx[kind] = []
         for i in range(n):
             ob = plane(f"fx_{kind}_{i}", size, size, 1, 1, plain_material(f"{kind}_{i}", os.path.join(FX, kind + ".png")),
@@ -670,191 +686,522 @@ def hop(i, a, b, x0, x1, h):
 
 
 # ---------------------------------------------------------------- choreography
+# Reworked 2026-11-10 (the Stake review: "poor assets and animations"). Every clip was a sine under an envelope:
+# even timing, no anticipation, nothing held, the same small sway at three sizes. Now each is posed on a timeline
+# (tl: keys with their own eases - a wind-up, a snap, an overshoot, a settle, a hold) and the springs in run_clip
+# carry the overlap (the head, hat, straw, sleeves, legs, boots, jug and crow each arrive late and overshoot).
+# Angles: degrees counter-clockwise on screen. The BOARD IS ON HIS RIGHT: negative sway / lean / hd / pole lean
+# him toward it. swing: both legs together (+ = feet to the right); legs: the scissor between them (kept small:
+# the trouser legs are one mesh and tear when they part by more than ~15 deg).
+
+_E = {
+    "lin": lambda t: t,
+    "io": lambda t: t * t * (3 - 2 * t),
+    "in": lambda t: t * t,
+    "out": lambda t: 1 - (1 - t) ** 2,
+    "in3": lambda t: t ** 3,
+    "out3": lambda t: 1 - (1 - t) ** 3,
+}
+
+
+def tl(i, keys):
+    """A timeline: keys (frame, value[, ease]) in order; the ease is how the value ARRIVES at that key
+    (io = eased both ends, out / out3 = a snap that lands softly, in / in3 = a fall that hits, lin)."""
+    if i <= keys[0][0]:
+        return keys[0][1]
+    for k in range(1, len(keys)):
+        if i <= keys[k][0]:
+            f0, v0 = keys[k - 1][0], keys[k - 1][1]
+            f1, v1 = keys[k][0], keys[k][1]
+            return v0 + (v1 - v0) * _E[keys[k][2] if len(keys[k]) > 2 else "io"]((i - f0) / (f1 - f0))
+    return keys[-1][1]
+
+
+def ring(i, f0, amp, hz, tau):
+    """A wobble set off at frame f0 that dies away: amp * exp(-t / tau) * sin(2 pi hz t) - 0 at f0, so it never pops."""
+    if i <= f0:
+        return 0.0
+    t = (i - f0) / FPS
+    return amp * math.exp(-t / tau) * math.sin(2 * math.pi * hz * t)
+
+
+def cl(v, a, b):
+    return a if v < a else b if v > b else v
+
+
+def drivers():
+    return dict(sway=0.0, lean=0.0, hd=0.0, bob=0.0, legs=0.0, swing=0.0, chest_s=0.0, breath=0.0, pole=0.0,
+                body_s=0.0, head_s=0.0, hat_lift=0.0, hat_s=0.0, hat_r=0.0, tip=0.0, brims=0.0, hands=0.0,
+                hand_l=0.0, hand_r=0.0, jug=0.0, sag=0.0, wind=0.0, tremble=0.0,
+                crow_x=0.0, crow_y=0.0, crow_r=0.0, crow_hit=0.0, crow_flip=1.0, crow_sq=0.0, crow_free=0.0,
+                wing=0.0, flap=0.0)
+
+
+# where things are, in units (x right, y up, the art's centre the origin) - for the effect sprites
+P_HAT, P_MOUTH, P_JUG, P_CROW, P_CHEST = (-.9, 6.2), (-.1, 3.5), (-3.65, 1.7), (3.66, 4.7), (.2, 2.2)
+
+
+def _flick(d, i, f0, f1, amp=.8, rate=1.15):
+    """The crow's wings flick open and shut (a startle), frames f0..f1."""
+    w = bump(i, f0, f1)
+    if w > 0:
+        d["wing"] = max(d["wing"], amp * w ** .5)
+        d["flap"] = math.cos((i - f0) * rate)
+
+
+def _idle(d, i, n, rng, emit, face, kicks):
+    """10 s. A drunk's weight shifts - he drifts off balance, catches himself late, settles - breathing all the
+    while; he eyes the board, a breeze goes through his straw, he nods off in three sinking nods and jerks awake
+    (hat hopping, eyes wide, then a sly look round to see who noticed). The jug swings on its own pendulum and the
+    crow lives its own bird life: sharp looks with holds between, a ruffle, a preen, a shuffle along the bar."""
+    a = 2 * math.pi * i / n
+
+    def sway_at(j):
+        return tl(j % n, [(0, 0), (14, -.6), (46, -4.4), (62, -5.4), (73, 2.8), (84, 1.0), (96, 1.6), (134, 5.0),
+                          (150, 6.0), (162, -2.2), (174, -.4), (186, -1.2), (214, -2.6), (260, -4.2),
+                          (267, 1.8, "out"), (278, -.8), (290, 0), (300, 0)])
+    doze = tl(i, [(186, 0), (206, .45), (214, .35), (232, .8, "in"), (240, .68, "out"), (258, 1.0, "in"), (262, 1.0),
+                  (265, 0, "out3")])
+    d["sway"] = sway_at(i)
+    d["pole"] = .16 * sway_at(i - 7) + ring(i, 262, .5, 3.0, .22) * tl(i, [(280, 1), (290, 0)])
+    d["lean"] = -.5 * sway_at(i - 5) + .8 * math.sin(2 * a) * tl(i, [(0, 0), (20, 1), (270, 1), (290, 0)])
+    d["hd"] = tl(i, [(0, 0), (12, 1.5), (30, -6), (56, -7), (66, -2.5), (76, 4), (92, 2), (136, 5.5), (150, 7),
+                     (164, -3.5), (178, -.5), (186, 0), (300, 0)]) + 19 * doze + \
+        tl(i, [(262, 0), (266, -9, "out3"), (273, -3), (281, 1.2), (290, 0)])
+    d["bob"] = tl(i, [(60, 0), (66, -.05, "in"), (74, .025, "out"), (84, 0), (148, 0), (154, -.06, "in"),
+                      (163, .03, "out"), (174, 0)]) - .12 * doze + \
+        tl(i, [(262, 0), (265, .13, "out3"), (271, -.03), (278, 0)]) + .012 * math.sin(3 * a)
+    d["breath"] = math.sin(3 * a) * (1 + .9 * doze)                 # three breaths a loop, deeper as he dozes
+    d["head_s"] = .012 * math.sin(3 * a) + tl(i, [(262, 0), (264, .08, "out"), (270, -.02), (276, 0)])
+    d["hat_lift"] = tl(i, [(262, 0), (265, .16, "out"), (271, 0, "in")])
+    d["hat_r"] = 3 * doze
+    d["sag"] = .5 * doze
+    d["hands"] = -8 * doze + tl(i, [(262, 0), (266, 26, "out3"), (276, 0)])
+    d["jug"] = (3.4 + 1.5 * math.sin(a + 1.0)) * math.sin(7 * a)    # its own pendulum, 1.4 s a swing
+    d["wind"] = bump(i, 100, 132) * math.sin((i - 100) * .55) + .55 * bump(i, 214, 240) * math.sin((i - 214) * .6)
+    if i == 263:
+        kicks.extend([("tip", -180), ("brim", 90), ("hair", 130), ("jug", -50)])
+    for b0 in (22, 92, 168, 174):
+        face(b0, "blink"); face(b0 + 3, "neutral")
+    face(34, "smug"); face(54, "neutral")                           # a sly look at the board
+    face(190, "blink"); face(194, "neutral"); face(199, "blink"); face(204, "neutral"); face(208, "blink")
+    face(262, "shock"); face(273, "smug"); face(285, "neutral")
+    # the crow
+    d["crow_r"] = tl(i, [(0, 0), (18, 0), (20, -7, "out3"), (34, -7), (36, 0, "out3"), (40, 9, "out3"), (66, 9),
+                         (69, 0, "out3"), (118, 0), (120, -10, "out3"), (128, -10), (130, -17, "out3"),
+                         (133, -10, "out"), (137, -17, "out3"), (140, -10, "out"), (146, 0), (236, 0),
+                         (239, 10, "out3"), (262, 12), (264, -6, "out3"), (274, 6), (288, 6), (292, 0)])
+    look = tl(i, [(36, 0), (39, 1, "lin"), (66, 1), (69, 0, "lin"), (234, 0), (237, 1, "lin"), (288, 1), (291, 0, "lin")])
+    d["crow_flip"] = 1 - 2 * look
+    if i < 180:
+        x, y, sq = hop(i, 150, 156, 0, -.12, .08)
+    else:
+        x, y, sq = hop(i, 204, 210, -.12, 0, .08)
+    _, y2, sq2 = hop(i, 263, 270, 0, 0, .26)
+    d["crow_x"], d["crow_y"], d["crow_sq"] = x, y + y2, sq + sq2 + .07 * bump(i, 84, 98) * math.sin((i - 84) * 1.6)
+    _flick(d, i, 263, 272)
+
+
+def _spin(d, i, n, rng, emit, face, kicks):
+    """0.7 s, on every spin: a blink and a dip, a small hop with a glance at the board, the jug knocked swinging."""
+    d["bob"] = tl(i, [(0, 0), (2, -.07, "out"), (6, .16, "out3"), (10, -.03, "in"), (14, .012), (18, 0)])
+    d["body_s"] = tl(i, [(0, 0), (2, -.04, "out"), (5, .05, "out"), (10, -.03), (15, 0)])
+    d["hd"] = tl(i, [(0, 0), (2, 3, "out"), (6, -9, "out3"), (13, -7.5), (19, 0)])
+    d["sway"] = tl(i, [(0, 0), (6, -2.2, "out"), (13, -1.6), (20, 0)])
+    d["pole"] = ring(i, 3, .5, 3.2, .16)
+    d["hat_lift"] = tl(i, [(2, 0), (6, .12, "out"), (10, 0, "in")])
+    d["hat_s"] = tl(i, [(0, 0), (2, -.05), (5, .1, "out"), (9, -.06), (13, 0)])
+    d["hands"] = tl(i, [(2, 0), (6, 14, "out"), (14, 0)])
+    if i == 3:
+        kicks.extend([("jug", 55), ("tip", -90)])
+    face(1, "blink"); face(4, "neutral")
+    _, y, sq = hop(i, 5, 10, 0, 0, .1)
+    d["crow_y"], d["crow_sq"] = y, sq
+    d["crow_r"] = tl(i, [(4, 0), (7, -7, "out3"), (14, -6), (18, 0)])
+
+
+def _spin2(d, i, n, rng, emit, face, kicks):
+    """0.8 s, the other spin beat: he checks his jug - a sly tilt that way, a shrug of the post that sets it swinging."""
+    d["hd"] = tl(i, [(0, 0), (2, -3, "out"), (7, 9, "out3"), (15, 7.5), (22, 0)])
+    d["sway"] = tl(i, [(0, 0), (7, 2.4, "out"), (15, 1.8), (22, 0)])
+    d["bob"] = tl(i, [(0, 0), (3, .03), (7, -.06, "out"), (11, .08, "out3"), (16, -.015), (20, 0)])
+    d["body_s"] = tl(i, [(4, 0), (7, -.03), (11, .04, "out"), (16, 0)])
+    d["pole"] = ring(i, 4, -.55, 3.0, .18)
+    d["hat_lift"] = tl(i, [(7, 0), (11, .08, "out"), (15, 0, "in")])
+    d["hand_l"] = tl(i, [(2, 0), (6, 30, "out3"), (10, -12), (16, 0)])
+    if i == 5:
+        kicks.extend([("jug", -90), ("tip", 80)])
+    face(5, "smug"); face(17, "neutral")
+    d["crow_r"] = tl(i, [(6, 0), (9, 8, "out3"), (16, 7), (20, 0)])
+    _, y, sq = hop(i, 9, 14, 0, 0, .07)
+    d["crow_y"], d["crow_sq"] = y, sq
+
+
+def _win(d, i, n, rng, emit, face, kicks):
+    """2 s. A wind-up dip (3 f), a happy jolt off the post - head back, hat popped off his head, straw hands up, both
+    legs kicked out - a soft landing, then a second smaller bounce the other way and a loose settle. The crow is
+    thrown off its feet, flaps, lands, and turns to stare at him."""
+    d["bob"] = tl(i, [(0, 0), (3, -.14, "out"), (7, .40, "out3"), (11, .30), (15, -.07, "in"), (19, .03, "out"), (23, 0),
+                      (25, -.05, "out"), (29, .2, "out3"), (34, -.04, "in"), (38, .015, "out"), (42, 0)])
+    d["body_s"] = tl(i, [(0, 0), (3, -.07, "out"), (6, .09, "out"), (11, .03), (15, -.06, "in"), (19, .02, "out"),
+                         (24, 0), (25, -.03), (28, .05, "out"), (34, -.03, "in"), (39, 0)])
+    d["head_s"] = tl(i, [(0, 0), (3, -.06, "out"), (7, .08, "out"), (15, -.05, "in"), (20, 0)])
+    d["hd"] = tl(i, [(0, 0), (3, 5, "out"), (7, -15, "out3"), (12, -11), (16, 3), (21, -4), (25, 0), (29, -9, "out3"),
+                     (35, 2), (41, -2), (50, 0)])
+    d["sway"] = tl(i, [(0, 0), (3, -1.5, "out"), (8, 6, "out3"), (15, 2), (22, -5), (29, -6.5, "out"), (36, 3),
+                       (44, -1), (52, 0)])
+    d["lean"] = tl(i, [(0, 0), (3, 2, "out"), (8, -5, "out3"), (16, 1), (29, 3), (38, -1), (48, 0)])
+    d["pole"] = tl(i, [(0, 0), (3, .5, "out"), (8, -1.0, "out3"), (16, .6), (24, -.5), (30, -.8, "out"), (38, .3), (46, 0)])
+    d["swing"] = tl(i, [(0, 0), (3, 4, "out"), (8, -24, "out3"), (14, -10), (20, 10), (25, 6), (30, 22, "out3"),
+                        (37, -6), (44, 2), (52, 0)])
+    d["legs"] = tl(i, [(3, 0), (8, 6, "out"), (16, -4), (30, -6, "out"), (40, 0)])
+    d["hat_lift"] = tl(i, [(3, 0), (8, .34, "out3"), (12, .30), (17, 0, "in"), (29, 0), (32, .14, "out"), (37, 0, "in")])
+    d["hat_s"] = tl(i, [(0, 0), (3, -.12, "out"), (7, .30, "out"), (12, .10), (17, -.2, "in"), (21, .06, "out"), (25, 0)])
+    d["hat_r"] = tl(i, [(3, 0), (8, -5, "out"), (17, 2), (24, 0)])
+    d["hands"] = tl(i, [(3, 0), (8, 60, "out3"), (14, 35), (19, -10), (29, 40, "out3"), (38, -5), (46, 0)])
+    if i == 4:
+        kicks.extend([("jug", -160), ("tip", -150), ("hair", 120)])
+    if i == 26:
+        kicks.append(("jug", 110))
+    face(3, "happy"); face(50, "neutral")
+    if i == 7:
+        for k in range(4):
+            ang = math.radians(48 + 28 * k + rng.uniform(-8, 8))
+            sp = rng.uniform(2.6, 3.4)
+            emit("star", 7, 23 + 2 * k, lambda tt, a=ang, s=sp: (P_HAT[0] + math.cos(a) * s * tt,
+                                                                 P_HAT[1] + .4 + math.sin(a) * s * tt - 3.2 * tt * tt),
+                 spin=260, grow=(.3, .7))
+    if i == 30:
+        for k in range(2):
+            emit("sparkle", 30 + 2 * k, 46 + 2 * k, lambda tt, x0=rng.uniform(-2.6, .6): (x0, 4.6 + 1.6 * tt),
+                 spin=140, grow=(.45, .1))
+    # the crow: bounced off the bar, a flap, lands, stares
+    _, y, sq = hop(i, 5, 13, 0, 0, .34)
+    d["crow_y"], d["crow_sq"] = y, sq
+    _flick(d, i, 5, 14, .9)
+    look = tl(i, [(15, 0), (18, 1, "lin"), (42, 1), (45, 0, "lin")])
+    d["crow_flip"] = 1 - 2 * look
+    d["crow_r"] = tl(i, [(5, 0), (8, 12, "out3"), (13, -4), (18, 8, "out3"), (40, 9), (45, 0)])
+
+
+def _big_win(d, i, n, rng, emit, face, kicks):
+    """4.6 s. Eyes wide and a deep crouch (5 f), he throws himself off the post at the board - hat flying, legs out -
+    lands, and jigs: seven hops on a 0.4 s beat, body one way and legs the other, the post rocking, the jug swinging
+    hard enough to slosh; a last big jump held in the air (the pose), down, a loose settle. The crow bolts on the
+    launch, flaps overhead cawing through the dance, and swoops back to the bar for the landing."""
+    J0, J1, B = 18, 102, 12
+    jig = J0 <= i < J1
+    k, j = divmod(i - J0, B) if jig else (0, 0)
+    side = 1 if k % 2 == 0 else -1
+    up = tl(j, [(0, 0), (1, 0), (4, 1, "out3"), (8, .85), (12, 0)]) if jig else 0.0     # each beat's swing out and back
+    d["bob"] = (tl(j, [(0, -.12), (1, -.12), (4, .34, "out3"), (7, .28), (10, -.06, "in"), (11, -.12, "lin"), (12, -.12)]) if jig else
+                tl(i, [(0, 0), (5, -.32, "out"), (9, .62, "out3"), (13, .5), (17, -.12, "in"), (18, -.12)]) if i < J0 else
+                tl(i, [(102, -.12), (105, -.30, "out"), (109, .66, "out3"), (119, .60), (124, -.12, "in"), (128, .04, "out"), (133, 0)]))
+    d["body_s"] = (tl(j, [(0, -.07), (1, -.07), (4, .07, "out"), (8, .03), (10, -.02), (11, -.07, "lin"), (12, -.07)]) if jig else
+                   tl(i, [(0, 0), (5, -.11, "out"), (8, .11, "out"), (13, .04), (17, -.07, "in"), (18, -.07)]) if i < J0 else
+                   tl(i, [(102, -.07), (105, -.11, "out"), (108, .11, "out"), (119, .05), (124, -.08, "in"), (128, .02, "out"), (133, 0)]))
+    d["head_s"] = (tl(j, [(0, -.05), (4, .05, "out"), (9, 0), (12, -.05, "in")]) if jig else
+                   tl(i, [(0, 0), (5, -.10, "out"), (9, .10, "out"), (14, .03), (18, -.05, "in")]) if i < J0 else
+                   tl(i, [(102, -.05), (105, -.09), (109, .10, "out"), (119, .05), (124, -.06, "in"), (129, 0)]))
+    d["sway"] = side * 11 * up + tl(i, [(0, 0), (5, 3, "out"), (9, -9, "out3"), (14, -5), (18, 0)]) + \
+        tl(i, [(102, 0), (105, 4, "out"), (109, -14, "out3"), (119, -15.5), (125, 3), (131, -1), (136, 0)])
+    # (the post itself leans little toward the board: his crow and right hand are already at his box's edge)
+    d["pole"] = side * 1.2 * up + tl(i, [(0, 0), (5, 1.3, "out"), (9, -1.5, "out3"), (14, -.8), (18, 0)]) + \
+        tl(i, [(102, 0), (105, 1.2, "out"), (109, -1.5, "out3"), (119, -1.7), (125, .8), (131, -.3), (136, 0)])
+    d["lean"] = -side * 3 * up + tl(i, [(0, 0), (5, 3, "out"), (9, -6, "out3"), (18, 0)]) + \
+        tl(i, [(102, 0), (105, 3), (109, -6, "out3"), (119, -7), (126, 1), (134, 0)])
+    d["swing"] = side * 26 * up + tl(i, [(0, 0), (5, 6, "out"), (10, -34, "out3"), (14, -22), (18, 0)]) + \
+        tl(i, [(102, 0), (105, 8, "out"), (109, -40, "out3"), (119, -36), (125, 8), (130, -3), (136, 0)])
+    d["legs"] = side * 6 * up
+    d["hd"] = -side * 10 * up + tl(i, [(0, 0), (5, 10, "out"), (9, -20, "out3"), (14, -12), (18, 0)]) + \
+        tl(i, [(102, 0), (105, 8, "out"), (109, -18, "out3"), (119, -20), (125, 4), (131, -2), (136, 0)])
+    d["hat_lift"] = (tl(j, [(1, 0), (5, .2, "out"), (8, .16), (11, 0, "in")]) if jig else 0.0) + \
+        tl(i, [(5, 0), (10, .40, "out3"), (14, .34), (19, 0, "in")]) + tl(i, [(105, 0), (110, .42, "out3"), (118, .36), (124, 0, "in")])
+    d["hat_s"] = (tl(j, [(0, -.1), (1, -.1), (4, .16, "out"), (8, .05), (11, -.1, "in"), (12, -.1)]) if jig else
+                  tl(i, [(0, 0), (5, -.2, "out"), (9, .34, "out"), (14, .1), (18, -.1, "in")]) if i < J0 else
+                  tl(i, [(102, -.1), (105, -.2), (109, .34, "out"), (118, .1), (124, -.2, "in"), (128, .05), (132, 0)]))
+    d["hat_r"] = -side * 4 * up
+    d["hands"] = 45 * up + tl(i, [(5, 0), (9, 75, "out3"), (15, 40), (18, 0)]) + \
+        tl(i, [(105, 0), (109, 80, "out3"), (119, 70), (125, -10), (132, 0)])
+    d["hand_l"] = side * 22 * up
+    d["hand_r"] = -side * 22 * up
+    d["chest_s"] = .04 * up
+    if i == 6:
+        kicks.extend([("jug", -220), ("tip", -200), ("hair", 160), ("brim", 140)])
+    if jig and j == 1:
+        kicks.extend([("jug", -side * 170), ("hair", side * 90)])
+    if i == 106:
+        kicks.extend([("jug", -200), ("tip", -160)])
+    face(1, "shock"); face(6, "cheer"); face(122, "happy"); face(132, "neutral")
+    # straw shaken loose on every landing, leaves kicked up, the jug sloshing
+    if (jig and j == 0) or i in (17, 124):
+        for q in range(2):
+            ang = rng.uniform(.5, 2.6)
+            sp = rng.uniform(3.2, 5.5)
+            emit("straw", i, i + 16, lambda tt, a=ang, s=sp: (P_CHEST[0] + math.cos(a) * s * tt,
+                                                              P_CHEST[1] - 1 + math.sin(a) * s * tt - 7 * tt * tt),
+                 spin=520, grow=(.8, .65))
+    if i in (9, 30, 54, 78, 109):
+        for q in range(2):
+            kind = ("leaf_red", "leaf_orange", "leaf_gold")[(i // 3 + q) % 3]
+            x0 = rng.uniform(-3.6, 2.6)
+            emit(kind, i + 2 * q, i + 30 + 2 * q, lambda tt, x0=x0, w=rng.uniform(5, 8): (x0 + .9 * math.sin(tt * w), 7.2 - 6.5 * tt),
+                 spin=300, grow=(.75, .65))
+    if i in (7, 20, 44, 68, 92, 107):
+        for q in range(2):
+            vx, vy = rng.uniform(-2.4, .4), rng.uniform(2.2, 3.6)
+            emit("drop", i + q, i + 13 + q, lambda tt, vx=vx, vy=vy: (P_JUG[0] + vx * tt, P_JUG[1] + vy * tt - 5.5 * tt * tt),
+                 spin=0, grow=(.5, .35))
+    # the crow: off the bar on the launch, flapping overhead, back down for the landing
+    d["crow_free"] = tl(i, [(2, 0), (5, 1, "out"), (124, 1), (130, 0)])
+
+    def crow_at(f):                                                  # (it keeps clear of his hat: he throws himself its way)
+        y = tl(f, [(2, 0), (4, -.05, "out"), (10, 3.0, "out3"), (20, 3.0), (60, 2.5), (102, 3.0), (120, 3.0), (126, .7), (130, 0, "out")])
+        x = tl(f, [(2, 0), (10, -.1, "out"), (40, -.5), (70, -.1), (100, -.45), (120, -.1), (130, 0)])
+        return x, y
+    x, y = crow_at(i)
+    ph = 2 * math.pi * (i - 3) / 5.0                                 # 6 wing-beats a second
+    air = tl(i, [(2, 0), (5, 1, "out"), (124, 1), (130, 0)])
+    d["wing"] = tl(i, [(2, 0), (5, 1, "out"), (127, 1), (133, 0)])
+    d["flap"] = math.cos(ph)
+    d["crow_x"], d["crow_y"] = x, y + .09 * math.sin(ph) * air      # it rises on each down-beat
+    d["crow_sq"] = -.09 * math.cos(ph) * air - .16 * bump(i, 20, 30) + (.16 * (1 - (i - 130) / 5) if 130 <= i < 135 else 0)
+    d["crow_r"] = tl(i, [(2, 0), (6, 16, "out3"), (14, 6), (20, -8, "out3"), (30, -6), (36, 4), (112, 4), (120, -12),
+                         (128, 6, "out"), (132, -3), (136, 0)]) + 4 * math.sin(ph * .5) * air
+    if i in (4, 6, 22, 46, 70, 94, 129):
+        cx, cy = crow_at(i)
+        for q in range(2 if i < 12 else 1):
+            emit("feather", i + q, i + 30 + q, lambda tt, x0=P_CROW[0] + cx + rng.uniform(-.5, .5), y0=P_CROW[1] + cy:
+                 (x0 + .55 * math.sin(tt * 8), y0 - .3 - 4.2 * tt), spin=200, grow=(.85, .75))
+
+
+def _lose(d, i, n, rng, emit, face, kicks):
+    """2.5 s. A double-take (4 f), then he sags with real weight: drops, bounces at the bottom and hangs - head down,
+    hat and brims drooped, straw hands limp - shaking his head slowly while the crow turns and shakes its own at him;
+    one sorry hiccup, and he pulls himself back up."""
+    def sag_at(f):
+        return tl(f, [(0, 0), (4, -.12, "out"), (13, 1.12, "in3"), (18, .94, "out"), (24, 1.0), (56, 1.0), (60, 1.04),
+                      (70, 0), (76, 0)])
+    s = sag_at(i)
+    hic = tl(i, [(52, 0), (54, 1, "out3"), (58, -.12, "in"), (62, 0)])
+    d["bob"] = -.30 * s + .16 * hic
+    d["body_s"] = -.07 * s + .05 * hic
+    d["sway"] = 5 * s
+    d["lean"] = 6 * sag_at(i - 1)
+    d["pole"] = 1.0 * s
+    d["hd"] = 13 * sag_at(i - 2) + 3.4 * math.sin((i - 28) * 2 * math.pi / 14) * bump(i, 28, 56) - 6 * hic
+    d["head_s"] = -.05 * s + .07 * hic
+    d["breath"] = -1.8 * s + .8 * math.sin((i - 24) * 2 * math.pi / 30) * bump(i, 24, 54)     # one long sigh
+    d["hat_r"] = 6 * sag_at(i - 3)
+    d["hat_s"] = -.16 * sag_at(i - 2)
+    d["hat_lift"] = .1 * max(0.0, hic)
+    d["tip"] = 16 * sag_at(i - 4)
+    d["brims"] = 9 * sag_at(i - 3)
+    d["hands"] = -38 * sag_at(i - 3)
+    d["sag"] = s
+    d["legs"] = -2 * s
+    if i == 13:
+        kicks.extend([("jug", 60), ("hair", -80)])
+    if i == 53:
+        kicks.extend([("jug", 70), ("tip", -140)])
+    face(1, "shock"); face(5, "sad"); face(52, "hiccup"); face(59, "sad"); face(66, "neutral")
+    if i == 54:
+        emit("bubble", 54, 74, lambda tt: (P_MOUTH[0] + .6 + .3 * math.sin(tt * 9), P_MOUTH[1] + .2 + 2.6 * tt), grow=(.4, .9))
+    look = tl(i, [(14, 0), (17, 1, "lin"), (62, 1), (65, 0, "lin")])
+    d["crow_flip"] = 1 - 2 * look
+    shake = math.sin((i - 26) * 2 * math.pi / 7) * bump(i, 26, 47) ** .5
+    d["crow_r"] = tl(i, [(14, 0), (20, 9, "out3"), (60, 9), (66, 0)])
+    d["crow_hit"] = 9 * shake
+    d["crow_x"] = -.035 * shake
+    _, y, sq = hop(i, 54, 59, 0, 0, .1)
+    d["crow_y"], d["crow_sq"] = y, sq
+
+
+def _anticipate(d, i, n, rng, emit, face, kicks, reps=1):
+    """The bonus tease. A wind-up back (3 f), then he cranes at the board - post, hips, chest and head all leaning
+    in, up on his toes, eyes wide, hat lifted off his brow - and HOLDS there trembling (a 0.8 s cycle the game can
+    repeat for as long as the reel is held: frames HOLD_AT[0] .. HOLD_AT[0] + HOLD_AT[1]), swelling a little further
+    in on each cycle while the crow cranes with him; released, he rocks back onto the post."""
+    H0, P = HOLD_AT
+    H1 = H0 + reps * P
+    if i <= H0:
+        k = tl(i, [(0, 0), (3, -.14, "out"), (9, 1.1, "out3"), (13, .97), (16, 1.0)])
+        tre = tl(i, [(4, 0), (12, 1)])
+    elif i <= H1:
+        k, tre = 1.0, 1.0
+    else:
+        k = tl(i, [(H1, 1), (H1 + 3, 1.04, "out"), (H1 + 11, -.06), (H1 + 15, .01), (H1 + 18, 0)])
+        tre = tl(i, [(H1, 1), (H1 + 6, 0)])
+    hold = H0 <= i <= H1
+    hp = ((i - H0) % P) / P if hold else 0.0
+    swell = (.5 - .5 * math.cos(2 * math.pi * hp)) if hold else 0.0
+    d["pole"] = -1.3 * k - .25 * swell           # (little: his crow and right hand are at the box's edge)
+    d["sway"] = -8.5 * k - 1.2 * swell
+    d["lean"] = -7 * k
+    d["hd"] = -11 * k - 2 * swell
+    d["head_s"] = .06 * k + .02 * swell
+    d["bob"] = .13 * k + .04 * swell
+    d["body_s"] = .035 * k
+    d["hat_lift"] = .11 * k + .03 * swell
+    d["hat_s"] = .06 * k
+    d["hands"] = 16 * k + 8 * swell
+    d["legs"] = 4 * math.sin(2 * math.pi * 4 * hp) * tre if hold else 0.0      # knees knocking
+    d["tremble"] = tre
+    if i == 4:
+        kicks.extend([("jug", 120), ("tip", -120)])
+    face(1, "blink"); face(4, "shock"); face(H1 + 9, "neutral")
+    d["crow_r"] = -4 * k - 2 * swell
+    if hold:
+        _, y, sq = hop(((i - H0) % P), 12, 17, 0, 0, .09)
+        d["crow_y"], d["crow_sq"] = y, sq
+
+
+def _hiccup(d, i, n, rng, emit, face, kicks):
+    """2.3 s, an idle break. He feels it coming (the chest swells), HIC - a two-frame jolt, hat off his head, a bubble -
+    a puzzled blink... a bigger one and a little one right behind it, then a pleased drunk wobble. The crow jumps at
+    each and ends up glaring at him."""
+    hics, amps = (10, 31, 39), (1.0, 1.15, .7)
+    jolt = sum(A * tl(i, [(h, 0), (h + 2, 1, "out3"), (h + 5, .3), (h + 8, -.12), (h + 12, 0)]) for h, A in zip(hics, amps))
+    swell = tl(i, [(0, 0), (8, 1), (10, 1), (12, 0, "out"), (22, 0), (29, 1), (31, 1), (33, 0, "out")])
+    d["breath"] = 1.6 * swell
+    d["chest_s"] = .05 * max(0.0, jolt)
+    d["bob"] = .30 * jolt - .04 * swell
+    d["body_s"] = .07 * jolt
+    d["head_s"] = .10 * jolt - .03 * swell
+    d["hd"] = -9 * jolt + 3 * swell + tl(i, [(14, 0), (20, 5), (27, 3), (31, 0), (44, 0), (50, -6), (58, -4), (66, 0)])
+    d["hat_lift"] = .22 * max(0.0, jolt)
+    d["hat_s"] = .18 * jolt
+    d["pole"] = .5 * jolt
+    d["sway"] = ring(i, 41, 4.5, 1.5, .45) * tl(i, [(56, 1), (66, 0)])
+    d["hands"] = 30 * max(0.0, jolt)
+    for h, A in zip(hics, amps):
+        if i == h + 1:
+            kicks.extend([("tip", -200 * A), ("brim", 150 * A), ("jug", 90 * A), ("hair", 110 * A)])
+        if i == h:
+            emit("bubble", h + 1, h + 24, lambda tt, s=rng.uniform(-.3, .3): (P_MOUTH[0] + .6 + s + .35 * math.sin(tt * 9), P_MOUTH[1] + .1 + 3 * tt),
+                 grow=(.35 + .1 * A, .7 + .3 * A))
+    face(10, "hiccup"); face(17, "neutral"); face(21, "blink"); face(24, "neutral")
+    face(31, "hiccup"); face(37, "neutral"); face(39, "hiccup"); face(46, "smug"); face(60, "neutral")
+    y = sq = 0.0
+    for h, A in zip(hics, amps):
+        _, yy, ss = hop(i, h + 2, h + 7, 0, 0, .13 * A)
+        y += yy; sq += ss
+    d["crow_y"], d["crow_sq"] = y, sq
+    _flick(d, i, 33, 40, .8)
+    look = tl(i, [(42, 0), (45, 1, "lin"), (58, 1), (61, 0, "lin")])
+    d["crow_flip"] = 1 - 2 * look
+    d["crow_r"] = tl(i, [(42, 0), (46, 10, "out3"), (57, 10), (62, 0)])
+
+
+def _peck(d, i, n, rng, emit, face, kicks):
+    """2.8 s, an idle break. The crow hops down the arm to him in two hops, turns, pulls back and pecks the brim of
+    his hat - once, then twice quickly; each lands on a wince (the brim flops, his head ducks away). He shakes it off
+    hard, straw flying, and the crow flaps back to its end of the bar, caws at him and turns its back."""
+    x, y, sq = hop(i, 3, 10, 0, -.55, .22)
+    x2, y2, sq2 = hop(i, 12, 18, -.55, -1.0, .18)
+    x3, y3, sq3 = hop(i, 53, 61, -1.0, -.5, .36)
+    x4, y4, sq4 = hop(i, 69, 76, -.5, 0, .2)
+    if i < 12:
+        d["crow_x"], d["crow_y"], d["crow_sq"] = x, y, sq
+    elif i < 53:
+        d["crow_x"], d["crow_y"], d["crow_sq"] = x2, y2, sq2
+    elif i < 69:
+        d["crow_x"], d["crow_y"], d["crow_sq"] = x3, y3, sq3
+    else:
+        d["crow_x"], d["crow_y"], d["crow_sq"] = x4, y4, sq4
+    turn = ease((i - 10) / 3) - ease((i - 63) / 3)                 # faces him (flipped) from 10..13 to 63..66
+    d["crow_flip"] = 1 - 2 * turn
+    hit = sum(tl(i, [(a - 5, 0), (a - 1, -.6, "out"), (a, 1, "lin"), (a + 2, .35, "out"), (a + 5, 0)]) for a in PECKS)
+    d["crow_r"] = 5 * bump(i, 16, 52) ** .6 * turn + tl(i, [(61, 0), (63, 10, "out3"), (67, 8), (70, 0)])
+    d["crow_hit"] = 10 * hit * turn                                 # right on the cue (no spring lag)
+    d["crow_x"] += -.23 * max(0.0, hit) * turn + .07 * max(0.0, -hit) * turn
+    d["crow_y"] += .05 * max(0.0, hit)
+    d["crow_sq"] += -.16 * bump(i, 61, 67)                          # the caw: it stretches up
+    _flick(d, i, 53, 62, 1.0)
+    for a in PECKS:
+        if i == a:
+            kicks.extend([("brim_r", -260), ("hat", -40), ("tip", 110), ("hair", -70)])
+            emit("straw", a, a + 14, lambda tt, s=rng.uniform(-.4, .4): (1.35 + 1.6 * tt, 5.5 + 1.4 * tt - 4.5 * tt * tt + s * tt),
+                 spin=400, grow=(.55, .45))
+    wince = cl(sum(tl(i, [(a, 0), (a + 2, 1, "out3"), (a + 8, 0)]) for a in PECKS), 0.0, 1.3)
+    shoo = bump(i, 49, 66)
+    d["hd"] = 9 * wince + 12 * math.sin((i - 49) * 1.45) * shoo
+    d["head_s"] = -.06 * wince
+    d["sway"] = 3.2 * wince + ring(i, 50, -4, 1.8, .35) * tl(i, [(72, 1), (82, 0)])
+    d["bob"] = -.06 * wince + .1 * shoo
+    d["hat_r"] = 3 * wince
+    d["hands"] = 34 * shoo
+    d["pole"] = .5 * wince + ring(i, 50, .7, 3, .2)
+    if i == 51:
+        kicks.extend([("hair", 160), ("tip", -180), ("jug", 80)])
+        for q in range(3):
+            ang = rng.uniform(.3, 2.8)
+            emit("straw", 51 + q, 66 + q, lambda tt, a=ang, s=rng.uniform(3, 4.5): (P_HAT[0] + .6 + math.cos(a) * s * tt,
+                                                                                   P_HAT[1] - 1.2 + math.sin(a) * s * tt - 6 * tt * tt),
+                 spin=480, grow=(.7, .55))
+    face(24, "shock"); face(33, "neutral"); face(36, "blink"); face(47, "shock"); face(52, "smug"); face(74, "neutral")
+
+
+def _slump(d, k):
+    """Asleep on his post (the walk-off's last pose and the walk-on's first), by k."""
+    d["sway"] += -8 * k; d["lean"] += -5 * k; d["hd"] += 24 * k; d["bob"] += -.26 * k; d["body_s"] += -.06 * k
+    d["hat_r"] += 5 * k; d["hat_s"] += -.12 * k; d["brims"] += 7 * k; d["hands"] += -30 * k; d["tip"] += 14 * k
+    d["pole"] += .6 * k; d["sag"] += k; d["crow_sq"] += .07 * k
+
+
+def _enter(d, i, n, rng, emit, face, kicks):
+    """1.6 s. Asleep, a snore swelling his chest... he jolts awake - up past upright, hat in the air, eyes wide -
+    looks left and right, and settles into the idle. The crow is bounced awake with him."""
+    k = tl(i, [(0, 1), (10, 1.04), (14, 1.04), (18, -.22, "out3"), (23, .06), (28, -.02), (33, 0)])
+    _slump(d, k)
+    d["breath"] = 1.5 * math.sin(2 * math.pi * i / 28) * tl(i, [(12, 1), (16, 0)])
+    d["hd"] += tl(i, [(18, 0), (25, -8), (31, 6), (38, 4), (44, 0)])
+    d["hat_lift"] = tl(i, [(14, 0), (18, .32, "out3"), (21, .26), (25, 0, "in")])
+    d["hat_s"] += tl(i, [(14, 0), (17, .26, "out"), (25, -.14, "in"), (29, 0)])
+    d["head_s"] = tl(i, [(14, 0), (17, .09, "out"), (24, -.03), (29, 0)])
+    d["hands"] += tl(i, [(14, 0), (18, 50, "out3"), (27, 0)])
+    d["swing"] = ring(i, 15, 9, 2.2, .3)
+    if i == 15:
+        kicks.extend([("tip", 220), ("brim", 150), ("jug", 110), ("hair", 140)])
+    face(0, "blink"); face(15, "shock"); face(27, "smug"); face(39, "neutral")
+    _, y, sq = hop(i, 16, 24, 0, 0, .3)
+    d["crow_y"] = y; d["crow_sq"] += sq
+    _flick(d, i, 16, 25, .9)
+    d["crow_r"] = tl(i, [(16, 0), (19, 12, "out3"), (24, -4), (30, 0)])
+
+
+def _exit(d, i, n, rng, emit, face, kicks):
+    """1 s. A last stretch up, and he drops asleep on his post: falls, bounces, hangs (the canvas fades over the end)."""
+    k = tl(i, [(0, 0), (5, -.12, "out"), (17, 1.1, "in3"), (22, .95, "out"), (27, 1.0), (30, 1.0)])
+    _slump(d, k)
+    face(4, "blink"); face(7, "neutral"); face(10, "blink")
+    if i == 17:
+        kicks.extend([("jug", 70), ("hair", -70)])
+
+
+CHOREO = {"idle": _idle, "enter": _enter, "exit": _exit, "spin": _spin, "spin2": _spin2, "win": _win, "big_win": _big_win,
+          "lose": _lose, "anticipate": _anticipate, "anticipation": lambda *a: _anticipate(*a, reps=2),
+          "hiccup": _hiccup, "peck": _peck}
+
 
 def primaries(name, i, n, rng, emit, face, kicks):
-    """The clip's main moves at frame i -> dict of drivers (degrees / units). Secondary motion is added in run_clip."""
-    t, p = i / FPS, i / n
-    d = dict(sway=0.0, lean=0.0, hd=0.0, bob=0.0, legs=0.0, chest_s=0.0, breath=0.0, pole=0.0,
-             crow_x=0.0, crow_y=0.0, crow_r=0.0, crow_hit=0.0, crow_flip=1.0, crow_sq=0.0, hat_lift=0.0)
-    if name == "idle":
-        # the drunk sway: slow incommensurate waves that repeat exactly over the 8 s loop
-        a = 2 * math.pi * p
-        d["sway"] = 3.2 * math.sin(a) + 1.4 * math.sin(3 * a + 1.1) - 1.4 * math.sin(1.1)
-        d["lean"] = 2.0 * math.sin(2 * a + .4) - 2.0 * math.sin(.4)
-        d["bob"] = .04 * math.sin(4 * a)
-        d["breath"] = math.sin(2 * a)                              # two slow breaths a loop
-        nod = bump(p, .52, .72)                                    # nods off... and jerks awake
-        d["hd"] = (-6 * math.sin(a - .3) + 6 * math.sin(-.3) + 3 * math.sin(2 * a) + 9 * nod ** 1.5
-                   - 5 * bump(p, .70, .76))
-        d["legs"] = 3 * math.sin(a + .5) - 3 * math.sin(.5)
-        d["pole"] = .5 * math.sin(a + .9) - .5 * math.sin(.9)     # the post creaks with him
-        if i == int(.705 * n):
-            kicks.append(("hat", 60)); kicks.append(("tip", -120))
-        # the crow: little hops on the spot, a look round (turns its head = a quick flip and back)
-        for h0 in (.12, .16, .62):
-            x, y, sq = hop(i, int(h0 * n), int(h0 * n) + 5, 0, 0, .07)
-            d["crow_y"] += y; d["crow_sq"] += sq
-        lk = bump(p, .33, .45)
-        d["crow_flip"] = 1 - 2 * ease(min(1, lk * 3))              # looks the other way, then back
-        d["crow_r"] = 8 * bump(p, .8, .86)
-        for b0 in (58, 171):
-            for k in range(4):
-                face(b0 + k, "blink")
-            face(b0 + 4, "neutral")
-        face(int(.56 * n), "blink"); face(int(.705 * n), "shock"); face(int(.705 * n) + 8, "neutral")
-    elif name == "enter":
-        # wakes up: slumped asleep, snaps up with a jolt (the hat jumps on his head), settles
-        k = ease(p / .5)
-        d["sway"] = -10 * (1 - k) + 3 * bump(p, .5, .8)
-        d["lean"] = -6 * (1 - k)
-        d["hd"] = 24 * (1 - k) - 7 * bump(p, .42, .72)
-        d["bob"] = -.25 * (1 - k) + .12 * bump(p, .45, .65)
-        d["pole"] = -1.2 * bump(p, .4, .7)
-        d["hat_lift"] = .06 * bump(p, .42, .62)
-        if i == int(.45 * n):
-            kicks.extend([("hat", -90), ("tip", 200), ("brim", 120), ("jug", 60), ("hair", 120)])
-        face(0, "blink"); face(int(n * .45), "shock"); face(int(n * .8), "neutral")
-    elif name == "exit":
-        k = ease(p / .8)
-        d["sway"], d["lean"], d["hd"], d["bob"] = -10 * k, -6 * k, 24 * k, -.25 * k
-        face(int(n * .3), "blink")
-    elif name == "anticipation":
-        e = env(i, n, 6, 16)
-        d["sway"] = 1.5 * math.sin(t * 30) * e * .4
-        d["lean"] = 4 * e
-        d["chest_s"] = .04 * e
-        d["hd"] = -8 * e + 2 * math.sin(t * 40) * e
-        d["bob"] = .15 * e
-        d["pole"] = .25 * math.sin(t * 34) * e                    # trembling on his post
-        x, y, sq = hop(i, 4, 12, 0, 0, .3)
-        d["crow_y"] = y + .1 * e; d["crow_sq"] = sq + .08 * e
-        if i in (6, 20, 34):
-            kicks.append(("tip", 60 if i != 20 else -60))
-        face(4, "shock"); face(n - 10, "neutral")
-    elif name == "win":
-        e = env(i, n, 8, 18)
-        w = 2 * math.pi * 2.2
-        beat = math.sin(t * w)                                    # a bouncy little drunk dance
-        d["sway"] = 7 * beat * e
-        d["lean"] = 3 * math.sin(t * w / 2) * e
-        d["bob"] = .18 * abs(beat) * e
-        d["hd"] = -9 * math.sin(t * w + .6) * e
-        d["legs"] = 8 * math.sin(t * w + 1.0) * e
-        d["pole"] = .8 * beat * e
-        d["crow_y"] = .2 * abs(math.sin(t * w)) * e
-        d["crow_sq"] = -.06 * math.cos(2 * t * w) * e
-        face(3, "happy"); face(n - 12, "neutral")
-        if i in (20, 44, 68):
-            emit("sparkle", i, i + 14, lambda tt, x0=rng.uniform(-3, 1): (x0, 3.5 + 2 * tt), spin=120, grow=(.4, .1))
-    elif name == "big_win":
-        e = env(i, n, 8, 22)
-        w = 2 * math.pi * 2.8
-        beat = math.sin(t * w)
-        d["sway"] = 11 * beat * e
-        d["lean"] = 5 * math.sin(t * w / 2) * e
-        d["bob"] = .3 * abs(beat) * e
-        d["hd"] = -16 * math.sin(t * w + .7) * e
-        d["legs"] = 12 * math.sin(t * w + 1.2) * e
-        d["chest_s"] = .05 * abs(beat) * e
-        d["pole"] = 1.6 * beat * e
-        d["hat_lift"] = .05 * max(0, math.sin(t * w * 2)) * e     # the hat hops on his head to the beat
-        # the crow flies up off the bar in fright, flapping, and comes back
-        fly = bump(p, .08, .75)
-        d["crow_y"] = 2.6 * fly ** .8
-        d["crow_x"] = .6 * math.sin(p * 9) * fly
-        d["crow_r"] = 15 * math.sin(t * 30) * fly
-        d["crow_sq"] = .22 * math.sin(t * 52) * fly                # wing-beats as a squash and stretch
-        face(3, "cheer"); face(n - 16, "happy"); face(n - 6, "neutral")
-        if i % 6 == 0 and 8 < i < n - 30:
-            ang = rng.uniform(.3, 2.8)
-            sp = rng.uniform(4, 7)
-            emit("straw", i, i + 18, lambda tt, a=ang, s=sp: (.2 + math.cos(a) * s * tt, 1.5 + math.sin(a) * s * tt
-                                                              - 9 * tt * tt), spin=500, grow=(.8, .7))
-        if i % 9 == 4 and 8 < i < n - 30:
-            kind = ("leaf_red", "leaf_orange", "leaf_gold")[(i // 9) % 3]
-            x0 = rng.uniform(-4, 4)
-            emit(kind, i, i + 26, lambda tt, x0=x0: (x0 + 1.2 * math.sin(tt * 7), 7.5 - 6 * tt), spin=300, grow=(.8, .7))
-        if i in (12, 30, 50, 70):
-            for k in range(2):
-                x0 = rng.uniform(2.4, 4)
-                emit("feather", i + k * 3, i + 34, lambda tt, x0=x0: (x0 + .6 * math.sin(tt * 8), 4.2 + 1.2 - 5 * tt),
-                     spin=200, grow=(.9, .8))
-    elif name == "lose":
-        e = env(i, n, 14, 24)
-        d["sway"] = -6 * e
-        d["lean"] = -7 * e
-        d["hd"] = 20 * e + 3 * math.sin(t * 9) * bump(p, .2, .5)
-        d["bob"] = -.22 * e
-        d["legs"] = -2 * e
-        d["breath"] = -1.6 * bump(p, .32, .62)                    # a long sigh: chest sinks
-        d["pole"] = -.6 * e
-        hic = bump(p, .7, .76)
-        d["bob"] += .25 * hic
-        if i == int(.7 * n):
-            kicks.extend([("hat", 80), ("jug", 70), ("tip", -140)])
-        face(4, "sad"); face(int(n * .7), "hiccup"); face(int(n * .78), "neutral")
-    elif name == "hiccup":
-        jolt = 0.0
-        for h0 in (.12, .42, .72):
-            jolt += bump(p, h0, h0 + .08)
-            if i == int(h0 * n) + 1:
-                kicks.extend([("hat", 70), ("tip", -150), ("brim", 140), ("jug", 80), ("hair", 90)])
-        e = env(i, n, 6, 12)
-        d["sway"] = 2 * math.sin(t * 5) * e
-        d["bob"] = .35 * jolt
-        d["hd"] = -7 * jolt + 4 * math.sin(t * 3) * e
-        d["chest_s"] = .06 * jolt
-        d["hat_lift"] = .04 * jolt
-        d["pole"] = .4 * jolt
-        for h0 in (.12, .42, .72):
-            a0 = int(h0 * n)
-            face(a0, "hiccup"); face(a0 + 7, "smug" if h0 > .5 else "neutral")
-            emit("bubble", a0 + 2, a0 + 26, lambda tt, s=rng.uniform(-.3, .3): (.6 + s + .35 * math.sin(tt * 9), 3.6 + 3 * tt),
-                 grow=(.45, 1.0))
-        face(n - 8, "neutral")
-    elif name == "peck":
-        # the crow hops down the arm towards him, turns, pecks the brim of his hat three times (the brim jerks and
-        # flops with each), he flinches, glares, shakes it off; the crow caws, hops back and turns round
-        x, y, sq = hop(i, 3, 10, 0, -.55, .22)
-        x2, y2, sq2 = hop(i, 12, 18, -.55, -1.0, .18)
-        x3, y3, sq3 = hop(i, 59, 66, -1.0, -.55, .24)
-        x4, y4, sq4 = hop(i, 69, 76, -.55, 0, .2)
-        if i < 12:
-            d["crow_x"], d["crow_y"], d["crow_sq"] = x, y, sq
-        elif i < 59:
-            d["crow_x"], d["crow_y"], d["crow_sq"] = x2, y2, sq2
-        elif i < 69:
-            d["crow_x"], d["crow_y"], d["crow_sq"] = x3, y3, sq3
-        else:
-            d["crow_x"], d["crow_y"], d["crow_sq"] = x4, y4, sq4
-        turn = ease((i - 10) / 3) - ease((i - 66) / 3)              # faces him (flipped) from 10..13 to 66..69
-        d["crow_flip"] = 1 - 2 * turn
-        lean_in = bump(p, .2, .62) ** .6
-        peck = sum(pulse(i, a, a + 6) for a in (23, 34, 45))      # the hits, on the CHAR_SFX crowPeck cues
-        wind = sum(bump(i, a - 4, a + .01) for a in (23, 34, 45))   # the wind-up before each
-        # it pecks the brim's edge (level with its beak): a lunge forward and up on its toes, not a bow (a bow
-        # put the beak in his cheek)
-        d["crow_r"] = 5 * lean_in * turn
-        d["crow_hit"] = (9 * peck - 6 * wind) * turn                # right on the cue (no spring lag)
-        d["crow_x"] += (-.22 * peck + .06 * wind) * turn
-        d["crow_y"] += .05 * peck
-        for a in (23, 34, 45):
-            if i == a:
-                kicks.extend([("brim_r", -200), ("hat", -25), ("tip", 90)])
-        caw = bump(i, 56, 62)
-        d["crow_sq"] += -.15 * caw
-        d["hd"] = -9 * sum(pulse(i, a, a + 9) for a in (23, 34, 45)) - 4 * bump(p, .6, .9)
-        shoo = bump(i, 56, 70)
-        d["hd"] += 7 * math.sin((i - 56) * 1.3) * shoo               # shakes his head at it
-        d["sway"] = -3 * sum(pulse(i, a, a + 9) for a in (23, 34, 45)) + 4 * shoo
-        d["bob"] = .08 * peck
-        if i == 58:
-            kicks.extend([("hair", 140), ("tip", -150)])
-        if i in (24, 35, 46):
-            emit("straw", i, i + 14, lambda tt, s=rng.uniform(-.4, .4): (1.35 + 1.6 * tt, 5.5 + 1.4 * tt - 4.5 * tt * tt + s * tt),
-                 spin=400, grow=(.55, .45))
-        face(int(n * .25), "shock"); face(int(n * .58), "smug"); face(n - 10, "neutral")
+    """The clip's main moves at frame i -> the drivers (degrees / units). Secondary motion is added in run_clip."""
+    d = drivers()
+    CHOREO[name](d, i, n, rng, emit, face, kicks)
     return d
+
+
+_SPRINGS = dict(head=(3.0, .40), hat=(3.0, .24), hatlift=(3.6, .30), hats=(3.4, .30), tip=(1.6, .16), brim_l=(2.6, .2),
+                brim_r=(2.4, .18), hair_l=(2.8, .18), hair_ll=(2.4, .2), hair_r=(3.0, .2), collar=(3.0, .22),
+                sleeve_l=(1.7, .25), sleeve_r=(1.8, .25), hand_l=(1.9, .2), hand_r=(1.75, .2), rope=(.8, .075),
+                jug=(1.7, .22), belt=(1.9, .15), cuff_l=(2.6, .2), cuff_r=(2.4, .2), crow=(3.2, .38),
+                boot_l=(2.0, .2), boot_r=(1.9, .2), leg_l=(1.15, .24), leg_r=(1.3, .26))
+_C0, _PV = u(*BONES["crow"][0]), u(*BONES["pole"][0])
+_WING_REST = math.degrees(math.atan2(-(BONES["wing_l"][1][1] - BONES["wing_l"][0][1]),
+                                     BONES["wing_l"][1][0] - BONES["wing_l"][0][0]))     # the fold's direction (y up)
+# a wing's turn from the fold: the near one swings up-left .. left and down, the far one up .. right and down
+_WING_L = (135 - _WING_REST - 360, -160 - _WING_REST)
+_WING_R = (75 - _WING_REST, -10 - _WING_REST)
 
 
 def run_clip(name, rng, warm=None):
@@ -870,99 +1217,119 @@ def run_clip(name, rng, warm=None):
         faces[i] = nm
 
     face(0, "neutral")
-    S = dict(head=Spring(2.0, .32), hat=Spring(3.2, .26), tip=Spring(1.5, .16), brim_l=Spring(2.6, .2),
-             brim_r=Spring(2.4, .18), hair_l=Spring(2.8, .18), hair_ll=Spring(2.4, .2), hair_r=Spring(3.0, .2),
-             collar=Spring(3.0, .22), sleeve_l=Spring(1.7, .25), sleeve_r=Spring(1.8, .25), hand_l=Spring(1.6, .18),
-             hand_r=Spring(1.5, .18), jug=Spring(.85, .09), belt=Spring(1.9, .15), cuff_l=Spring(2.6, .2),
-             cuff_r=Spring(2.4, .2), crow=Spring(3.2, .38), hatlift=Spring(4.0, .35),
-             boot_l=Spring(2.0, .2), boot_r=Spring(1.9, .2))
+    S = {k: Spring(f, z) for k, (f, z) in _SPRINGS.items()}
     if warm:
         for k, (x, v) in warm.items():
             S[k].x, S[k].v = x, v
     poses = []
     prev = None
+    winds = [0.0] * 12
+    flaps = [0.0, 0.0]
     for i in range(nf):
         kicks = []
         d = primaries(name, i, n, rng, emit, face, kicks)
-        # impulses
-        for what, dv in kicks:
-            if what == "hat":
-                S["hat"].kick(dv)
-            elif what == "tip":
-                S["tip"].kick(dv)
+        for what, dv in kicks:                                     # impulses
+            if what in ("hat", "tip"):
+                S[what].kick(dv)
+            elif what == "jug":
+                S["rope"].kick(dv)
             elif what == "brim":
                 S["brim_l"].kick(-dv); S["brim_r"].kick(dv)
             elif what == "brim_r":
                 S["brim_r"].kick(dv); S["brim_l"].kick(-.3 * dv)
-            elif what == "jug":
-                S["jug"].kick(dv)
             elif what == "hair":
                 for h in ("hair_l", "hair_ll", "hair_r"):
                     S[h].kick(dv * (1 if h != "hair_r" else -1))
+        winds = [d["wind"]] + winds[:-1]                           # a breeze reaches each part a little later
+        flaps = [d["flap"]] + flaps[:-1]
+        tr = d["tremble"]                                          # the shiver: three rates, whole cycles in 12 frames
+        sh1, sh2, sh3 = math.sin(2 * math.pi * i / 3), math.sin(2 * math.pi * i / 4 + 1), math.sin(2 * math.pi * i / 6 + 2)
+        pole = d["pole"] + .22 * tr * sh1
+        bob = d["bob"] + .012 * tr * sh2
         # body
-        head_l = S["head"].step(d["hd"] + .6 * d["sway"])         # the head lags the body (its own angle)
-        head_w = .7 * d["pole"] + d["sway"] + d["lean"] + head_l  # ... and on screen
-        torso_w = d["sway"] + d["lean"] + d["pole"]
+        head_l = S["head"].step(d["hd"] + .3 * d["sway"]) + 1.0 * tr * sh2    # the head lags the body (its own angle)
+        head_w = .7 * pole + d["sway"] + d["lean"] + head_l                   # ... and on screen
+        torso_w = d["sway"] + d["lean"] + pole
+        hips_w = .7 * pole + d["sway"]
         if prev is None:
-            prev = dict(head_w=head_w, torso_w=torso_w, bob=d["bob"], bobv=0.0, legs=d["legs"])
-        head_v = (head_w - prev["head_w"]) * FPS                   # deg/s
-        torso_v = (torso_w - prev["torso_w"]) * FPS
-        bob_v = (d["bob"] - prev["bob"]) * FPS
-        bob_a = (bob_v - prev["bobv"]) * FPS
-        legs_v = (d["legs"] - prev["legs"]) * FPS
-        prev = dict(head_w=head_w, torso_w=torso_w, bob=d["bob"], bobv=bob_v, legs=d["legs"])
-        # the hat sits on the head but has its own inertia: it lags the head's turns, bounces on the bobs
-        # (small: the hat turns about its band, so a big angle would stretch the forehead under it)
-        hat = S["hat"].step(-.012 * head_v)
-        hat = max(-2.5, min(2.5, hat))
-        lift = S["hatlift"].step(d["hat_lift"] - .0006 * bob_a)
-        lift = max(-.02, min(.06, lift))
-        tip = S["tip"].step(-.10 * head_v - .6 * hat + 4 * d["bob"])   # the floppy tip trails everything
-        tip = max(-24.0, min(24.0, tip))
-        brim_l = max(-8.0, min(8.0, S["brim_l"].step(.004 * bob_a - .02 * head_v)))
-        brim_r = max(-12.0, min(12.0, S["brim_r"].step(-.004 * bob_a - .02 * head_v)))
-        hair_l = max(-15.0, min(15.0, S["hair_l"].step(-.06 * head_v)))
-        hair_ll = max(-12.0, min(12.0, S["hair_ll"].step(-.05 * head_v)))
-        hair_r = max(-15.0, min(15.0, S["hair_r"].step(-.06 * head_v)))
-        collar = S["collar"].step(-.04 * torso_v - .003 * bob_a)
-        sl_l = S["sleeve_l"].step(-.02 * torso_v + 6 * d["bob"])
-        sl_r = S["sleeve_r"].step(-.02 * torso_v - 6 * d["bob"])
-        hl = S["hand_l"].step(.8 * d["sway"] + 30 * d["bob"])
-        hr = S["hand_r"].step(.8 * d["sway"] - 30 * d["bob"])
-        jv = S["jug"].step(-1.4 * d["sway"] - 1.2 * d["pole"] + (35 * d["bob"] if name in ("win", "big_win") else 0))
-        jv = max(-14.0, min(14.0, jv))
-        belt = S["belt"].step(-.06 * torso_v - 1.2 * d["sway"])
-        # (the cuffs' straw lies over the boots' tops now: a smaller flutter, so it never lifts off them)
-        cuff_l = max(-6.0, min(6.0, S["cuff_l"].step(-.03 * legs_v)))
-        cuff_r = max(-6.0, min(6.0, S["cuff_r"].step(.03 * legs_v)))
+            prev = dict(head_w=head_w, torso_w=torso_w, bob=bob, bobv=0.0, ll=0.0, lr=0.0, rope=0.0)
+        head_v = cl((head_w - prev["head_w"]) * FPS, -420.0, 420.0)           # deg/s
+        torso_v = cl((torso_w - prev["torso_w"]) * FPS, -300.0, 300.0)
+        bob_v = (bob - prev["bob"]) * FPS
+        bob_a = cl((bob_v - prev["bobv"]) * FPS, -70.0, 70.0)                 # units/s2
+        # the hat sits on the head with its own inertia: it lags the head's turns, lifts off on the jolts (the
+        # forehead under it stretches - fine for the few frames of a pop), squashes when it lands
+        hat = cl(S["hat"].step(d["hat_r"] - .012 * head_v), -9.0, 9.0)
+        lift = cl(S["hatlift"].step(d["hat_lift"] - .0005 * bob_a), -.03, .46)
+        hs = cl(S["hats"].step(d["hat_s"]), -.26, .4)
+        tip = cl(S["tip"].step(-.10 * head_v - .8 * hat + 5 * bob + 14 * lift + d["tip"] + 5 * winds[4]) + 3 * tr * sh3, -40.0, 40.0)
+        brim_l = cl(S["brim_l"].step(.10 * bob_a - .02 * head_v + d["brims"] + 3 * winds[3]) + 1.5 * tr * sh1, -16.0, 16.0)
+        brim_r = cl(S["brim_r"].step(-.10 * bob_a - .02 * head_v - d["brims"] - 3 * winds[6]) + 1.5 * tr * sh3, -18.0, 18.0)
+        hair_l = cl(S["hair_l"].step(-.06 * head_v + 7 * winds[2]) + 2 * tr * sh3, -22.0, 22.0)
+        hair_ll = cl(S["hair_ll"].step(-.05 * head_v + 6 * winds[3]) + 2 * tr * sh1, -20.0, 20.0)
+        hair_r = cl(S["hair_r"].step(-.06 * head_v - 7 * winds[6]) + 2 * tr * sh2, -22.0, 22.0)
+        collar = cl(S["collar"].step(-.04 * torso_v - .05 * bob_a + 5 * winds[5]) + 1.5 * tr * sh1, -18.0, 18.0)
+        sl_l = S["sleeve_l"].step(-.02 * torso_v + 8 * bob + 10 * d["sag"])
+        sl_r = S["sleeve_r"].step(.02 * torso_v + 8 * bob + 10 * d["sag"])
+        # the straw hands: positive droops them, the hands driver throws them up
+        hl = cl(S["hand_l"].step(.5 * d["sway"] + 20 * bob - d["hands"] - d["hand_l"] + 10 * winds[0]) + 7 * tr * sh1, -85.0, 60.0)
+        hr = cl(S["hand_r"].step(-.5 * d["sway"] + 20 * bob - d["hands"] - d["hand_r"] + 10 * winds[9]) + 7 * tr * sh2, -85.0, 60.0)
+        # the jug: a pendulum off the wrist - it hangs plumb as the post leans, swings on from every jolt, and the
+        # jug itself trails its rope
+        rope = cl(S["rope"].step(-.6 * d["sway"] - 1.2 * pole) + d["jug"] + 2 * tr * sh2, -10.0, 34.0)   # (further out left it leaves his box)
+        jug = cl(S["jug"].step(.5 * rope - .03 * (rope - prev["rope"]) * FPS), -6.0, 22.0)
+        belt = cl(S["belt"].step(-.06 * torso_v - 1.2 * d["sway"] + 6 * winds[6]) + 2 * tr * sh3, -30.0, 30.0)
+        # the legs hang off the hips: they trail the body's swings and overshoot (each at its own rate), under the kicks
+        ll = S["leg_l"].step(-.72 * hips_w) + d["swing"] + d["legs"] + 2.2 * tr * sh3
+        lr = S["leg_r"].step(-.72 * hips_w) + d["swing"] - .8 * d["legs"] - 2.2 * tr * sh3
+        if abs(ll - lr) > 15:                                      # (the trouser legs tear if they part further)
+            m, h = (ll + lr) / 2, (7.5 if ll > lr else -7.5)
+            ll, lr = m + h, m - h
+        ll_v, lr_v = (ll - prev["ll"]) * FPS, (lr - prev["lr"]) * FPS
+        cuff_l = cl(S["cuff_l"].step(-.035 * ll_v + 4 * winds[7]) + 1.5 * tr * sh2, -9.0, 9.0)
+        cuff_r = cl(S["cuff_r"].step(-.035 * lr_v + 4 * winds[8]) + 1.5 * tr * sh1, -9.0, 9.0)
         # each boot dangles off its leg: it hangs back toward plumb as the leg swings out, lags and overshoots
-        leg_wl = .7 * d["pole"] + .5 * d["sway"] + d["legs"]          # the legs' angles on screen
-        leg_wr = .7 * d["pole"] + .5 * d["sway"] - .8 * d["legs"]
-        boot_l = max(-9.0, min(9.0, S["boot_l"].step(-.45 * leg_wl)))
-        boot_r = max(-9.0, min(9.0, S["boot_r"].step(-.45 * leg_wr)))
-        cr = S["crow"].step(d["crow_r"]) + d["crow_hit"]
-        chest_sy = 1 + d["chest_s"] + .012 * d["breath"]
-        chest_sx = 1 + .5 * d["chest_s"] + .006 * d["breath"]
+        boot_l = cl(S["boot_l"].step(-.45 * (hips_w + ll)), -14.0, 14.0)
+        boot_r = cl(S["boot_r"].step(-.45 * (hips_w + lr)), -14.0, 14.0)
+        prev = dict(head_w=head_w, torso_w=torso_w, bob=bob, bobv=bob_v, ll=ll, lr=lr, rope=rope)
+        # the crow: on the bar it rides the post; in the air (crow_free) it is placed on screen, clear of the rocking
+        cx, cy = d["crow_x"], d["crow_y"]
+        cr = S["crow"].step(d["crow_r"]) + d["crow_hit"] - 2.5 * tr * sh2
+        if d["crow_free"] > 0:
+            th = math.radians(pole)
+            wx, wy = _C0[0] + cx - _PV[0], _C0[1] + cy - _PV[1]
+            fx_ = math.cos(th) * wx + math.sin(th) * wy + _PV[0] - _C0[0]
+            fy_ = -math.sin(th) * wx + math.cos(th) * wy + _PV[1] - _C0[1]
+            f = d["crow_free"]
+            cx, cy, cr = cx + (fx_ - cx) * f, cy + (fy_ - cy) * f, cr - pole * f
         sq = d["crow_sq"]
+        # its wings: folded behind it at rest (identity); open = a turn from the fold up to the stroke, and bigger
+        op = cl(d["wing"], 0.0, 1.0)
+        fl, fr = flaps[0], flaps[1]                                # the far wing a frame behind
+        wl = op * (_WING_L[1] + (_WING_L[0] - _WING_L[1]) * (.5 + .5 * fl))
+        wr = op * (_WING_R[1] + (_WING_R[0] - _WING_R[1]) * (.5 + .5 * fr))
+        sl, sr = 1 + .5 * op, 1 + .75 * op
         pose = {
-            "pole": dict(r=d["pole"]),
-            "hips": dict(r=d["sway"] - d["pole"] * .3, y=d["bob"]),
-            "chest": dict(r=d["lean"], sx=chest_sx, sy=chest_sy),
-            "head": dict(r=head_l),
-            "hat": dict(r=hat, y=lift),
+            "pole": dict(r=pole),
+            "hips": dict(r=d["sway"] - pole * .3, y=bob, sx=1 - .5 * d["body_s"], sy=1 + d["body_s"]),
+            "chest": dict(r=d["lean"], sx=1 + .5 * d["chest_s"] + .007 * d["breath"], sy=1 + d["chest_s"] + .016 * d["breath"]),
+            "head": dict(r=head_l, sx=1 - .6 * d["head_s"], sy=1 + d["head_s"]),
+            "hat": dict(r=hat, y=lift, sx=1 - .4 * hs, sy=1 + hs),
             "hat_tip": dict(r=tip),
             "brim_l": dict(r=brim_l),
             "brim_r": dict(r=brim_r),
             "hair_l": dict(r=hair_l), "hair_ll": dict(r=hair_ll), "hair_r": dict(r=hair_r),
             "collar": dict(r=collar),
             "sleeve_l": dict(r=-sl_l * .5), "sleeve_r": dict(r=sl_r * .5),
-            "rope": dict(r=jv), "jug": dict(r=.45 * jv),
+            "rope": dict(r=rope), "jug": dict(r=jug),
             "hand_l": dict(r=hl), "hand_r": dict(r=-hr),
             "belt": dict(r=belt),
-            "leg_l": dict(r=d["legs"] - .5 * d["sway"]), "leg_r": dict(r=-d["legs"] * .8 - .5 * d["sway"]),
+            "leg_l": dict(r=ll), "leg_r": dict(r=lr),
             "cuff_l": dict(r=cuff_l), "cuff_r": dict(r=cuff_r),
             "boot_l": dict(r=boot_l), "boot_r": dict(r=boot_r),
-            "crow": dict(x=d["crow_x"], y=d["crow_y"], r=cr, sx=d["crow_flip"] * (1 + sq), sy=1 - .6 * sq),
+            "crow": dict(x=cx, y=cy, r=cr, sx=d["crow_flip"] * (1 + sq), sy=1 - .6 * sq),
+            "wing_l": dict(r=wl, sx=sl, sy=sl * (1 - .16 * op * (1 - abs(fl)))),
+            "wing_r": dict(r=wr, sx=sr, sy=sr * (1 - .16 * op * (1 - abs(fr)))),
         }
         poses.append(pose)
     state = {k: (s.x, s.v) for k, s in S.items()}
@@ -987,12 +1354,9 @@ def fade_pose(pose, k):
     return out
 
 
-def lerp_pose(a, b, k):
-    out = {}
-    for bn in a:
-        out[bn] = {key_: a[bn].get(key_, 0.0 if key_ not in ("sx", "sy", "s") else 1.0) * (1 - k) +
-                   b[bn].get(key_, 0.0 if key_ not in ("sx", "sy", "s") else 1.0) * k for key_ in set(a[bn]) | set(b[bn])}
-    return out
+def add_pose(pose, corr, k):
+    """pose + k * corr, channel by channel."""
+    return {b: {c: pose[b][c] + corr[b].get(c, 0.0) * k for c in pose[b]} for b in pose}
 
 
 def clip_poses(name, rng):
@@ -1007,15 +1371,23 @@ def clip_poses(name, rng):
         first = poses[0]
         nxt, _, _, _ = run_clip(name, random.Random(5), warm)
         seam = nxt[0]                                               # what the next pass would show at frame 0
+        corr = {b: {c: first[b][c] - seam[b][c] for c in first[b]} for b in first}
         K = n // 4
         for j in range(K):
-            i = n - K + j
-            k = ease((j + 1) / K)
-            # blend toward a pose that continues into frame 0 seamlessly
-            corr = {b: {c: (first[b].get(c, 0) - seam[b].get(c, 0)) for c in first[b]} for b in first}
-            poses[i] = {b: {c: poses[i][b].get(c, 0) + corr[b][c] * k for c in poses[i][b]} for b in poses[i]}
+            poses[n - K + j] = add_pose(poses[n - K + j], corr, ease((j + 1) / K))
         return poses, faces, emits
     poses, faces, emits, _ = run_clip(name, rng)
+    if name in HOLD:
+        # the held middle repeats: its last frame is made its first exactly (the springs' leftover folded out over
+        # the cycle's second half, and faded off again over the first frames of the release)
+        a, b = HOLD[name]
+        corr = {bn: {c: poses[a][bn][c] - poses[b][bn][c] for c in poses[a][bn]} for bn in poses[a]}
+        K = (b - a) // 2
+        for j in range(1, K + 1):
+            poses[b - K + j] = add_pose(poses[b - K + j], corr, ease(j / K))
+        for j in range(1, 9):
+            if b + j <= n:
+                poses[b + j] = add_pose(poses[b + j], corr, 1 - ease(j / 8))
     if name != "exit":
         K = 10
         for j in range(K + 1):

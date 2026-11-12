@@ -1,0 +1,27 @@
+{
+ "frags": [
+  {
+   "name": "jack_bare",
+   "png": "x_jack_bare.png",
+   "pivot": [
+    500,
+    600
+   ],
+   "parent": "jack",
+   "depth": -0.004
+  },
+  {
+   "name": "faceglow",
+   "png": "x_faceglow.png",
+   "pivot": [
+    500,
+    600
+   ],
+   "parent": "jack",
+   "depth": -0.0058
+  }
+ ],
+ "sprites": [
+  "flame"
+ ]
+}

@@ -133,14 +133,14 @@ XFX = {
     "foam": dict(files=["foam_puff"], n=5, size=2.6),
     "chip": dict(files=["parts:fx_chip", "parts:fx_chip2"], n=10, size=.9),
 }
-MOUTH = (.62, 3.75)                                            # the open neck (units)
-CORE = (0.0, -.7)                                              # where it bursts from
+P_MOUTH = (.62, 3.75)                                            # the open neck (units)
+P_CORE = (0.0, -.7)                                              # where it bursts from
 
 
 def pop(c):
     B, CK = P.BLOW, 5
     SH = [s for s in c.extras if s.startswith("shard")]
-    D = {s: P.unit(c.pivot[s][0] - CORE[0], c.pivot[s][1] - CORE[1]) for s in SH}
+    D = {s: P.unit(c.pivot[s][0] - P_CORE[0], c.pivot[s][1] - P_CORE[1]) for s in SH}
     V = {s: (c.rng.uniform(13, 20), c.rng.choice((-1, 1)) * c.rng.uniform(260, 620)) for s in SH}
 
     def pose(i, n):
@@ -169,18 +169,18 @@ def pop(c):
     fx, rng = c.fx, c.rng
     for j, f in enumerate(range(CK, 13, 2)):                   # the jet out of the neck, boiling (three drawings)
         g0 = min(1.0, .45 + .25 * j)
-        fx["jet"].emit(f, f + 1, lambda t, g0=g0: (MOUTH[0], MOUTH[1] + .42 * 6.0 * g0), rot=0,
+        fx["jet"].emit(f, f + 1, lambda t, g0=g0: (P_MOUTH[0], P_MOUTH[1] + .42 * 6.0 * g0), rot=0,
                        grow=(g0, g0 * 1.06), fade=(1, 1) if f < 11 else (.8, .3))
     for j in range(2):                                         # the burst of cider behind the shards
-        fx["gush"].emit(B + j * 2, B + j * 2 + 3, lambda t: (CORE[0], CORE[1] + .6), rot=0,
+        fx["gush"].emit(B + j * 2, B + j * 2 + 3, lambda t: (P_CORE[0], P_CORE[1] + .6), rot=0,
                         grow=lambda t, j=j: .55 + .25 * j + .3 * t, fade=(1, .5) if j == 0 else (.9, 0))
-    P.burst(fx["cider"], rng, B, 14, at=CORE, speed=(22, 38), ang=(0, 360), g=34, life=(11, 15), grow=(1.0, .6),
+    P.burst(fx["cider"], rng, B, 14, at=P_CORE, speed=(22, 38), ang=(0, 360), g=34, life=(11, 15), grow=(1.0, .6),
             aim="tail", spread=1.0, even=True, drag=3)
-    P.burst(fx["cider"], rng, CK, 4, at=MOUTH, speed=(14, 22), ang=(60, 120), g=34, life=(9, 12), grow=(.8, .5),
+    P.burst(fx["cider"], rng, CK, 4, at=P_MOUTH, speed=(14, 22), ang=(60, 120), g=34, life=(9, 12), grow=(.8, .5),
             aim="tail", spread=.2, drag=2.5)
-    P.burst(fx["foam"], rng, B, 5, at=CORE, speed=(8, 16), ang=(20, 160), g=14, life=(10, 13), grow=(.5, 1.0),
+    P.burst(fx["foam"], rng, B, 5, at=P_CORE, speed=(8, 16), ang=(20, 160), g=14, life=(10, 13), grow=(.5, 1.0),
             spin=120, spread=1.2, even=True, drag=3, fade=P.tail(.4))
-    P.burst(fx["chip"], rng, B, 10, at=CORE, speed=(20, 34), ang=(0, 360), g=34, life=(10, 14), grow=(1.0, .7),
+    P.burst(fx["chip"], rng, B, 10, at=P_CORE, speed=(20, 34), ang=(0, 360), g=34, life=(10, 14), grow=(1.0, .7),
             spin=800, spread=1.5, even=True, drag=2.6)
     c.glow_out(lambda i: .25 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
                lambda i: 1 + .1 * P.strain(i) if i < B else 1.18)

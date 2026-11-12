@@ -218,3 +218,37 @@ def H6(c):
     lab = c.bands((330, 800), (800, 110), [1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6], amp=10, seed=4)
     c.pieces(src, lab, "rows{}", parent="cob", over_="cob_fill", ink=0)
     c.sprite("kernel", oval((252, 190, 36), w=.3, h=.34, hi=(255, 238, 150), point=.25))
+
+
+def flame(d, S):
+    """a tongue of fire, its foot at the bottom middle: the art's orange with a yellow heart"""
+    out = [(.5, .03), (.6, .2), (.56, .32), (.72, .5), (.66, .62), (.8, .8), (.72, .97), (.28, .97), (.2, .78), (.33, .62),
+           (.27, .46), (.42, .3), (.4, .16)]
+    _poly(d, S, out, (246, 96, 22), w=.035)
+    inn = [(.5 + (x - .5) * .5, .97 + (y - .97) * .62) for x, y in out]
+    d.polygon([(x * S, y * S) for x, y in inn], fill=(255, 206, 60, 255))
+
+
+def BS(c):
+    """Free Spins badge: nothing cut - its letters and leaves are parts already."""
+
+
+def ES(c):
+    """Extreme Free Spins badge: the whole jack-o'-lantern with no crow and no letters on it (the generated plate,
+    lined up - the rig's own back layer keeps the crow's far eye and its cream shape, fine while the crow barely
+    moves, wrong once it flies off in the pop); the carved face's glow (the idle pulses it); a flame."""
+    import os
+    import numpy as np
+    from scipy import ndimage
+    import cut_parts as CP
+    ic = CP.rgba(os.path.join(CP.ICONS, "ES.png"))
+    p, _ = CP.lined_up(os.path.join(os.path.dirname(CP.ICONS), "parts", "ES", "plate_jack.png"), ic)
+    c.add("jack_bare", np.asarray(p, np.float32) / 255, parent="jack", over_="jack", pivot=(500, 600))
+    j = c.layer("jack")
+    lit = (j[..., 0] > .9) & (j[..., 1] > .62) & (j[..., 2] < .5) & (j[..., 3] > .9)
+    yy, xx = np.mgrid[0:1000, 0:1000]
+    lit &= (yy > 380) & (yy < 830) & (xx > 160) & (xx < 850)
+    al = np.clip(ndimage.gaussian_filter(lit.astype(np.float32), 9) * 1.5, 0, 1)
+    c.add("faceglow", np.dstack([np.full_like(al, 1.0), np.full_like(al, .95), np.full_like(al, .62), al]),
+          parent="jack", over_="jack", pivot=(500, 600), lift=.001)
+    c.sprite("flame", flame, size=192)

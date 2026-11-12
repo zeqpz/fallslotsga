@@ -155,6 +155,8 @@ class Fx:
         r0 = rot if rot is not None else (rng.uniform(0, 360) if rng else 0.0)
         SA.key_fade(ob, fr(i0 - 1), 0.0)
         SA.key_fade(ob, fr(i1 + 1), 0.0)
+        if wrap:                                                 # and nothing of it after the loop's last frame
+            SA.key_fade(ob, f0 + n, 0.0)
         for i in range(i0, i1 + 1):
             t = (i - i0) / max(1, i1 - i0)
             x, z = path(t)

@@ -77,6 +77,8 @@ def main():
                     fr.append([ob["fx"], [round(v, 3) for v in quad_affine(ob)], round(a, 3)])
             sprites.append(fr)
         clips[c] = {"frames": nf, "loop": loop, "mats": mats, "faces": faces, "sprites": sprites}
+        if c in SC.HOLD:                     # a held middle the game may repeat: frame b shows frame a's pose
+            clips[c]["hold"] = list(SC.HOLD[c])
         print("clip", c, nf)
     # the skin, on the GRID lattice over the whole art
     rd = SC.blender_read

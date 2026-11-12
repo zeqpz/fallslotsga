@@ -109,3 +109,86 @@ def multi(c):
             c.rng, spin=120, grow=(.75, .05))
     c.glow_curve("multi", lambda u: .6 * (u * 42 / CHARGE) ** 1.5 if u * 42 < CHARGE else
                  .6 * max(0, 1 - (u * 42 - CHARGE) / 18))
+
+
+# ---------------------------------------------------------------- the idle that stands out + the pop
+# (owner, 2026-11-10: the bonus icons' idles must STAND OUT on the board - the game plays these two at full speed and
+#  amplitude while the ordinary icons idle slow and damped. This idle replaces the very subtle one above.)
+# idle  the badge breathes deep, twice a loop, its glow pulsing with it; the F and then the S bounce in a wave; four
+#       sparkles circle it on a tilted ring, passing behind it, twinkling; glints run over the gold; the leaves flutter
+#       and a leaf drifts down now and then
+# pop   strain: it swells, the letters pushing out and quivering. BLOW: the badge bursts like a balloon in a ring of
+#       light and a shower of gold stars, the F and the S spin off to either side, the leaves whirl away
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "orb": dict(files=["sparkle", "sparkle_w"], n=4, size=1.5),
+    "glintx": dict(files=["sparkle_w"], n=4, size=1.8),
+    "drift": dict(files=["leaf_red", "leaf_orange"], n=3, size=1.5),
+    "star": dict(files=["star"], n=14, size=1.2),
+    "halo": dict(files=["ring"], n=1, size=9.0, depth=.2),
+}
+
+
+def idle(c):                                                    # noqa: F811
+    def pose(i, n):
+        t = i / n
+        b = S(TAU * 2 * t)
+        hf = max(0.0, S(TAU * 2 * t)) ** 2                      # the F's bounce, then the S's a beat later
+        hs = max(0.0, S(TAU * 2 * t - 1.2)) ** 2
+        return dict(badge=dict(sx=1 + .022 * b, sy=1 + .034 * b),
+                    let_f=dict(y=.22 * hf, r=3 * hf, sx=1 - .03 * hf, sy=1 + .07 * hf),
+                    let_s=dict(y=.22 * hs, r=-3 * hs, sx=1 - .03 * hs, sy=1 + .07 * hs),
+                    leaf_l=dict(r=5 * S(TAU * 2 * t) + 2 * S(TAU * 7 * t)),
+                    leaf_r=dict(r=-5 * S(TAU * 2 * t + .6) + 5 * S(.6) - 2 * S(TAU * 5 * t)))
+    c.run("idle", pose)
+    c.rng.uniform(0, 360)                                       # (the old idle's one random number: the other clips keep theirs)
+    for j in range(4):                                         # the ring of sparkles
+        def orb(i, n, j=j):
+            th = TAU * (i / n + j / 4)
+            far = S(th) > 0
+            return dict(x=5.1 * C(th), z=.2 + 1.7 * S(th), behind=far, r=120 * i / n,
+                        s=(.55 + .3 * S(TAU * 3 * i / n + j) ** 2) * (1 - .25 * S(th)))
+        c.fx["orb"].hold("idle", orb)
+    for j, (f, (x, z)) in enumerate(zip((6, 24, 42, 58), GLINTS)):
+        c.fx["glintx"].emit(f, f + 9, lambda t, x=x, z=z: (x, z), rot=20 * j, spin=70, clip="idle",
+                            grow=lambda t: .15 + .75 * S(math.pi * t), fade=lambda t: S(math.pi * t) ** .5)
+    for j, (f, x0) in enumerate(((10, -3.4), (46, 3.5))):       # a leaf drifts down
+        sg = 1 if x0 > 0 else -1
+        c.fx["drift"].emit(f, f + 22, lambda t, x0=x0, sg=sg: (x0 + .6 * sg * S(t * 6), 2.6 - 3.0 * t), rot=40 * j,
+                           spin=160 * sg, clip="idle", grow=(.5, .4), fade=lambda t: S(math.pi * t) ** .6)
+    c.glow_curve("idle", lambda u: .75 * S(TAU * u) ** 2)
+
+
+def pop(c):
+    B = P.BLOW
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            q = S(i * 3.1) * k
+            return dict(root=P.swell(1 + .1 * k, x=.05 * q), badge=dict(sx=1 + .06 * k, sy=1 + .06 * k),
+                        let_f=dict(sx=1 + .14 * k, sy=1 + .14 * k, r=4 * q),
+                        let_s=dict(sx=1 + .14 * k, sy=1 + .14 * k, r=-4 * S(i * 3.4) * k),
+                        leaf_l=dict(r=-8 * k), leaf_r=dict(r=8 * k))
+        t = (i - B) / 30
+        s = 1.06 + .12 * (i - B)
+        badge = dict(sx=s, sy=s, a=P.gone(i, B, B + 3))
+        fl = lambda name, want: P.free(c, name, badge, want)
+        flut = .4 + .6 * abs(C((i - B) * .8))
+        return dict(root=P.swell(1.0), badge=badge,
+                    let_f=fl("let_f", P.fly(i, B, -13, 15, g=36, spin=340, a=P.gone(i, 19, 24), sx=1.2, sy=1.2)),
+                    let_s=fl("let_s", P.fly(i, B, 13, 14, g=36, spin=-340, a=P.gone(i, 19, 24), sx=1.2, sy=1.2)),
+                    leaf_l=fl("leaf_l", P.fly(i, B, -15, 8, g=18, spin=420, drag=1.5, a=P.gone(i, 17, 22), sx=flut)),
+                    leaf_r=fl("leaf_r", P.fly(i, B, 15, 8, g=18, spin=-420, drag=1.5, a=P.gone(i, 17, 22), sx=flut)))
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    fx["halo"].emit(B, B + 6, lambda t: (0, -.2), rot=0, grow=lambda t: .5 + .75 * (1 - (1 - t) ** 3),
+                    fade=lambda t: 1 - t * t)
+    P.burst(fx["star"], rng, B, 14, at=(0, -.2), speed=(22, 38), ang=(0, 360), g=24, life=(11, 15), grow=(1.1, .5),
+            spin=500, spread=1.0, even=True, drag=3)
+    for j in range(4):
+        fx["glintx"].emit(B + 1 + 2 * j, B + 6 + 2 * j, lambda t, j=j: ((-1) ** j * (2 + j), 1.5 + .6 * j), rot=30 * j,
+                          spin=80, grow=lambda t: .2 + .8 * S(math.pi * t), fade=(1, .4))
+    c.glow_out(lambda i: .3 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .1 * P.strain(i) if i < B else 1.2)

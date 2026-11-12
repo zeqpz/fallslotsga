@@ -109,3 +109,98 @@ def multi(c):
             c.rng, spin=160, grow=(.4, .25), fade=(1, 0))
     c.glow_curve("multi", lambda u: .6 * (u * 42 / CHARGE) ** 1.5 if u * 42 < CHARGE else
                  .6 * max(0, 1 - (u * 42 - CHARGE) / 18))
+
+
+# ---------------------------------------------------------------- the idle that stands out + the pop
+# (owner, 2026-11-10: the bonus icons' idles must STAND OUT on the board - the game plays these two at full speed and
+#  amplitude while the ordinary icons idle slow and damped. This idle replaces the very subtle one above.)
+# idle  live fire: tongues of flame lick up from behind the jack, out of step, flickering; its carved face glows and
+#       dims, twice a loop, the halo with it; embers rise and wink out; the crow bobs on its perch, cocks itself and
+#       ruffles; the X, F and S throb one after another
+# pop   strain: it swells, the crow hunching, the letters rattling, the fire rising. BLOW: the crow flaps off the top
+#       shedding feathers, the X, F and S are thrown apart, and the jack is swallowed by its own fire - the flames
+#       surge up as it shrinks into them - in embers and smoke
+from . import popkit as P                                      # noqa: E402
+
+XFX = {
+    "flame": dict(files=["parts:fx_flame"], n=7, size=3.2, depth=.3),
+    "ember": dict(files=["sparkle"], n=16, size=.9, tint=[(1, .55, .15), (1, .8, .3)]),
+    "plume": dict(files=["feather"], n=7, size=1.6),
+    "smoke": dict(files=["steam"], n=5, size=3.0, tint=(.62, .45, .8)),
+}
+FEET = [(-3.7, .3, 2), (-2.9, 1.8, 3), (-1.7, 2.6, 4), (1.7, 2.6, 3), (2.9, 1.8, 2), (3.7, .3, 4), (0.0, 3.0, 3)]
+
+
+def idle(c):                                                    # noqa: F811
+    def pose(i, n):
+        t = i / n
+        b = S(TAU * 2 * t)
+        ruf = S(math.pi * min(1, max(0, (t - .55) / .2))) ** 2  # the crow's ruffle, once a loop
+        p = dict(jack=dict(sx=1 + .018 * b, sy=1 + .028 * b),
+                 crow=dict(y=.07 * S(TAU * 2 * t) ** 2 + .05 * ruf, r=2.4 * S(TAU * t) + 3 * ruf * S(TAU * 9 * t),
+                           sx=1 + .06 * ruf * S(TAU * 12 * t), sy=1 + .05 * ruf * C(TAU * 12 * t) * S(TAU * 12 * t)),
+                 faceglow=dict(a=.85 * S(TAU * t) ** 2))
+        for j, l in enumerate(LETTERS):
+            w = max(0.0, S(TAU * 2 * t - j * .9)) ** 2
+            p[l] = dict(y=.07 * w, sx=1 + .08 * w, sy=1 + .08 * w)
+        return p
+    c.run("idle", pose, extras=["faceglow"])
+    c.rng.uniform(0, 360)                                       # (the old idle's one random number: the other clips keep theirs)
+    for j, (x, z, k) in enumerate(FEET):                         # the fire: each tongue licks k times a loop
+        def lick(i, n, x=x, z=z, k=k, j=j):
+            t = i / n
+            L = S(math.pi * k * t) ** 2 * (.75 + .25 * S(TAU * 11 * t + j))
+            sz = .35 + .75 * L
+            return dict(x=x + .12 * S(TAU * 5 * t + j) * L, z=z - .5 + .45 * 3.2 * sz, sx=.55 + .25 * L, sz=sz,
+                        r=(-x * 3) + 5 * S(TAU * 4 * t + j) * L, a=min(1.0, 4 * L), behind=True)
+        c.fx["flame"].hold("idle", lick)
+    import random
+    rr = random.Random(41)
+    for j in range(9):                                         # embers, all round the loop (they live across its seam)
+        x0, sw, ph = rr.uniform(-3.8, 3.8), rr.uniform(.3, .7), rr.uniform(0, 6)
+        z0 = 2.4 - .25 * x0 * x0 * .5
+        c.fx["ember"].emit(j * 8, j * 8 + 26, lambda t, x0=x0, z0=z0, sw=sw, ph=ph: (
+            x0 + sw * S(5 * t + ph), z0 + 3.4 * t), rot=rr.uniform(0, 90), spin=200, clip="idle", wrap=True,
+            grow=(.6, .15), fade=lambda t: min(1.0, 5 * t) * (1 - t) ** .7)
+    c.glow_curve("idle", lambda u: .75 * S(TAU * u) ** 2)
+
+
+def pop(c):
+    B = P.BLOW
+    THROW = dict(let_x=(-14, 11, 320), let_f=(0, 18, -100), let_s=(14, 11, -320))
+
+    def pose(i, n):
+        k = P.strain(i)
+        if i < B:
+            q = S(i * 3.1) * k
+            p = dict(root=P.swell(1 + .09 * k, x=.05 * q), crow=dict(y=-.1 * k, sy=1 - .1 * k, r=3 * S(i * 3.6) * k),
+                     faceglow=dict(a=k))
+            for j, l in enumerate(LETTERS):
+                p[l] = dict(r=5 * S(i * 3.3 + j) * k, sx=1 + .08 * k, sy=1 + .08 * k)
+            return p
+        t = (i - B) / 30
+        z = 1.05 - .6 * P.st(i, B, 19)
+        flap = S((i - B) * 2.3)
+        p = dict(root=P.swell(1.0), jack=dict(a=0),
+                 jack_bare=dict(a=P.gone(i, 13, 19), sx=z, sy=z, y=-.8 * P.st(i, B, 19)),
+                 faceglow=dict(a=P.gone(i, B, 14), sx=z, sy=z, y=-.8 * P.st(i, B, 19)),
+                 crow=P.fly(i, B, 5, 21, g=30, drag=1.2, r0=-14, a=P.gone(i, 19, 24), sx=1 + .22 * flap,
+                            sy=1 - .12 * flap))
+        for l, (vx, vy, sp) in THROW.items():
+            p[l] = P.fly(i, B, vx, vy, g=36, spin=sp, a=P.gone(i, 19, 24), sx=1.15, sy=1.15)
+        return p
+    c.run("pop", pose, out=True)
+    fx, rng = c.fx, c.rng
+    for j, (x, z, k) in enumerate(FEET):                         # the fire takes it
+        f = 3 + j % 3
+        fx["flame"].emit(f, 20 + j % 3, lambda t, x=x, z=z: (x * (1 - .5 * t), z - 1.2 + .45 * 3.2 * (.4 + 1.5 * S(math.pi * t ** .7))),
+                         rot=-x * 3, grow=lambda t: (.6 + .5 * S(math.pi * t ** .7), .4 + 1.5 * S(math.pi * t ** .7)),
+                         fade=lambda t: min(1.0, 4 * t) * min(1.0, 5 * (1 - t)))
+    P.burst(fx["ember"], rng, B, 14, at=(0, 0), speed=(14, 30), ang=(30, 150), g=-6, life=(11, 15), grow=(.9, .2),
+            spin=300, spread=2.5, even=True, drag=2.5)
+    P.burst(fx["plume"], rng, B, 7, at=(.3, 3.2), speed=(8, 16), ang=(0, 360), g=14, life=(11, 15), grow=(.9, .7),
+            spin=360, spread=.8, even=True, drag=3)
+    P.burst(fx["smoke"], rng, B + 5, 5, at=(0, 0), speed=(4, 9), ang=(50, 130), g=-8, life=(9, 11), grow=(.5, 1.2),
+            spin=90, spread=1.6, stagger=1, drag=2, fade=lambda t: .8 * (1 - t))
+    c.glow_out(lambda i: .3 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
+               lambda i: 1 + .1 * P.strain(i) if i < B else 1.2)

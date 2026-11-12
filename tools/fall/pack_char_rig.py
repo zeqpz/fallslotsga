@@ -37,7 +37,7 @@ FIXED = os.path.join(ROOT, "art", "blender", "chars", "scarecrow", "layers")
 OUT = os.path.join(ROOT, "frontend", "assets", "chars", "scarecrow_rig")
 PAGE = 2048
 PAD = 4
-FX_PX = 128                        # effect sprites' size in the atlas (drawn at 80-110 art px)
+FX_PX = 96                         # effect sprites' size in the atlas (drawn at 50-110 art px, shown at ~0.6x; 128 no longer fits the page)
 # the boots' shadows on the field (drawn live under each boot, index.html), art px: each a soft ellipse on the
 # ground under its boot's sole, fainter and wider the higher the boot hangs
 SHADOW = dict(rx=78, ry=11, rgb=(52, 26, 10), a=.3, soles=[[452, 1352], [600, 1352]], bones=["boot_l", "boot_r"],
@@ -45,7 +45,7 @@ SHADOW = dict(rx=78, ry=11, rgb=(52, 26, 10), a=.3, soles=[[452, 1352], [600, 13
 # the post's foot (ground_pole), art px: post columns, rows cleared / copied, where it goes into the ground, the
 # occlusion and pool ellipses (cx, cy, rx, ry, alpha) and their colour
 GROUND = dict(post=(464, 580), clear=1318, copy=1342, rep=160, fade=22, y=1458,
-              occl=(522, 1459, 108, 17, .9), pool=(525, 1461, 285, 31, .5), rgb=(58, 30, 12),
+              occl=(522, 1459, 108, 17, .9), pool=(525, 1461, 170, 24, .42), rgb=(58, 30, 12),
               ink=(62, 34, 14), strokes=[[(418, 1468), (446, 1456), (470, 1458)], [(576, 1457), (604, 1456), (628, 1469)],
                                         [(352, 1478), (372, 1472), (396, 1476)], [(662, 1474), (686, 1471), (708, 1478)]])
 GROUND_Y = 1500
@@ -195,19 +195,29 @@ def shadow_sprite(w=128, h=32):
 
 
 class Shelf:
+    """Shelves down the page; a picture goes on the first shelf with room for it (so the small ones fill the ends of
+    the big ones' rows), else on a new shelf."""
+
     def __init__(self, size):
-        self.size, self.x, self.y, self.h = size, 0, 0, 0
+        self.size, self.rows, self.y = size, [], 0          # rows: [y, height, x used]
 
     def place(self, w, h):
         w, h = w + 2 * PAD, h + 2 * PAD
-        if self.x + w > self.size:
-            self.x, self.y, self.h = 0, self.y + self.h, 0
-        if self.y + h > self.size:
+        for row in self.rows:
+            if h <= row[1] and row[2] + w <= self.size:
+                at = (row[2] + PAD, row[0] + PAD)
+                row[2] += w
+                return at
+        if self.rows and self.rows[-1][2] + w <= self.size and self.rows[-1][0] + h <= self.size:
+            row = self.rows[-1]                              # the open shelf grows to take a taller picture
+            at = (row[2] + PAD, row[0] + PAD)
+            row[1], row[2], self.y = h, row[2] + w, row[0] + h
+            return at
+        if self.y + h > self.size or w > self.size:
             raise RuntimeError("atlas full")
-        at = (self.x + PAD, self.y + PAD)
-        self.x += w
-        self.h = max(self.h, h)
-        return at
+        self.rows.append([self.y, h, w])
+        self.y += h
+        return (PAD, self.y - h + PAD)
 
 
 def bbox(a, thr=.004):
@@ -320,6 +330,15 @@ def main():
             im[:, :SC.BOOT_SPLIT] = 0
         bb_ = bbox(im[..., 3])
         put("boot_" + side, im, (max(0, bb_[0] - 2), max(0, bb_[1] - 2), min(W, bb_[2] + 2), min(H, bb_[3] + 2)))
+    wings = []                      # the crow's wings: rigid pictures on wing_l / wing_r, drawn under the body like the boots
+    for wn in ("wing_l", "wing_r"):
+        wp = os.path.join(LAY, wn + ".png")
+        if wn in ex["bones"] and os.path.exists(wp):
+            im = rgba(wp)
+            assert float((im[..., 3] * (1 - crow[..., 3])).max()) < .03, wn + ": the folded wing shows round the crow"
+            bb_ = bbox(im[..., 3])
+            put(wn, im, (max(0, bb_[0] - 2), max(0, bb_[1] - 2), min(W, bb_[2] + 2), min(H, bb_[3] + 2)))
+            wings.append([wn, wn])
     for kind in ex["fx"]:
         im = Image.open(os.path.join(FXD, ex["fx"][kind]["file"])).convert("RGBA")
         im = im.convert("RGBa").resize((FX_PX, FX_PX), Image.LANCZOS).convert("RGBA")
@@ -406,12 +425,14 @@ def main():
         spr = [[[kinds.index(s[0])] + [round(v, 2) for v in s[1]] + [s[2]] for s in fr] for fr in d["sprites"]]
         clips[c] = {"frames": d["frames"], "loop": d["loop"], "cues": cues, "spr": spr,
                     "far": [round(v, 1) for v in far]}
+        if "hold" in d:
+            clips[c]["hold"] = d["hold"]
         print(c, d["frames"], "cues", cues[:8], "..." if len(cues) > 8 else "", "max", round(max(far), 1))
     open(os.path.join(OUT, "rig.bin"), "wb").write(bytes(blob))
     man = {
         "fps": ex["fps"], "art": ex["art"], "ground": [ex["ground"][0], GROUND_Y], "rest_height": GROUND_Y - ex["top"],
         "page": [PAGE, page_h], "bones": ex["bones"], "faces": faces, "fx": list(ex["fx"]), "rects": rects,
-        "boots": [["boot_l", "boot_l"], ["boot_r", "boot_r"]],   # [atlas rect, bone]: rigid boot pictures
+        "boots": [["boot_l", "boot_l"], ["boot_r", "boot_r"]] + wings,   # [atlas rect, bone]: rigid boot pictures
         "pole_bone": pole_bone.tolist(), "bin": offs, "bytes": len(blob),
         "shadow": SHADOW, "counts": {"body_verts": len(b_pos), "body_tris": len(b_tri) // 3,
                                      "face_verts": len(f_verts), "pole_verts": len(p_pos)},

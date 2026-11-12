@@ -5852,6 +5852,7 @@ function dropReel(r, ev, wait, inExtra = 0, onCrewLeader = null, slow = 1) {
 async function renderReveal(ev) {
   clearFx();
   bounceFx();   // background bounce + board pop on every reveal, free spins included
+  if (!state.skip && !$("turbo").checked) charReact((state.spinN = (state.spinN || 0) + 1) % 2 ? "spin" : "spin2");   // the scarecrow glances at the board
   for (let r = 0; r < REELS; r++) state.pad[r] = ev.board[r][0];   // the row above the board: first to fall in on a tumble
   shownStop = ev.paddingPositions ? ev.paddingPositions.slice() : null;
 
@@ -5862,7 +5863,7 @@ async function renderReveal(ev) {
   state.scatDown = 0;
   if (ev.anticipation && ev.anticipation.some(a => a > 0)) {
     state.anticipated = true;
-    charReact("anticipation");
+    charReact("anticipate");
   }
   // The gold column is a tell, and lit at the top of the reveal it gives the near miss away
   // before a single symbol has landed - the frame announcing a bonus over an empty board. It
@@ -6675,14 +6676,18 @@ function landFoley(sym) {
 // cigar flick, the boy's bills, their sneakers walking on and off.
 const CHAR_SFX = {   // ms into each clip, from the keyframes in tools/fall/blender/scarecrow.py
   scarecrow: {
-    enter: [["ropeCreak", 540], ["strawRustle", 600]],                      // wakes with a jolt
-    exit: [["strawRustle", 120], ["ropeCreak", 500]],
-    anticipation: [["strawRustle", 130], ["ropeCreak", 250]],
-    win: [["jugSlosh", 300], ["strawRustle", 750], ["jugSlosh", 1650]],
-    big_win: [["wingFlap", 330], ["crowCaw", 600], ["jugSlosh", 900], ["strawRustle", 1500], ["jugSlosh", 2100], ["wingFlap", 2950]],
-    lose: [["ropeCreak", 250], ["strawRustle", 400], ["hiccup", 2100]],
-    hiccup: [["hiccup", 290], ["hiccup", 1010], ["hiccup", 1730], ["jugSlosh", 1050]],
-    peck: [["crowPeck", 780], ["crowPeck", 1150], ["crowPeck", 1510], ["crowCaw", 1900], ["strawRustle", 1950]],
+    // re-keyed 2026-11-11 (scarecrow round 3): ms from each clip's start, off the new keyframes
+    enter: [["ropeCreak", 470], ["strawRustle", 530], ["wingFlap", 540]],
+    exit: [["strawRustle", 170], ["ropeCreak", 570]],
+    anticipate: [["ropeCreak", 100], ["strawRustle", 270]],
+    anticipation: [["ropeCreak", 100], ["strawRustle", 270]],
+    spin2: [["jugSlosh", 170]],
+    win: [["strawRustle", 100], ["jugSlosh", 150], ["wingFlap", 170], ["jugSlosh", 870]],
+    big_win: [["wingFlap", 70], ["strawRustle", 170], ["jugSlosh", 230], ["crowCaw", 670], ["jugSlosh", 1470], ["jugSlosh", 2270],
+              ["jugSlosh", 3070], ["strawRustle", 3500], ["jugSlosh", 3570], ["wingFlap", 4230]],
+    lose: [["ropeCreak", 270], ["strawRustle", 430], ["hiccup", 1730]],
+    hiccup: [["hiccup", 330], ["hiccup", 1030], ["hiccup", 1300], ["jugSlosh", 1100]],
+    peck: [["crowPeck", 800], ["crowPeck", 1200], ["crowPeck", 1400], ["strawRustle", 1700], ["wingFlap", 1770], ["crowCaw", 2030]],
   },
 };
 function charSfx(fig, clip) {
@@ -8101,7 +8106,7 @@ const CHAR_XFADE = 3;                     // frames a cut blends over: only the 
 
 // How hard each moment grabs the figure. A bigger moment cuts off a smaller one; a smaller one
 // waits its turn rather than stamping on the celebration.
-const CHAR_RANK = { flavour: 0, anticipation: 1, win: 1, lose: 2, big_win: 3, enter: 4, exit: 9 };
+const CHAR_RANK = { flavour: 0, spin: 0, spin2: 0, anticipation: 1, anticipate: 1, win: 1, lose: 2, big_win: 3, enter: 4, exit: 9 };
 
 // Replaced once the figures load. Declared up front so the handlers can call them either way -
 // a figure that fails to load must never take the game down with it.
@@ -8669,7 +8674,7 @@ async function makeCharacterFrames({ el, name, flavour, swap = {}, shadow = true
 // two pictures), so a reaction can cut in at once without a pop.
 const CHAR_FRAMES = /[?&]charframes\b/.test(location.search);
 const CHAR_RIG = {
-  cueWait: 420,    // ms a reaction waits for the playing clip's next rest pose before cutting in anyway (blended)
+  cueWait: 120,    // ms a reaction waits for the playing clip's next rest pose before cutting in anyway (blended)
   blend: 200,      // ms a cut blends the poses over (off a rest pose: cueBlend)
   cueBlend: 90,
   backBlend: 140,  // ms a finished one-shot blends back into the idle (its first pose is the idle's, near enough)
@@ -8923,6 +8928,9 @@ async function makeCharacterRig({ el, name, flavour, swap = {} }) {
         next = null;
       }
     }
+    // a clip with a hold (the tease's `anticipate`) cycles its held middle for as long as the tease is up
+    const H = man.clips[cur.clip] && man.clips[cur.clip].hold;
+    if (H && document.body.classList.contains("tease") && ffOf(cur, now) >= H[1]) cur.t0 += (H[1] - H[0]) * 1000 / fps;
     const ff = Math.max(0, ffOf(cur, now));
     const blending = blendMs > 0 && now - blendT0 < blendMs;
     if (!blending && cur.clip === lastClip && Math.abs(ff - lastFF) < 1e-3) return;   // nothing moved
