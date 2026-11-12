@@ -3295,6 +3295,11 @@
      the burst canvas go under the logs (the frame is z-index 3) and are cut off just inside the board's edge */
   .cell.popping { z-index: 2; }
   .shardlayer { z-index: 2; clip-path: inset(110px); }   /* BURST_PAD + POP_EDGE */
+
+  /* what a popped icon leaves and throws (debrisBlow): its juice on the wall under the icons, cut off inside the
+     frame's opening like the pops are; its chunks and drops over the frame and out past the board */
+  .stainlayer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; clip-path: inset(14px); }
+  .flylayer { position: absolute; left: -200px; top: -200px; width: calc(100% + 400px); height: calc(100% + 400px); z-index: 5; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -4597,6 +4602,8 @@ function prewarmBursts() {
     const n = names.shift();
     if (!n) return;
     for (const [kind, col] of BURST_MAT[n]) matSprite(kind, col);
+    const dj = DEBRIS[n] && DEBRIS[n].juice;
+    if (dj && debImg.complete && debImg.naturalWidth) { matSprite("drop", dj); for (let i = 0; i < 6; i++) splatSprite(i, dj); }
     const img = FLAT[n];
     if (img && img.complete && img.naturalWidth) { try { burstKit(n, img); } catch (e) { /* cut on first use instead */ } }
     (window.requestIdleCallback || (f => setTimeout(f, 60)))(next);
@@ -5321,7 +5328,8 @@ function blow(b, variant, f) {
   // the icon's own material (BURST_MAT): fewer of each in a crowd
   const keep = mob ? .35 : crowd ? .6 : 1;
   b.flecks = [];
-  for (const [kind, col, n] of BURST_MAT[b.name] || [["crumb", b.col, 6]]) {
+  // its chunks, juice and stains (debrisBlow) stand in for the little drawn flecks where it has them
+  for (const [kind, col, n] of debrisBlow(b, crowd, mob) ? [] : BURST_MAT[b.name] || [["crumb", b.col, 6]]) {
     const spr = matSprite(kind, col), fl = !!MAT_FLUTTER[kind], drop = kind === "drop";
     for (let i = 0, m = Math.max(1, Math.round(n * keep)); i < m; i++) {
       const a = -Math.PI / 2 + (Math.random() - .5) * Math.PI * (drop ? 1.3 : 1.7), sp = W * (drop ? .1 + Math.random() * .12 : .05 + Math.random() * .1) / t;
@@ -5462,6 +5470,153 @@ function burstStep() {
   ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
   if (bursts.length) burstRaf = requestAnimationFrame(burstStep);
   else { burstRaf = 0; burstLast = 0; ctx.clearRect(0, 0, shardCanvas.width, shardCanvas.height); }
+}
+/* ---------- what an icon breaks into ---------- */
+// Like a fruit-slicing game (owner, 2026-11-12): a popped fruit leaves its juice splashed on the wall behind the
+// icons - a stain that lands with a smack, runs a little and fades - and throws chunks of itself and drops of
+// juice out over the frame and off the board; the hat bursts into cotton and feathers, the leaf crumbles into
+// leaves, the jug into glass. The pieces are generated art (tools/fall/gen_debris.py), cut and packed into one
+// atlas (pack_debris.py -> assets/fx/debris.webp, DEBRIS_AT = its rects [x, y, w, h, size]); the splats are white
+// and take the juice's colour here. Two canvases: the stains under the icons, cut off inside the frame's opening;
+// the chunks and drops over everything, reaching FLY_PAD px past the board.
+const DEBRIS_AT = {"splat":[[0,0,126,191,1.09],[128,0,148,187,1.06],[278,0,132,180,1.02],[412,0,154,172,0.98],[568,0,147,171,0.97],[717,0,127,170,0.97]],"turkey":[[846,0,131,140,1.35],[99,335,117,118,1.14],[863,455,107,106,1.03],[97,569,87,104,1.0],[459,569,87,103,0.99],[548,569,77,103,0.99],[303,957,68,68,0.66]],"horn":[[0,193,106,140,1.35],[465,193,87,128,1.23],[554,193,81,126,1.21],[524,455,78,108,1.04],[485,676,78,95,0.91],[364,776,100,93,0.96],[182,872,68,80,0.77],[433,872,87,79,0.84]],"apple":[[108,193,113,131,1.26],[218,335,81,116,1.12],[433,455,89,108,1.04],[695,455,89,107,1.02],[698,569,76,101,0.98],[882,569,69,98,0.94],[199,676,82,95,0.92],[707,872,70,74,0.71]],"hat":[[223,193,79,131,1.26],[304,193,75,130,1.25],[381,193,82,130,1.25],[779,193,96,121,1.16],[0,455,103,112,1.08],[105,676,92,96,0.92],[108,776,90,94,0.9],[860,776,83,87,0.84],[110,872,70,82,0.79],[899,872,73,72,0.7]],"corn":[[637,193,140,125,1.35],[811,335,135,112,1.3],[0,776,106,94,1.02],[466,776,102,91,0.98],[762,776,96,87,0.92],[805,957,90,61,0.86],[897,957,78,61,0.75],[107,1030,140,55,1.35]],"leaf":[[877,193,110,119,1.14],[338,455,93,109,1.05],[786,455,75,107,1.03],[186,569,107,104,1.03],[295,569,80,104,1.0],[776,569,104,100,1.0],[565,676,95,95,0.92],[200,776,64,94,0.91],[252,872,69,80,0.77],[744,957,59,62,0.6]],"grapes":[[0,335,97,118,1.13],[301,335,95,115,1.1],[398,335,93,114,1.09],[596,335,103,113,1.09],[283,676,93,95,0.91],[662,676,94,94,0.91],[758,676,94,94,0.91],[854,676,91,94,0.9]],"pumpkin":[[493,335,101,114,1.1],[377,569,80,103,0.99],[0,676,103,98,0.99],[378,676,105,95,1.01],[570,776,92,90,0.88],[664,776,96,89,0.93],[0,872,108,83,1.04],[323,872,108,79,1.04]],"jug":[[701,335,108,113,1.08],[105,455,128,112,1.23],[235,455,101,112,1.08],[604,455,89,108,1.04],[0,569,95,105,1.01],[627,569,69,103,0.99],[266,776,96,94,0.92],[522,872,80,79,0.77],[604,872,101,77,0.97],[104,957,84,71,0.81]],"pie":[[779,872,118,73,1.14],[0,957,102,71,0.98],[190,957,111,68,1.07],[373,957,77,67,0.74],[452,957,76,67,0.73],[530,957,107,66,1.02],[639,957,103,62,0.99],[0,1030,105,60,1.01]]};
+// icon -> its sheet, how many pieces fly, its juice (none: dry), how many big stains, do the pieces flutter
+const DEBRIS = {
+  L3: { sheet: "apple", n: 6, juice: "#a6d63f", stains: 2 },
+  L4: { sheet: "grapes", n: 7, juice: "#8b3fc4", stains: 2 },
+  H7: { sheet: "pumpkin", n: 6, juice: "#ff8a1c", stains: 2 },
+  H2: { sheet: "pie", n: 6, juice: "#f0892c", stains: 2 },
+  H1: { sheet: "turkey", n: 6, juice: "#9c5a22", stains: 1 },
+  H3: { sheet: "horn", n: 7, juice: "#b52f4c", stains: 1 },
+  H6: { sheet: "corn", n: 7, juice: "#ffd23a", stains: 1 },
+  H5: { sheet: "jug", n: 9, juice: "#e3a12e", stains: 2 },
+  H4: { sheet: "hat", n: 9, flutter: true },
+  L1: { sheet: "leaf", n: 9, flutter: true },
+};
+const FLY_PAD = 200;
+const debImg = new Image();
+debImg.src = "assets/fx/debris.webp";
+let stainCv = null, stainCtx = null, flyCv = null, flyCtx = null, debDpr = 1, debRaf = 0, debLast = 0;
+let stains = [], flyers = [], juice = [], debBoard = [0, 0];
+const splatSprites = {};
+function splatSprite(i, col) {   // a white splat in the juice's colour: its wet shading kept, made once
+  const key = i + col;
+  if (splatSprites[key]) return splatSprites[key];
+  const [x, y, w, h] = DEBRIS_AT.splat[i % DEBRIS_AT.splat.length];
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  g.drawImage(debImg, x, y, w, h, 0, 0, w, h);
+  g.globalCompositeOperation = "multiply"; g.fillStyle = col; g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = "destination-in"; g.drawImage(debImg, x, y, w, h, 0, 0, w, h);
+  return (splatSprites[key] = c);
+}
+function debrisLayers() {
+  const board = $("board");
+  if (!board) return false;
+  if (!stainCv) {
+    stainCv = document.createElement("canvas"); stainCv.className = "stainlayer";
+    board.insertBefore(stainCv, board.firstChild);   // on the wall, under the icons
+    stainCtx = stainCv.getContext("2d");
+    flyCv = document.createElement("canvas"); flyCv.className = "flylayer";
+    board.appendChild(flyCv);                        // over the frame
+    flyCtx = flyCv.getContext("2d");
+  }
+  const w = board.offsetWidth, h = board.offsetHeight, dpr = Math.min(1.5, devicePixelRatio || 1);
+  if (debBoard[0] !== w || debBoard[1] !== h || debDpr !== dpr) {
+    debBoard = [w, h]; debDpr = dpr;
+    stainCv.width = Math.round(w * dpr); stainCv.height = Math.round(h * dpr);
+    flyCv.width = Math.round((w + FLY_PAD * 2) * dpr); flyCv.height = Math.round((h + FLY_PAD * 2) * dpr);
+  }
+  return true;
+}
+// b: the burst (x, y in the burst canvas's space - the board's, BURST_PAD out; W the tile's width; t the tempo)
+function debrisBlow(b, crowd, mob) {
+  const d = DEBRIS[b.name];
+  if (!d || !debImg.complete || !debImg.naturalWidth || !debrisLayers()) return false;
+  const W = b.W, t = b.t, x0 = b.x - BURST_PAD, y0 = b.y - BURST_PAD, now = performance.now(), R = Math.random;
+  const keep = mob ? .4 : crowd ? .65 : 1;
+  if (d.juice) {
+    // the smack on the wall: one big splat behind the icon, the others thrown off to a side
+    const dir = R() * 6.3;
+    for (let i = 0, n = mob ? 1 : crowd ? Math.min(2, d.stains) : d.stains + 1; i < n; i++) {
+      const far = i ? W * (.35 + R() * .45) : W * R() * .12, a = dir + i * 2.2 + (R() - .5);
+      stains.push({ spr: splatSprite(Math.floor(R() * 6), d.juice), x: x0 + Math.cos(a) * far, y: y0 + Math.sin(a) * far,
+        s: W * (i ? .55 + R() * .4 : 1.25 + R() * .35), rot: R() * 6.3, born: now + i * 45 * t, life: (2300 + R() * 900) * t, run: W * (.03 + R() * .05) });
+    }
+    // drops of juice thrown out, each leaving a small splat where it lands - on the wall, or out past the frame
+    const spr = matSprite("drop", d.juice);
+    for (let i = 0, n = Math.round(10 * keep); i < n; i++) {
+      const a = R() * 6.3, sp = W * (.16 + R() * .26) / t;
+      juice.push({ spr, col: d.juice, x: x0 + Math.cos(a) * W * .15, y: y0 + Math.sin(a) * W * .15, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - W * .03 / t,
+        s: W * (.13 + R() * .1), W, t, born: now, life: (170 + R() * 330) * t });
+    }
+  }
+  // the chunks: no two the same until the sheet runs out
+  const pool = DEBRIS_AT[d.sheet].slice().sort(() => R() - .5);
+  for (let i = 0, n = Math.max(2, Math.round(d.n * keep)); i < n; i++) {
+    const r = pool[i % pool.length], fl = !!d.flutter;
+    const a = -Math.PI / 2 + (R() - .5) * Math.PI * (fl ? 1.9 : 1.6) + (i % 4 === 3 ? Math.PI : 0), sp = W * (fl ? .05 + R() * .11 : .1 + R() * .15) / t;
+    flyers.push({ r, fl, x: x0 + (R() - .5) * W * .35, y: y0 + (R() - .5) * W * .35, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - W * (fl ? .03 : .07) / t,
+      s: W * (fl ? .3 : .36) * r[4] / Math.max(r[2], r[3]), grow: fl ? 0 : R() * .35, rot: R() * 6.3, vrot: (R() - .5) * (fl ? .14 : .42) / t, flut: R() * 6.3,
+      W, t, born: now, life: (fl ? 1300 + R() * 600 : 850 + R() * 450) * t });
+  }
+  if (!debRaf) debRaf = requestAnimationFrame(debrisStep);
+  return true;
+}
+function debrisStep() {
+  const now = performance.now(), D = debDpr, dt = debLast ? Math.min(3, (now - debLast) / (1000 / 60)) : 1;
+  debLast = now;
+  const [bw, bh] = debBoard, g = stainCtx, f = flyCtx;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, stainCv.width, stainCv.height);
+  f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(0, 0, flyCv.width, flyCv.height);
+  // the stains: smack on (small to full size in a few frames), run down a little, fade
+  stains = stains.filter(s => now - s.born < s.life);
+  for (const s of stains) {
+    const age = now - s.born;
+    if (age < 0) continue;
+    const p = age / s.life, k = Math.min(1, age / 110), e = 1 - (1 - k) * (1 - k) * (1 - k), sc = s.s * (.45 + .55 * e);
+    const ctx = s.out ? f : g, ox = s.out ? FLY_PAD : 0;
+    ctx.globalAlpha = (s.out ? .8 : .88) * (p < .5 ? 1 : 1 - (p - .5) / .5);
+    const co = Math.cos(s.rot) * D, si = Math.sin(s.rot) * D;
+    ctx.setTransform(co, si, -si, co, (s.x + ox) * D, (s.y + ox + s.run * p) * D);
+    ctx.drawImage(s.spr, -sc / 2, -sc / 2, sc, sc * (1 + .1 * p));
+  }
+  // the drops: point-first along their flight; where one ends it splats
+  juice = juice.filter(j => {
+    if (now - j.born < j.life) return true;
+    const inside = j.x > POP_EDGE + 4 && j.y > POP_EDGE + 4 && j.x < bw - POP_EDGE - 4 && j.y < bh - POP_EDGE - 4;
+    stains.push({ spr: splatSprite(Math.floor(Math.random() * 6), j.col), x: j.x, y: j.y, s: j.W * (.22 + Math.random() * .3), rot: Math.random() * 6.3,
+      born: now, life: (inside ? 1500 + Math.random() * 900 : 800 + Math.random() * 500) * j.t, run: j.W * .03, out: !inside });
+    return false;
+  });
+  f.globalAlpha = 1;
+  for (const j of juice) {
+    const drag = Math.pow(.975, dt);
+    j.x += j.vx * dt; j.y += j.vy * dt; j.vx *= drag; j.vy = j.vy * drag + j.W * .006 / j.t * dt;
+    const a = Math.atan2(j.vy, j.vx) + Math.PI / 2, v = Math.hypot(j.vx, j.vy) / (j.W * .02 / j.t), sy = Math.min(2.1, .9 + v * .22), sx = 1 / Math.sqrt(sy);
+    const co = Math.cos(a) * D, si = Math.sin(a) * D;
+    f.setTransform(co * sx, si * sx, -si * sy, co * sy, (j.x + FLY_PAD) * D, (j.y + FLY_PAD) * D);
+    f.drawImage(j.spr, -j.s / 2, -j.s / 2, j.s, j.s);
+  }
+  // the chunks: thrown up and out, tumbling, coming at us a little, then down off the board; cotton, feathers and
+  // leaf bits catch the air instead and sway down
+  flyers = flyers.filter(c => now - c.born < c.life);
+  for (const c of flyers) {
+    const p = (now - c.born) / c.life, drag = Math.pow(c.fl ? .92 : .975, dt);
+    c.x += c.vx * dt; c.y += c.vy * dt; c.vx *= drag; c.vy = c.vy * drag + c.W * (c.fl ? .0019 : .0062) / c.t * dt;
+    if (c.fl) c.vx += Math.sin(c.flut) * c.W * .0017 / c.t * dt;
+    c.flut += (c.fl ? .13 : .3) * dt / c.t; c.rot += c.vrot * dt;
+    f.globalAlpha = p < .75 ? 1 : 1 - (p - .75) / .25;
+    const k = c.s * (1 + c.grow * p), sx = c.fl ? .45 + .55 * Math.abs(Math.cos(c.flut)) : 1, co = Math.cos(c.rot) * D * k, si = Math.sin(c.rot) * D * k;
+    f.setTransform(co * sx, si * sx, -si, co, (c.x + FLY_PAD) * D, (c.y + FLY_PAD) * D);
+    f.drawImage(debImg, c.r[0], c.r[1], c.r[2], c.r[3], -c.r[2] / 2, -c.r[3] / 2, c.r[2], c.r[3]);
+  }
+  if (stains.length || juice.length || flyers.length) debRaf = requestAnimationFrame(debrisStep);
+  else {
+    debRaf = 0; debLast = 0;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, stainCv.width, stainCv.height);
+    f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(0, 0, flyCv.width, flyCv.height);
+  }
 }
 function resetGrid() { state.grid = emptyGrid(); paintGrid(); }
 // Each slot sits exactly where its cell is laid out. Offsets, not rects: a rect includes
