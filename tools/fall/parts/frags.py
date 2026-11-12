@@ -191,6 +191,11 @@ def H4(c):
         img[:int(top), x, 3] = np.where(hole[:int(top), x], 0, img[:int(top), x, 3])
         img[int(bot) + 1:, x, 3] = np.where(hole[int(bot) + 1:, x], 0, img[int(bot) + 1:, x, 3])
     c.add("band_bare", img, parent="band", over_="band", pivot=(525, 640))
+    # the crown and the brim each split in two down a ragged tear (the hat bursts at its seam)
+    c.pieces(c.layer("crown"), c.bands((200, 350), (850, 350), [.5], amp=18, seed=2), "crown{}", parent="crown",
+             over_="crown", ink=5)
+    c.pieces(c.layer("brim"), c.bands((30, 680), (970, 680), [.52], amp=16, seed=6), "brim{}", parent="brim",
+             over_="brim", ink=5)
     c.sprite("dust", blob((70, 66, 74), seed=5, lumps=5, hi=(120, 116, 126), r=.32))
 
 
@@ -201,7 +206,10 @@ def H1(c):
 
 
 def H3(c):
-    """Cornucopia: its fruit are parts already; only sprites here."""
+    """Cornucopia: its fruit are parts already; the horn itself is cut across into four rings of wicker (mouth to
+    neck) that fly apart when it bursts."""
+    c.pieces(c.comp("horn"), c.bands((150, 850), (850, 120), [.4, .58, .76], amp=10, seed=4), "ring{}", parent="horn",
+             over_="horn", ink=5)
     c.sprite("berry", blob((110, 50, 140), seed=1, lumps=1, hi=(200, 150, 220), r=.34))
     c.sprite("wicker", shard((196, 136, 60), [(.1, .42), (.9, .36), (.92, .58), (.12, .62)], hi=(240, 190, 110), w=.06))
 

@@ -1,5 +1,46 @@
 {
- "frags": [],
+ "frags": [
+  {
+   "name": "ring0",
+   "png": "x_ring0.png",
+   "pivot": [
+    344.4,
+    692.1
+   ],
+   "parent": "horn",
+   "depth": -0.004
+  },
+  {
+   "name": "ring1",
+   "png": "x_ring1.png",
+   "pivot": [
+    571.2,
+    566.2
+   ],
+   "parent": "horn",
+   "depth": -0.0048
+  },
+  {
+   "name": "ring2",
+   "png": "x_ring2.png",
+   "pivot": [
+    676.4,
+    425.2
+   ],
+   "parent": "horn",
+   "depth": -0.0056
+  },
+  {
+   "name": "ring3",
+   "png": "x_ring3.png",
+   "pivot": [
+    839.4,
+    281.3
+   ],
+   "parent": "horn",
+   "depth": -0.0064
+  }
+ ],
  "sprites": [
   "berry",
   "wicker"

@@ -9,6 +9,46 @@
    ],
    "parent": "band",
    "depth": -0.104
+  },
+  {
+   "name": "crown0",
+   "png": "x_crown0.png",
+   "pivot": [
+    415.3,
+    335.7
+   ],
+   "parent": "crown",
+   "depth": -0.0548
+  },
+  {
+   "name": "crown1",
+   "png": "x_crown1.png",
+   "pivot": [
+    672.4,
+    352.7
+   ],
+   "parent": "crown",
+   "depth": -0.0556
+  },
+  {
+   "name": "brim0",
+   "png": "x_brim0.png",
+   "pivot": [
+    307.7,
+    665.8
+   ],
+   "parent": "brim",
+   "depth": -0.0064
+  },
+  {
+   "name": "brim1",
+   "png": "x_brim1.png",
+   "pivot": [
+    709.6,
+    727.6
+   ],
+   "parent": "brim",
+   "depth": -0.0072
   }
  ],
  "sprites": [

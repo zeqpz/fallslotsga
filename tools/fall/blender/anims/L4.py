@@ -128,19 +128,20 @@ def multi(c):
     c.glow_curve("multi", lambda u: min(1, u / .48) if u < .48 else max(0, 1 - (u - .48) / .4))
 
 
-# ---------------------------------------------------------------- pop: the grapes burst one by one
+# ---------------------------------------------------------------- pop: the bunch scatters and every grape bursts
 # strain  the grapes swell in a ripple down the bunch, taut and shivering
-# BLOW    pop-pop-pop: the six front grapes burst one after another from the top down (each jumps out, balloons and
-#         is gone in a splat of juice), then the grapes behind them in turn; the stem is flicked up, the leaves flutter
-#         off; juice drops and skins
+# BLOW    the bunch flies apart - every grape is thrown out from the middle, front ones first - and they burst in the
+#         air one after another (each balloons and is gone in a big splat, juice spraying on the way it was going);
+#         the stem is flicked up spinning, the leaves flutter off
+#         (rebuilt 2026-11-11: the grapes used to burst where they hung, small)
 from . import popkit as P                                      # noqa: E402
 
 XFX = {
-    "juice": dict(files=["parts:fx_juice"], n=26, size=1.05),
-    "splat": dict(files=["parts:fx_splat"], n=15, size=2.3),
-    "skin": dict(files=["parts:fx_skin"], n=10, size=.9),
+    "juice": dict(files=["parts:fx_juice"], n=36, size=1.15),
+    "splat": dict(files=["parts:fx_splat"], n=15, size=2.6),
+    "skin": dict(files=["parts:fx_skin"], n=10, size=.95),
 }
-WHEN = dict(g_top=8, g_left=9, g_mid=9, g_lowl=10, g_lowm=11, g_lowr=12)
+WHEN = dict(g_top=12, g_left=13, g_mid=14, g_lowl=15, g_lowm=16, g_lowr=17)
 
 
 def pop(c):
@@ -149,46 +150,58 @@ def pop(c):
     stem, lumps = lumps[0], lumps[1:]
     mid = ((MID[0] - 500) / 100, (500 - MID[1]) / 100)
     at = {g: ((CENTRE[g][0] - 500) / 100, (500 - CENTRE[g][1]) / 100) for g in GRAPES}
-    when = dict(WHEN)
+    when, go = dict(WHEN), {g: B for g in GRAPES}
     for j, b in enumerate(lumps):
         at[b] = c.pivot[b]
-        when[b] = 11 + int(j * .9)
+        when[b] = 15 + int(j * .9)
+        go[b] = B + 1
     out = {g: P.unit(at[g][0] - mid[0], at[g][1] - mid[1]) for g in at}
+    vel = {}
+    for j, g in enumerate(at):                                 # thrown out from the middle, and up
+        sp = 15 + 3.5 * (j % 4)
+        vel[g] = (out[g][0] * sp, out[g][1] * sp * .8 + 11, (-1) ** j * (200 + 60 * (j % 3)))
 
-    def burst(g, i):
+    def flown(g, i):
+        vx, vy, spin = vel[g]
+        return P.fly(i, go[g], vx, vy, g=30, spin=spin, drag=.9)
+
+    def grape(g, i):
         f = when[g]
         if i > f:
             return dict(a=0)
-        e = max(0.0, i - f + 2) / 2                            # the last two frames: it jumps out and balloons
-        return dict(a=1, x=out[g][0] * .4 * e, y=out[g][1] * .4 * e, sx=1 + .22 * e + (.2 if g in WHEN else 0),
-                    sy=1 + .22 * e + (.2 if g in WHEN else 0))
+        if i < go[g]:
+            return dict(a=1)
+        e = max(0.0, i - f + 2) / 2                            # its last two frames: it balloons
+        s = (1.2 if g in WHEN else 1.0) + .35 * e
+        return dict(flown(g, i), a=1, sx=s, sy=s)
 
     def pose(i, n):
         k = P.strain(i)
         if i < B:
-            p = dict(root=P.swell(1 + .06 * k, x=.05 * S(i * 3.1) * k), bunch=dict(r=2.5 * S(i * 2.8) * k))
+            p = dict(root=P.swell(1 + .08 * k, x=.06 * S(i * 3.3) * k), bunch=dict(r=3 * S(i * 2.8) * k))
             for g in GRAPES:
-                s = 1 + .2 * k * (.65 + .35 * S(i * 2.6 - ROW[g] * 1.3))
+                s = 1 + .24 * k * (.65 + .35 * S(i * 2.6 - ROW[g] * 1.3))
                 p[g] = dict(sx=s, sy=s)
             return p
-        p = dict(root=P.swell(1.03), bunch=dict(a=0),
-                 leaves=P.fly(i, 9, -9, 8, g=14, spin=240, drag=1.5, a=P.gone(i, 17, 22),
-                              sx=.35 + .65 * abs(P.C((i - 9) * .7))))
+        p = dict(root=P.swell(1.0), bunch=dict(a=0),
+                 leaves=P.fly(i, B, -11, 11, g=16, spin=280, drag=1.5, a=P.gone(i, 18, 23),
+                              sx=.35 + .65 * abs(P.C((i - B) * .7))))
         for g in at:
-            p[g] = burst(g, i)
-        p[stem] = dict(a=1) if i < 12 else P.fly(i, 12, 2, 16, g=40, spin=-600, a=P.gone(i, 18, 22))
+            p[g] = grape(g, i)
+        p[stem] = P.fly(i, B, 3, 20, g=42, spin=-700, a=P.gone(i, 18, 22))
         return p
     c.run("pop", pose, out=True)
     fx, rng = c.fx, c.rng
     for g, f in when.items():
-        x, z = at[g]
-        big = 1.0 if g in WHEN else .75
-        fx["splat"].emit(f, f + 5, lambda t, x=x, z=z: (x, z - .5 * t * t), rng,
-                         grow=lambda t, big=big: big * (.5 + 1.1 * (1 - (1 - t) ** 3)), fade=P.tail(.45))
-        a0 = math.degrees(math.atan2(out[g][1], out[g][0]))
-        P.burst(fx["juice"], rng, f, 3 if g in WHEN else 1, at=(x, z), speed=(18, 30), ang=(a0 - 55, a0 + 55), g=34,
-                life=(8, 11), grow=(1.0, .6), aim="tail", spread=.2, drag=3)
+        q = flown(g, f)
+        x, z = at[g][0] + q["x"], at[g][1] + q["y"]
+        big = 1.25 if g in WHEN else .9
+        fx["splat"].emit(f, f + 6, lambda t, x=x, z=z: (x, z - .6 * t * t), rng,
+                         grow=lambda t, big=big: big * (.5 + 1.2 * (1 - (1 - t) ** 3)), fade=P.tail(.45))
+        a0 = math.degrees(math.atan2(vel[g][1] - 6, vel[g][0]))
+        P.burst(fx["juice"], rng, f, 4 if g in WHEN else 1, at=(x, z), speed=(18, 32), ang=(a0 - 60, a0 + 60), g=34,
+                life=(7, 10), grow=(1.1, .6), aim="tail", spread=.2, drag=3)
         if g in WHEN:
-            P.burst(fx["skin"], rng, f, 1, at=(x, z), speed=(14, 22), ang=(a0 - 40, a0 + 40), g=30, life=(8, 11),
+            P.burst(fx["skin"], rng, f, 1, at=(x, z), speed=(14, 22), ang=(a0 - 40, a0 + 40), g=30, life=(6, 8),
                     grow=(1.0, .7), spin=700, drag=2.5)
     c.glow_out(lambda i: .2 + .5 * P.strain(i) if i < B else .9 if i == B else 0.0)

@@ -143,61 +143,74 @@ def multi(c):
     c.glow_curve("multi", lambda u: min(1, u / .43) if u < .43 else max(0, 1 - (u - .43) / .4))
 
 
-# ---------------------------------------------------------------- pop: the horn spills the lot and unrolls
+# ---------------------------------------------------------------- pop: the horn bursts its wicker
 # strain  the horn squeezes and shudders, the fruit crowding out of its mouth, the tip curling tighter
-# BLOW    the harvest shoots out of the mouth one piece after another - corn, apple, pumpkin, apples, grapes - each
-#         tumbling its own way, the leaves fluttering after; the empty horn kicks back, its tip uncurling straight,
-#         and shrivels away to its point; leaves and berries
+# BLOW    the harvest is FIRED out of the mouth in a fan - corn, apple, pumpkin, apples, grapes - each tumbling its
+#         own way and swelling toward us; the horn bursts into four rings of wicker that spin apart from the mouth
+#         back to the neck, its curled tip springing off; a flash, leaves, berries and splinters of wicker
+#         (rebuilt 2026-11-11: it used to shrivel in place with the fruit dribbling out)
 from . import popkit as P                                      # noqa: E402
 
 XFX = {
-    "leaf": dict(files=["leaf_red", "leaf_orange", "leaf_gold"], n=8, size=1.6),
-    "berry": dict(files=["parts:fx_berry"], n=10, size=.8),
-    "wicker": dict(files=["parts:fx_wicker"], n=8, size=1.2),
+    "leaf": dict(files=["leaf_red", "leaf_orange", "leaf_gold"], n=12, size=1.7),
+    "berry": dict(files=["parts:fx_berry"], n=12, size=.85),
+    "wicker": dict(files=["parts:fx_wicker"], n=14, size=1.3),
+    "flash": dict(files=["sparkle_w"], n=2, size=3.2),
 }
-# what leaves the horn: (bone, frame it goes, vx, vy, gravity, spin, fade from, to)
-SPILL = [("corn", 8, -9, 17, 38, 520, 18, 23), ("apple_top_fill", 8, 2, 20, 40, -420, 18, 22),
-         ("pumpkin_fill", 9, -8, 9, 36, 380, 19, 24), ("apples_fill", 9, -15, 7, 34, 300, 19, 24),
-         ("grapes", 10, 8, 10, 38, -340, 19, 24), ("leaf_maple", 8, -5, 15, 20, 300, 16, 21),
-         ("leaf_gold", 10, 11, 13, 22, -360, 17, 22), ("leaf_vine", 11, 13, 4, 20, -300, 17, 22)]
+# what leaves the horn: (bone, frame it goes, vx, vy, gravity, spin, fade from, to, how much it swells a second)
+SPILL = [("corn", 8, -9, 25, 44, 620, 19, 24, .9), ("apple_top_fill", 8, 4, 28, 46, -520, 19, 24, 1.1),
+         ("pumpkin_fill", 9, -14, 17, 42, 420, 20, 25, 1.4), ("apples_fill", 9, -18, 9, 36, 340, 19, 24, 1.0),
+         ("grapes", 10, 12, 18, 44, -420, 19, 24, 1.0), ("leaf_maple", 8, -6, 19, 22, 360, 17, 22, 0),
+         ("leaf_gold", 10, 13, 15, 24, -420, 17, 22, 0), ("leaf_vine", 11, 15, 6, 22, -360, 17, 22, 0)]
+MOUTH = (-.6, -.6)
 
 
 def pop(c):
     B = P.BLOW
+    rings = sorted([b for b in c.extras if b.startswith("ring")])
+    mid = (.2, -.3)
+    rv = {}
+    for j, b in enumerate(rings):                              # each ring away from the horn's middle, and up
+        ux, uy = P.unit(c.pivot[b][0] - mid[0], c.pivot[b][1] - mid[1])
+        rv[b] = (B + j, ux * 11 + 3, uy * 9 + 13, (-1) ** j * (380 + 90 * j))
 
     def pose(i, n):
         k = P.strain(i)
         if i < B:
-            q = S(i * 3.0) * k
-            p = dict(root=P.swell(1 + .06 * k, x=.06 * q),
-                     horn=dict(sx=1 - .05 * k + .02 * q, sy=1 + .06 * k - .02 * q), horn_tip=dict(r=22 * k),
-                     leaf_front=dict(r=8 * q), leaf_red=dict(r=-8 * q))
+            q = S(i * 3.3) * k
+            p = dict(root=P.swell(1 + .09 * k, x=.08 * q),
+                     horn=dict(sx=1 - .07 * k + .03 * q, sy=1 + .08 * k - .03 * q), horn_tip=dict(r=26 * k),
+                     leaf_front=dict(r=10 * q), leaf_red=dict(r=-10 * q))
             for j, (b, *_) in enumerate(SPILL[:5]):            # crowding out of the mouth
-                p[b] = dict(x=-.22 * k + .05 * S(i * 3.4 + j) * k, y=-.12 * k + .05 * S(i * 2.9 + j) * k)
+                p[b] = dict(x=-.26 * k + .06 * S(i * 3.4 + j) * k, y=-.14 * k + .06 * S(i * 2.9 + j) * k,
+                            sx=1 + .06 * k, sy=1 + .06 * k)
             return p
-        t = (i - B) / 30
-        kick = c.damp(t, 2.6, .35)
-        z = 1 - .8 * P.st(i, 14, 22)                           # it shrivels to its point
-        horn = dict(x=.9 * (1 - kick), y=.5 * (1 - kick), r=-24 * (1 - kick), sx=(1 + .2 * (1 - kick)) * z,
-                    sy=(1 - .12 * (1 - kick)) * z, a=P.gone(i, 18, 23))
-        p = dict(root=P.swell(1.0), horn=horn, horn_tip=dict(r=22 - 95 * (1 - c.damp(t, 2.2, .3))))
-        for b, f, vx, vy, g, sp, a0, a1 in SPILL:
-            p[b] = P.free(c, b, horn, P.fly(i, f, vx, vy, g=g, spin=sp, a=P.gone(i, a0, a1)) if i >= f
-                          else dict(x=-.22, y=-.12, a=1))
+        p = dict(root=P.swell(1.0), horn=dict(a=0),
+                 horn_tip=P.fly(i, B, 9, 21, g=42, spin=-900, a=P.gone(i, 18, 22)))
+        for b, (f, vx, vy, sp) in rv.items():
+            p[b] = P.fly(i, f, vx, vy, g=38, spin=sp, drag=.8, a=P.gone(i, 18, 23)) if i >= f else dict(a=1)
+        for b, f, vx, vy, g, sp, a0, a1, z in SPILL:
+            if i >= f:
+                s = 1.06 + z * (i - f) / 30
+                p[b] = P.fly(i, f, vx, vy, g=g, spin=sp, drag=.6, a=P.gone(i, a0, a1), sx=s, sy=s)
+            else:
+                p[b] = dict(x=-.26, y=-.14, a=1)
         p["leaf_front"] = dict(r=40 * S((i - B) * .9))
         p["leaf_red"] = dict(r=-40 * S((i - B) * 1.1))
         return p
     c.run("pop", pose, out=True)
     fx, rng = c.fx, c.rng
-    for j in range(8):                                         # leaves tumbling out after the fruit
-        x0, z0, vx, ph = rng.uniform(-2.5, .5), rng.uniform(-2, .5), rng.uniform(-12, 4), rng.uniform(0, 6)
-        fx["leaf"].emit(B + j % 4, 21 + j % 3, lambda t, x0=x0, z0=z0, vx=vx, ph=ph: (
-            x0 + vx * (1 - math.exp(-2.5 * t)) + .5 * S(7 * t + ph), z0 + 5.5 * (1 - math.exp(-4 * t)) - 5 * t * t),
-            rng, spin=rng.choice((-1, 1)) * 300, grow=lambda t, ph=ph: (.75 * abs(P.C(5 * t + ph)) + .2, .75),
+    P.flash(fx["flash"], B, MOUTH, size=(.5, 2.4), life=4, spin=60)
+    P.flash(fx["flash"], B + 1, (.6, .4), size=(.4, 1.6), life=4, rot=30, spin=-60)
+    for j in range(12):                                        # leaves tumbling out after the fruit
+        x0, z0, vx, ph = rng.uniform(-2.5, 1.5), rng.uniform(-2, 1), rng.uniform(-13, 9), rng.uniform(0, 6)
+        fx["leaf"].emit(B + j % 4, 22 + j % 3, lambda t, x0=x0, z0=z0, vx=vx, ph=ph: (
+            x0 + vx * (1 - math.exp(-2.5 * t)) + .5 * S(7 * t + ph), z0 + 7 * (1 - math.exp(-4 * t)) - 6 * t * t),
+            rng, spin=rng.choice((-1, 1)) * 300, grow=lambda t, ph=ph: (.8 * abs(P.C(5 * t + ph)) + .2, .8),
             fade=P.tail(.6))
-    P.burst(fx["berry"], rng, B, 10, at=(-1.4, -1.2), speed=(18, 30), ang=(60, 230), g=40, life=(11, 14),
-            grow=(1.0, .9), spin=300, spread=.8, even=True, drag=2.4)
-    P.burst(fx["wicker"], rng, B + 4, 8, at=(1.4, .4), speed=(14, 24), ang=(0, 360), g=30, life=(9, 12),
-            grow=(1.0, .7), spin=700, spread=1.2, even=True, drag=3, stagger=.5)
+    P.burst(fx["berry"], rng, B, 12, at=MOUTH, speed=(20, 34), ang=(40, 250), g=40, life=(11, 14),
+            grow=(1.0, .9), spin=300, spread=.8, even=True, drag=2.2)
+    P.burst(fx["wicker"], rng, B, 14, at=(.6, 0.0), speed=(16, 30), ang=(0, 360), g=30, life=(10, 14),
+            grow=(1.1, .7), spin=800, spread=1.4, even=True, drag=2.6, stagger=.25)
     c.glow_out(lambda i: .25 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
-               lambda i: 1 + .1 * P.strain(i) if i < B else 1.16)
+               lambda i: 1 + .12 * P.strain(i) if i < B else 1.2)

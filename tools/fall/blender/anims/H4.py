@@ -107,16 +107,18 @@ def multi(c):
     c.glow_curve("multi", lambda u: min(1, u / .43) if u < .43 else max(0, 1 - (u - .43) / .4))
 
 
-# ---------------------------------------------------------------- pop: the buckle pings off and the hat comes apart
+# ---------------------------------------------------------------- pop: the buckle pings off and the hat bursts its seam
 # strain  the crown screws itself down onto the brim, the whole hat quivering stiffly, the buckle swelling and glinting
-# BLOW    PING - the buckle shoots off toward us, spinning and flashing; the crown is fired straight up off the brim
-#         and tips over, its band slipping off it; the brim skims away flat like a thrown plate; a puff of hat dust
+# BLOW    PING - the buckle shoots off toward us, big, spinning and flashing, gold sparks off it; the crown tears in
+#         two down its seam and both halves are fired up and apart, tumbling; the band whips off like a snapped
+#         belt; the brim cracks in half and the halves skim away left and right; hat dust
+#         (rebuilt 2026-11-11: it used to drift apart whole and fade)
 from . import popkit as P                                      # noqa: E402
 
 XFX = {
-    "dust": dict(files=["parts:fx_dust"], n=6, size=2.2, depth=.2),
-    "ping": dict(files=["sparkle_w"], n=8, size=1.8),
-    "spark": dict(files=["sparkle"], n=8, size=1.3),
+    "dust": dict(files=["parts:fx_dust"], n=10, size=2.4, depth=.2),
+    "ping": dict(files=["sparkle_w"], n=8, size=2.0),
+    "spark": dict(files=["sparkle"], n=18, size=1.3),
 }
 
 
@@ -124,37 +126,40 @@ def pop(c):
     B = P.BLOW
 
     def buckle_at(i):
-        return P.fly(i, B, -8, 17, g=30, spin=640)
+        return P.fly(i, B, -6, 20, g=32, spin=760)
 
     def pose(i, n):
         k = P.strain(i)
         if i < B:
-            return dict(root=P.swell(1 + .06 * k, x=.05 * S(i * 3.0) * k), brim=dict(sx=1 + .07 * k, sy=1 - .06 * k),
-                        crown=dict(y=-.3 * k, sy=1 - .17 * k, sx=1 + .07 * k, r=2.5 * S(i * 3.2) * k),
-                        buckle=dict(sx=1 + .38 * k, sy=1 + .38 * k, r=10 * S(i * 3.6) * k))
+            return dict(root=P.swell(1 + .08 * k, x=.07 * S(i * 3.3) * k), brim=dict(sx=1 + .09 * k, sy=1 - .08 * k),
+                        crown=dict(y=-.34 * k, sy=1 - .2 * k, sx=1 + .09 * k, r=3 * S(i * 3.4) * k),
+                        buckle=dict(sx=1 + .45 * k, sy=1 + .45 * k, r=12 * S(i * 3.8) * k))
         t = (i - B) / 30
-        brim = P.fly(i, B, -9, 1.5, g=26, drag=1.2, a=P.gone(i, 17, 22))      # (no turn or squash: its riders stay true)
-        crown = P.fly(i, B, 3, 23, g=40, spin=-190, a=P.gone(i, 19, 23))
-        s = 1.38 + 1.5 * t                                     # it comes at us
-        buckle = dict(buckle_at(i), sx=s, sy=s, a=P.gone(i, 17, 21))
-        slip = max(0.0, t - .1)
-        return dict(root=P.swell(1.0), brim=brim, crown=P.free(c, "crown", brim, crown), band=dict(a=0),
-                    band_bare=dict(a=P.gone(i, 16, 20), y=-26 * slip ** 2, x=-4 * slip, r=50 * slip,
-                                   sx=1 + .5 * slip),
-                    buckle=P.free(c, "buckle", crown, buckle))
+        s = 1.45 + 2.4 * t                                     # it comes at us
+        return dict(root=P.swell(1.0), brim=dict(a=0), crown=dict(a=0), band=dict(a=0),
+                    brim0=P.fly(i, B, -15, 5, g=30, spin=260, drag=.8, a=P.gone(i, 18, 23)),
+                    brim1=P.fly(i, B, 15, 7, g=30, spin=-300, drag=.8, a=P.gone(i, 18, 23)),
+                    crown0=P.fly(i, B, -8, 25, g=46, spin=460, a=P.gone(i, 19, 24)),
+                    crown1=P.fly(i, B, 10, 29, g=46, spin=-560, a=P.gone(i, 19, 24)),
+                    band_bare=P.fly(i, B, 3, 13, g=30, spin=-760, a=P.gone(i, 17, 22), sx=1 + .7 * t,
+                                    sy=1 - .3 * min(1, t * 2)),
+                    buckle=dict(buckle_at(i), sx=s, sy=s, a=P.gone(i, 18, 22)))
     c.run("pop", pose, out=True)
     fx, rng = c.fx, c.rng
     bx, bz = c.pivot["buckle"]
     for f in (3, 5, 7):                                        # the buckle glints as it strains
         fx["ping"].emit(f, f + 3, lambda t: (bx + .2, bz + .2), rot=15 * f, spin=60,
                         grow=lambda t: .2 + .8 * S(math.pi * t), fade=(1, .6))
-    P.flash(fx["ping"], B, (bx, bz), size=(.5, 2.2), life=4, spin=70)
-    for j in range(5):                                         # sparks trailing the buckle
+    P.flash(fx["ping"], B, (bx, bz), size=(.6, 2.8), life=5, spin=70)
+    P.flash(fx["ping"], B + 1, (.2, .6), size=(.4, 2.0), life=4, rot=40, spin=-70)
+    for j in range(6):                                         # sparks trailing the buckle
         f = B + 1 + j * 2
         q = buckle_at(f)
         fx["spark"].emit(f, f + 5, lambda t, q=q: (bx + q["x"], bz + q["y"] - .6 * t), rng, spin=200,
-                         grow=(1.0, .2), fade=P.tail(.5))
-    P.burst(fx["dust"], rng, B, 6, at=(.2, -.6), speed=(8, 16), ang=(20, 160), g=-4, life=(10, 13), grow=(.5, 1.2),
-            spin=120, spread=1.2, even=True, drag=3.5, fade=lambda t: .9 * (1 - t))
+                         grow=(1.1, .2), fade=P.tail(.5))
+    P.burst(fx["spark"], rng, B, 12, at=(bx, bz), speed=(16, 30), ang=(0, 360), g=26, life=(8, 12), grow=(1.0, .15),
+            spin=400, spread=.3, even=True, drag=2.4)
+    P.burst(fx["dust"], rng, B, 10, at=(.2, -.6), speed=(9, 18), ang=(10, 170), g=-4, life=(10, 14), grow=(.5, 1.3),
+            spin=120, spread=1.4, even=True, drag=3.2, fade=lambda t: .9 * (1 - t))
     c.glow_out(lambda i: .25 + .7 * P.strain(i) if i < B else 1.0 if i == B else 0.0,
-               lambda i: 1 + .1 * P.strain(i) if i < B else 1.16)
+               lambda i: 1 + .12 * P.strain(i) if i < B else 1.2)
