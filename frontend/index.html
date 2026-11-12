@@ -3268,6 +3268,32 @@
   #teasefx.flash { animation: teaseFlash .5s ease-out; }
   @keyframes teaseFlash { 0% { opacity: 1; background: rgba(255, 236, 170, .85); } 100% { opacity: 0; background: rgba(255, 236, 170, 0); } }
   @media (prefers-reduced-motion: reduce) { #teasefx { display: none; } }
+
+  /* ---- phone portrait (audit, 2026-11-11): readable HUD and bonus shop ---- */
+  @media (max-width: 1100px) and (orientation: portrait) {
+    .hudbar { grid-template-columns: 1fr auto; grid-template-rows: 1fr 1fr; align-items: center; row-gap: 0; padding-left: calc(4px * var(--hs, 1)); }
+    .hudbar > .hudstat:first-child { grid-column: 1; grid-row: 1; }
+    .hudstat.win { grid-column: 2; grid-row: 1; justify-self: end; align-items: flex-end; border: 0; padding: 0; min-width: 0; }
+    .hudstat.win .val, #roundWin { text-align: right; }
+    .hudbar > .hudbet { grid-column: 1 / 3; grid-row: 2; justify-self: stretch; justify-content: space-between; }
+    .hudstat.bet { align-items: flex-start; }
+    .hudstat.bet .val, #betVal { text-align: left; }
+    .hudstat .lbl, #balanceLbl { font-size: calc(20px * var(--hs, 1)); }
+    .hudstat .val, #balance, #betVal { font-size: calc(40px * var(--hs, 1)); }
+    #balance.long, #betVal.long { font-size: calc(32px * var(--hs, 1)); }
+    #balance.vlong, #betVal.vlong { font-size: calc(26px * var(--hs, 1)); }
+    .betstep { flex-direction: row-reverse; gap: calc(14px * var(--hs, 1)); }
+    .betstep button { width: calc(78px * var(--hs, 1)); height: calc(78px * var(--hs, 1)); border-radius: calc(16px * var(--hs, 1)); }
+    .hudframe .hudbtn::before, .hudframe .sidebtn::before { width: calc(44px * var(--hs, 1)); height: calc(44px * var(--hs, 1)); }
+    /* the shop: two cards a row, bigger words */
+    .bshoprow { display: grid; grid-template-columns: repeat(2, 250px); gap: 14px; max-width: none; }
+    .bsdesc { font-size: 17px; }
+    .bsmax { font-size: 14px; } .bsmax b { font-size: 16px; }
+    .bsx { font-size: 15px; }
+    .bsstat .lbl { font-size: 17px; } .bsstat .val { font-size: 34px; }
+    .bshop #bonusBetDown, .bshop #bonusBetUp { width: 56px; height: 56px; }
+    .bshopx { width: 56px; height: 56px; }
+  }
 </style>
 </head>
 <body>
@@ -7940,10 +7966,11 @@ function buildHud() {
   if (!frame) return;
   const upright = matchMedia("(max-width: 1100px) and (orientation: portrait)").matches;
   const T60 = Math.sqrt(3), S60 = Math.sqrt(3) / 2;
-  const M = 4, H = 128, TOP = M, BOT = M + H, CY = M + H / 2;   // M: room for the outline
-  const S = 74;                                    // the hexagon's half-width
-  const BH = 100, BT = CY - BH / 2, BB = CY + BH / 2;   // the bar, its top and bottom
-  const LEN = upright ? 520 : 720;                 // the bar's straight run (stretched for the WIN readout, 2026-11-04)
+  // upright (a phone held tall): a taller bar with two rows of readouts, so text and buttons are a usable size (audit, 2026-11-11)
+  const M = 4, H = upright ? 196 : 128, TOP = M, BOT = M + H, CY = M + H / 2;   // M: room for the outline
+  const S = upright ? 113 : 74;                                    // the hexagon's half-width
+  const BH = upright ? 168 : 100, BT = CY - BH / 2, BB = CY + BH / 2;   // the bar, its top and bottom
+  const LEN = upright ? 380 : 720;                 // the bar's straight run (stretched for the WIN readout, 2026-11-04)
   const G = 6, GX = G / S60, TW = 72, TG = 6;      // tab gap (square to the face), its run across, tab width, gap within a pair
   const run = (BH / 2) / T60;                      // the pointed end's reach
   const Y1 = CY - TG / 2, Y2 = CY + TG / 2;
