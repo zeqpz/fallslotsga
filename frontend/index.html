@@ -3243,16 +3243,10 @@
   /* the Bonus button: bigger, lifted off the corner, on a dark plate with a gold rim that breathes -
      it was lost against the pumpkins */
   .hud .bonusbtn { width: calc(176px * var(--hs, 1)); height: calc(89px * var(--hs, 1)); left: 26px; bottom: 26px; z-index: 6; }
-  .hud .bonusbtn .bglow {
-    display: block; position: absolute; inset: -9% -7%; z-index: -1; border-radius: calc(22px * var(--hs, 1));
-    background: radial-gradient(120% 120% at 50% 40%, rgba(46, 28, 14, .92), rgba(16, 10, 6, .9));
-    border: calc(3px * var(--hs, 1)) solid #F2B33D; opacity: 1; filter: none; transform: none;
-    box-shadow: 0 0 0 calc(2px * var(--hs, 1)) rgba(0, 0, 0, .65), 0 6px 18px rgba(0, 0, 0, .55), 0 0 22px rgba(242, 179, 61, .55);
-    animation: bonusRim 2.2s ease-in-out infinite;
-  }
-  @keyframes bonusRim {
-    0%, 100% { box-shadow: 0 0 0 calc(2px * var(--hs, 1)) rgba(0, 0, 0, .65), 0 6px 18px rgba(0, 0, 0, .55), 0 0 14px rgba(242, 179, 61, .4); }
-    50%      { box-shadow: 0 0 0 calc(2px * var(--hs, 1)) rgba(0, 0, 0, .65), 0 6px 18px rgba(0, 0, 0, .55), 0 0 34px rgba(255, 201, 60, .95); }
+  .hud .bonusbtn .bglow {   /* (owner, 2026-11-11: no outline) only a soft shade so it reads against the pumpkins */
+    display: block; position: absolute; inset: -22% -16%; z-index: -1; border: none; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(12, 7, 3, .72), rgba(12, 7, 3, .45) 55%, rgba(12, 7, 3, 0));
+    opacity: 1; filter: none; transform: none; box-shadow: none; animation: none; mix-blend-mode: normal;
   }
   .hud .bonusbtn:disabled .bglow { animation: none; opacity: .75; }
   @media (prefers-reduced-motion: reduce) { .hud .bonusbtn .bglow { animation: none; } }
@@ -5266,6 +5260,18 @@ function burstMeasure(r, y, sym) {
   const ar = img.naturalWidth / img.naturalHeight;
   return { pic, name, img, c, drawW: boxW / boxH > ar ? boxH * ar : boxW };
 }
+// A rig icon's own break-apart (its `pop` clip) gets the burst canvas with it: the glow heating up as it
+// strains, then on the blow the flash, the rings, rays, sparks, embers, smoke and the icon's own material
+// (BURST_MAT) - everything but the torn sticker pieces, which the clip's own parts replace. (owner, 2026-11-11)
+function popFx(c, name) {
+  if (!c || REDUCED_MOTION || !shardCtx) return;
+  const t = tempo(), now = performance.now(), col = BURST_COLOUR[name] || "#ffffff";
+  const b = { name, from: now, born: now + BURST_AT * t, t, x: c.x, y: c.y, W: c.w, col, rgb: rgbOf(col), glow: glowSprite(col),
+              pieces: null, sparks: [], flecks: [], puffs: [], rig: true };
+  bursts.push(b);
+  if (!burstRaf) burstRaf = requestAnimationFrame(burstStep);
+  setTimeout(() => blow(b, null, 1), BURST_AT * t);
+}
 function burstIcon(m) {
   if (!m) return;
   const { pic, name, img, c, drawW } = m, t = tempo(), now = performance.now();
@@ -5285,16 +5291,24 @@ function burstIcon(m) {
 // past 16 at once no smoke (a slow machine was losing frames to 30 bursts in full)
 function blow(b, variant, f) {
   const W = b.W, t = b.t, crowd = bursts.length > 8, mob = bursts.length > 16;
-  b.pieces = variant.map(p => {
+  b.pieces = (variant || []).map(p => {
     const a = Math.atan2(p.oy, p.ox) + (Math.random() - .5) * .8, sp = W * (.07 + Math.random() * .11) / t;
     return { c: p.c, x: b.x + p.ox * f, y: b.y + p.oy * f, w: p.c.width * f, h: p.c.height * f,
       vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - W * .07 / t, rot: 0, vrot: (Math.random() - .5) * .34 / t,
       flip: Math.random() * 6.3, vflip: (.1 + Math.random() * .2) / t, life: (600 + Math.random() * 250) * t };
   });
-  b.sparks = Array.from({ length: mob ? 5 : crowd ? 8 : 14 }, () => {
-    const a = Math.random() * Math.PI * 2, sp = W * (.13 + Math.random() * .2) / t;
+  b.sparks = Array.from({ length: mob ? 6 : crowd ? 10 : 20 }, () => {
+    const a = Math.random() * Math.PI * 2, sp = W * (.13 + Math.random() * .26) / t;
     return { x: b.x + Math.cos(a) * W * .12, y: b.y + Math.sin(a) * W * .12, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-      life: (200 + Math.random() * 220) * t };
+      life: (220 + Math.random() * 300) * t };
+  });
+  // rays of light thrown out on the blow, and embers that drift up and twinkle out after it
+  const nr = mob ? 0 : crowd ? 6 : 10;
+  b.rays = Array.from({ length: nr }, (_, i) => ({ a: (i + Math.random() * .7) / nr * Math.PI * 2, len: W * (.5 + Math.random() * .55), w: .05 + Math.random() * .07 }));
+  b.embers = Array.from({ length: mob ? 3 : crowd ? 5 : 10 }, () => {
+    const a = -Math.PI / 2 + (Math.random() - .5) * Math.PI * 1.5, sp = W * (.03 + Math.random() * .08) / t;
+    return { x: b.x + (Math.random() - .5) * W * .4, y: b.y + (Math.random() - .5) * W * .4, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      s: W * (.1 + Math.random() * .12), ph: Math.random() * 6.3, life: (520 + Math.random() * 480) * t };
   });
   // the icon's own material (BURST_MAT): fewer of each in a crowd
   const keep = mob ? .35 : crowd ? .6 : 1;
@@ -5379,7 +5393,7 @@ function burstStep() {
   for (const b of bursts) {
     if (now < b.born || !b.pieces) {   // heating up from inside as it strains
       const k = Math.min(1, (now - b.from) / (b.born - b.from)), s = b.W * (1 + .45 * k);
-      ctx.globalAlpha = .5 * k * k;
+      ctx.globalAlpha = (b.rig ? .75 : .5) * k * k;
       ctx.drawImage(b.glow, b.x - s / 2, b.y - s / 2, s, s);
       continue;
     }
@@ -5400,15 +5414,36 @@ function burstStep() {
       ctx.globalAlpha = .3 * (1 - p) * (1 - p); ctx.strokeStyle = `rgb(${b.rgb})`; ctx.lineWidth = b.W * .11 * (1 - p) + 1;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.W * (.2 + .95 * (1 - Math.pow(1 - p, 2.4))), 0, Math.PI * 2); ctx.stroke();
     }
+    const ms = now - b.born;
+    if (age < 260 && b.rays && b.rays.length) {   // the rays: thin wedges of light that shoot out and thin to nothing
+      const p = age / 260, e = 1 - Math.pow(1 - p, 3), r0 = b.W * (.12 + .25 * e);
+      ctx.globalAlpha = .6 * (1 - p) * (1 - p); ctx.fillStyle = "#fff6d8";
+      ctx.beginPath();
+      for (const ry of b.rays) {
+        const r1 = r0 + ry.len * (.35 + .65 * e), w = ry.w * (1 - p * .7);
+        ctx.moveTo(b.x + Math.cos(ry.a - w) * r0, b.y + Math.sin(ry.a - w) * r0);
+        ctx.lineTo(b.x + Math.cos(ry.a) * r1, b.y + Math.sin(ry.a) * r1);
+        ctx.lineTo(b.x + Math.cos(ry.a + w) * r0, b.y + Math.sin(ry.a + w) * r0);
+      }
+      ctx.fill();
+    }
+    if (b.embers) for (const em of b.embers) {   // the embers: slow, rising, twinkling in the icon's colour
+      if (ms > em.life) continue;
+      const dg = Math.pow(.94, dt), q = ms / em.life;
+      em.x += em.vx * dt; em.y += em.vy * dt; em.vx = em.vx * dg + Math.sin(em.ph + ms * .006) * b.W * .0006 * dt; em.vy = em.vy * dg - b.W * .0009 / b.t * dt;
+      const sz = em.s * (1 - q * .5);
+      ctx.globalAlpha = (1 - q) * (.55 + .45 * Math.sin(em.ph + ms * .03));
+      ctx.drawImage(b.glow, em.x - sz / 2, em.y - sz / 2, sz, sz);
+    }
     // the sparks: streaks drawn out by their speed, the colour round a white core
-    const ms = now - b.born, drag = Math.pow(.9, dt);
+    const drag = Math.pow(.9, dt);
     let live = false;
     ctx.beginPath();
     for (const sp of b.sparks) {
       if (ms > sp.life) continue;
       live = true;
       sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vx *= drag; sp.vy = sp.vy * drag + b.W * .004 / b.t * dt;
-      ctx.moveTo(sp.x - sp.vx * 2.4, sp.y - sp.vy * 2.4); ctx.lineTo(sp.x, sp.y);
+      ctx.moveTo(sp.x - sp.vx * 1.7, sp.y - sp.vy * 1.7); ctx.lineTo(sp.x, sp.y);
     }
     if (live) {
       const p = Math.min(1, age / 420);
@@ -6892,12 +6927,13 @@ const handlers = {
     const timers = [];
     let anyPop = false;
     const geo = order.map(([r, y]) => burstMeasure(r, y, showSym(r, y)));   // every tile's burst, measured once up front
+    const ctr = !REDUCED_MOTION && shardLayer() ? order.map(([r, y]) => cellCentre(r, y)) : [];
     order.forEach(([r, y], i) => {
       const go = () => {
         // the icon's own break-apart (its `pop` clip, Blender's: unique to each icon, its blow on the frame
         // the cell's timing expects) - the torn pieces and flecks are only the fallback now (2026-11-10)
         const cell = cellEls[r][y], el = RIGL.on && rigOf(cell), pc = el && RIGL.data.rigs[el._name] && RIGL.data.rigs[el._name].clips.pop;
-        if (pc && rigPlay(cell, "pop", { speed: (pc.blow || 8) / pc.fps * 1000 / BURST_AT })) { cell.classList.add("popping"); anyPop = true; }
+        if (pc && rigPlay(cell, "pop", { speed: (pc.blow || 8) / pc.fps * 1000 / BURST_AT })) { cell.classList.add("popping"); anyPop = true; popFx(ctr[i], el._name); }
         else { burstIcon(geo[i]); cell.classList.add("explode"); }
         // every pop its own pitch, drifting up through a run - on the blow, not as the strain starts;
         // the value under it pops forward on the blow too, not while the tile still covers it
