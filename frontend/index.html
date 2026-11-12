@@ -3237,7 +3237,9 @@
   .wfx .shine { display: none; }
   /* a tile playing its break-apart: over its neighbours, nothing clipped */
   .cell.popping { z-index: 4; }
-  .reel.tumbling { clip-path: none; }
+  /* tiles falling in or out are cut off at the frame's opening, 18px outside the reel, under the logs
+     (owner, 2026-11-12: with no clip they showed above and below the board); pops never run while tumbling */
+  .reel.tumbling { clip-path: inset(-20px -60px); }
   /* no hop of the wall, the tag or the scarecrow on a spin: only the board answers the press */
   #bgwall.bounce, #walltag.bounce, .tagfx.bounce, .charfx.bounce { animation: none; }
   /* the Bonus button: bigger, lifted off the corner, on a dark plate with a gold rim that breathes -
