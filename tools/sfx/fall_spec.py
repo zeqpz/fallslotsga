@@ -193,6 +193,27 @@ H = {
                      ("files", ["sfx_coins_rain.wav"], -21, "the total arrives: acorns and walnuts raining down")),
     "h_pop": (PRE + "A single kernel of corn popping into popcorn in a hot pan: one bright, puffy, cartoony pop.", 6,
               "hit", (.06, .8, 1, None), ("files", ["sfx_pop.wav"], -20, "an icon popping off: popcorn pop")),
+    # ---------------- every icon its own pop (owner, 2026-11-12) ----------------
+    "pop_h1": (PRE + 'A crispy roast turkey drumstick snapped off the bird: one crisp crackly crunch-snap with a small juicy squish.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_h1", -20, "popH1", .4, "the turkey popping off the board")),
+    "pop_h2": (PRE + 'A soft pumpkin pie squashed flat by a hand: one soft creamy splat with a short flaky crust crunch.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_h2", -20, "popH2", .4, "the pie popping off the board")),
+    "pop_h3": (PRE + 'A dry wicker basket bursting apart: one sharp woody crackling snap of breaking wicker and a couple of apples thudding out.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_h3", -20, "popH3", .4, "the wicker popping off the board")),
+    "pop_h4": (PRE + 'A brass belt buckle pinging off and flying away: one bright metallic ping with a quick flap of felt cloth.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_h4", -20, "popH4", .4, "the buckle popping off the board")),
+    "pop_h5": (PRE + 'A small clay cider jug shattering on a stone floor: one short ceramic crack and shatter with a small splash.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_h5", -20, "popH5", .4, "the jug popping off the board")),
+    "pop_h6": (PRE + 'A handful of popcorn kernels popping all at once in a hot pan: one quick rapid burst of four bright puffy pops.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_h6", -20, "popH6", .4, "the corn popping off the board")),
+    "pop_h7": (PRE + 'A big ripe pumpkin smashing open: one heavy hollow thump and a wet pulpy splat.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_h7", -20, "popH7", .4, "the pumpkin popping off the board")),
+    "pop_l1": (PRE + 'A handful of dry autumn leaves crushed hard in a fist: one crisp papery crunch.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_l1", -20, "popL1", .4, "the leaf popping off the board")),
+    "pop_l3": (PRE + 'A crisp green apple cracked in half by hand: one loud juicy crunchy snap.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_l3", -20, "popL3", .4, "the apple popping off the board")),
+    "pop_l4": (PRE + 'A bunch of ripe grapes squished in a fist: one quick run of small wet juicy pops and squirts.', 5, "hit",
+               (.06, .8, 2, None), ("set", "pop_l4", -20, "popL4", .4, "the grapes popping off the board")),
     "h_multi_hit": (PRE + "A heavy wooden mallet striking an empty oak cider barrel: one big hollow resonant boom, "
                     "with a bright cowbell clank on top.", 5, "impact", (.5, 1.55, 1, None),
                     ("files", ["sfx_multi_hit.wav"], -20.5, "a Multi going off: barrel boom + cowbell")),
@@ -301,7 +322,8 @@ SHAPE = {"h_intro_rise": {"rise": 5}, "h_intro_hit": {"lead": 1}, "h_line": {"le
          "h_swish_in": {"pass": .4}, "h_swish_out": {"pass": .2}}
 
 # one event per take for these (no second hit inside the event)
-SINGLE = {"land_platter", "land_pie", "land_hat", "land_jug", "land_corn", "land_pumpkin", "land_leaf", "land_acorn",
+SINGLE = {"pop_h1", "pop_h2", "pop_h3", "pop_h4", "pop_h5", "pop_h6", "pop_h7", "pop_l1", "pop_l3", "pop_l4",
+          "land_platter", "land_pie", "land_hat", "land_jug", "land_corn", "land_pumpkin", "land_leaf", "land_acorn",
           "land_apple", "land_grapes", "land_sunflower", "land_feather", "land_jelly", "land_porcelain", "land_hay",
           "land_bottle", "crow_peck", "f_cork", "f_gravy_drop", "f_plop", "f_squash", "b_pop", "c_bonk", "c_bubble",
           "h_bet", "h_toggle", "h_pop", "h_multi_hit", "h_intro_hit", "h_glint", "h_count_tick", "h_slam",

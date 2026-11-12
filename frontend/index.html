@@ -3288,6 +3288,11 @@
     .bshop #bonusBetDown, .bshop #bonusBetUp { width: 56px; height: 56px; }
     .bshopx { width: 56px; height: 56px; }
   }
+
+  /* a break-apart never draws over the frame or outside the board (owner, 2026-11-12): the popping tile and
+     the burst canvas go under the logs (the frame is z-index 3) and are cut off just inside the board's edge */
+  .cell.popping { z-index: 2; }
+  .shardlayer { z-index: 2; clip-path: inset(110px); }   /* BURST_PAD + POP_EDGE */
 </style>
 </head>
 <body>
@@ -4956,6 +4961,7 @@ function paintGrid() { placeMultLayer(); for (let r = 0; r < REELS; r++) for (le
 // hanging past the board's edges so a piece can fly over the frame; a frame loop while anything
 // is in the air, nothing when there is not.
 const BURST_PAD = 96;
+const POP_EDGE = 14;   // how far inside the board's edge a pop is cut off: under the frame's logs (their opening is 18px in)
 let shardCanvas = null, shardCtx = null, burstDpr = 1;   // the burst layer over the board, and its device px per css px
 function shardLayer() {
   const board = $("board");
@@ -6403,6 +6409,10 @@ const SFX_SETS = {
   hiccup: ["sfx_hiccup", 3, .12], strawRustle: ["sfx_straw_rustle", 3, .08], crowCaw: ["sfx_crow_caw", 2, .12],
   jugSlosh: ["sfx_jug_slosh", 2, .1], ropeCreak: ["sfx_rope_creak", 2, .08], wingFlap: ["sfx_wing_flap", 2, .1],
   crowPeck: ["sfx_crow_peck", 3, .1],
+  // every icon's own pop as it breaks apart (tumbleBoard): what it is made of
+  popH1: ["sfx_pop_h1", 2, .4], popH2: ["sfx_pop_h2", 2, .4], popH3: ["sfx_pop_h3", 2, .4], popH4: ["sfx_pop_h4", 2, .4],
+  popH5: ["sfx_pop_h5", 2, .4], popH6: ["sfx_pop_h6", 2, .4], popH7: ["sfx_pop_h7", 2, .4],
+  popL1: ["sfx_pop_l1", 2, .4], popL3: ["sfx_pop_l3", 2, .4], popL4: ["sfx_pop_l4", 2, .4],
 };
 const SFX_VARS = {}, sfxVarMemo = {};
 for (const [name, [stem, n, level]] of Object.entries(SFX_SETS)) {
@@ -6927,20 +6937,30 @@ const handlers = {
     const timers = [];
     let anyPop = false;
     const geo = order.map(([r, y]) => burstMeasure(r, y, showSym(r, y)));   // every tile's burst, measured once up front
-    const ctr = !REDUCED_MOTION && shardLayer() ? order.map(([r, y]) => cellCentre(r, y)) : [];
+    shardLayer();
+    // where every popping tile sits in the board, and the cut that keeps its break-apart inside the frame's
+    // opening (owner, 2026-11-12: pieces flew over the logs and out of the board): an inset on the tile itself,
+    // reaching POP_EDGE px inside the board's edge on every side - that is under the logs, which draw over it
+    const bdW = $("board").offsetWidth, bdH = $("board").offsetHeight;
+    const ctr = order.map(([r, y]) => {
+      const c = cellCentre(r, y), h = cellEls[r][y].offsetHeight, x = c.x - BURST_PAD, t = c.y - BURST_PAD;
+      c.clip = `inset(${(POP_EDGE - (t - h / 2)).toFixed(1)}px ${(POP_EDGE - (bdW - x - c.w / 2)).toFixed(1)}px ${(POP_EDGE - (bdH - t - h / 2)).toFixed(1)}px ${(POP_EDGE - (x - c.w / 2)).toFixed(1)}px)`;
+      return c;
+    });
     order.forEach(([r, y], i) => {
       const go = () => {
         // the icon's own break-apart (its `pop` clip, Blender's: unique to each icon, its blow on the frame
         // the cell's timing expects) - the torn pieces and flecks are only the fallback now (2026-11-10)
         const cell = cellEls[r][y], el = RIGL.on && rigOf(cell), pc = el && RIGL.data.rigs[el._name] && RIGL.data.rigs[el._name].clips.pop;
-        if (pc && rigPlay(cell, "pop", { speed: (pc.blow || 8) / pc.fps * 1000 / BURST_AT })) { cell.classList.add("popping"); anyPop = true; popFx(ctr[i], el._name); }
+        if (pc && rigPlay(cell, "pop", { speed: (pc.blow || 8) / pc.fps * 1000 / BURST_AT })) { cell.classList.add("popping"); cell.style.clipPath = ctr[i].clip; anyPop = true; popFx(ctr[i], el._name); }
         else { burstIcon(geo[i]); cell.classList.add("explode"); }
         // every pop its own pitch, drifting up through a run - on the blow, not as the strain starts;
         // the value under it pops forward on the blow too, not while the tile still covers it
         const rate = .8 + Math.random() * .55 + i * .01;
         // a wet paint pop layered under every third one, never closer than 140 ms, so a big
         // cluster's run of pops is not doubled into noise
-        setTimeout(() => { sfx("pop", rate); if (i % 3 === 0) sfxGap("paintBurst", 140, rate * .95); multEls[r][y].classList.add("bare"); }, BURST_AT * tempo());
+        const own = el && SFX_VARS["pop" + el._name] ? "pop" + el._name : "pop";   // the icon's own pop (2026-11-12)
+        setTimeout(() => { sfx(own, own === "pop" ? rate : .94 + Math.random() * .12 + i * .004); if (i % 3 === 0) sfxGap("paintBurst", 140, rate * .95); multEls[r][y].classList.add("bare"); }, BURST_AT * tempo());
       };
       timers.push(setTimeout(go, i * gap));
     });
@@ -6954,7 +6974,7 @@ const handlers = {
     // 2. gravity, per column
     const landers = [];   // every tile that drops: the row it lands on and its pace
     for (let r = 0; r < REELS; r++) {
-      for (let y = 0; y < ROWS; y++) { cellEls[r][y].classList.remove("explode", "popping", "tdrop"); cellEls[r][y].style.removeProperty("--fall"); }
+      for (let y = 0; y < ROWS; y++) { cellEls[r][y].classList.remove("explode", "popping", "tdrop"); cellEls[r][y].style.removeProperty("--fall"); cellEls[r][y].style.removeProperty("clip-path"); }
       const goneRows = goneByReel[r];
       if (!goneRows.size) continue;                         // untouched column: nothing moves
       cellEls[r][0].parentElement.classList.add("tumbling"); // clip this column's incoming tiles
@@ -7011,7 +7031,7 @@ const handlers = {
     }
     await delay(500 * slowest);   // until the slowest tile has settled
     eachCell((el, r, y) => {
-      el.classList.remove("tdrop", "explode", "popping");
+      el.classList.remove("tdrop", "explode", "popping"); el.style.removeProperty("clip-path");
       for (const v of ["--fall", "--droptime", "--blur", "--bnc"]) el.style.removeProperty(v);
       multEls[r][y].classList.remove("bare");
     });
