@@ -97,6 +97,22 @@ PARTS = {
               "each boot complete with its rope tie round the ankle and the little tuft of straw sticking out of its "
               "top, the top of each boot drawn COMPLETE where the trouser leg and straw covered it. NO trouser legs, "
               "NO wooden post between them, NO grass, NO ground shadow."),
+    # (2026-11-15, owner: "shorts over stilts" - the hips and both legs are now cut from ONE pair of trousers, so the
+    # widths and the denim match at the hip joints; and plain boots, no straw: tools/fall/cut_scare_parts.py)
+    "trousers": ("legs", "Draw ONLY the lower half of his blue denim overalls as ONE separate piece: one complete pair of "
+                 "full-length loose denim TROUSERS seen from the front, from the knotted tan rope belt at the waist "
+                 "(drawn complete all the way across, with its knot, NO dangling rope ends) down to the two frayed "
+                 "ragged hems at the ankles. The seat and both legs are one continuous garment with NO hem, cuff, "
+                 "seam or outline between the seat and the legs. The two legs hang straight down, parallel and the "
+                 "same width (each as wide as half the seat), with a narrow clear gap between them from the crotch "
+                 "down to the hems. Keep the big red square patch and little lightning-bolt marks on the viewer's "
+                 "left leg, the tan square patch near the knee on the right leg, the fly seam and pocket stitching. "
+                 "NO straw, NO boots, NO shirt, NO bib, no wooden pole."),
+    "boots_plain": ("boots", "Draw ONLY his two brown leather BOOTS as two separate pieces with a wide clear gap between "
+                    "them: plain worn work boots, each drawn complete with a tall straight shaft that is open at the "
+                    "top (a plain round rim), toes pointing a little outward. Plain leather only: NO straw anywhere, NO "
+                    "rope tie, NO laces sticking out, NO trouser legs, NO wooden post between them, NO grass, NO ground "
+                    "shadow."),
     "sleeve_l": ("arm_l", "Draw ONLY the shirt SLEEVE of the arm on the viewer's LEFT, as one separate piece: a tube of "
                  "red-and-orange plaid cloth with its olive elbow patch and ragged cuff, stretched out sideways. The "
                  "shoulder end (right side of the picture) is drawn COMPLETE and rounded where the body covered it. NO "

@@ -33,6 +33,7 @@ import scarecrow as SC                         # numpy only outside Blender
 ROOT = os.path.dirname(os.path.dirname(HERE))
 PARTS = os.path.join(ROOT, "art", "fall-src", "scare_parts", "parts")
 FPS = SC.FPS
+JOINTS = json.load(open(os.path.join(PARTS, "joints.json")))
 GROUND_Y = 1458                                # where the post goes into the ground (the boots' shadows lie here)
 
 # bones: name, parent, pivot (art px). Parents before children.
@@ -53,45 +54,43 @@ BONES = [
     ("pupil_r", "head", (509, 325)),
     ("brow_l", "head", (433, 299)),
     ("brow_r", "head", (511, 270)),
-    ("sleeve_l", "pole", (245, 495)),
-    ("sleeve_r", "pole", (822, 495)),
-    ("frill_l", "pole", (240, 490)),
-    ("frill_r", "pole", (836, 488)),
+    ("sleeve_l", "pole", (176, 484)),         # the wrists: under the rope coils on the crossbar
+    ("sleeve_r", "pole", (864, 480)),
+    ("frill_l", "pole", (192, 484)),
+    ("frill_r", "pole", (856, 484)),
     ("hand_lb", "pole", (150, 462)),
     ("hand_l", "pole", (150, 462)),
     ("hand_rb", "pole", (890, 460)),
     ("hand_r", "pole", (890, 460)),
     ("rope", "pole", (152, 470)),
     ("jug", "rope", (150, 588)),
-    ("belt_b", "hips", (622, 776)),
-    ("belt", "hips", (612, 770)),
-    ("leg_l", "hips", (482, 852)),
-    ("leg_r", "hips", (608, 852)),
-    ("cuff_l", "leg_l", (458, 1112)),
-    ("cuff_r", "leg_r", (612, 1114)),
-    ("boot_l", "leg_l", (458, 1180)),
-    ("boot_r", "leg_r", (592, 1180)),
-    ("shadow_l", "root", (442, GROUND_Y)),
-    ("shadow_r", "root", (596, GROUND_Y)),
+    ("belt_b", "hips", (588, 754)),
+    ("belt", "hips", (577, 748)),
+    ("leg_l", "hips", tuple(JOINTS["leg_l"])),      # the hip joints: cut_scare_parts.make_trousers
+    ("leg_r", "hips", tuple(JOINTS["leg_r"])),
+    ("boot_l", "leg_l", (JOINTS["hem_l"][0], JOINTS["hem_l"][1] - 66)),     # the boot's shaft, up inside the trouser leg
+    ("boot_r", "leg_r", (JOINTS["hem_r"][0], JOINTS["hem_r"][1] - 66)),
+    ("shadow_l", "root", (456, GROUND_Y)),
+    ("shadow_r", "root", (632, GROUND_Y)),
     ("crow", "pole", (878, 416)),
     ("crow_head", "crow", (876, 283)),
     ("wing_r", "crow", (884, 290)),
     ("wing_l", "crow", (858, 292)),
 ]
 BONE_NAMES = [b[0] for b in BONES]
-SHOULDER = {"sleeve_l": (440, 500), "sleeve_r": (640, 500)}      # on the chest: where each sleeve is aimed
-SOLE = {"shadow_l": ("boot_l", (442, 1354)), "shadow_r": ("boot_r", (596, 1354))}
+SHOULDER = {"sleeve_l": (418, 506), "sleeve_r": (658, 502)}      # on the chest: where each sleeve is aimed
+SOLE = {"shadow_l": ("boot_l", (456, 1302)), "shadow_r": ("boot_r", (632, 1302))}
+SOLE_REST = 1354                               # (the shadows are sized as if the soles still hung this low)
 
 # slots, back to front: name, bone, the sprite it shows at rest (None: hidden at rest)
 SLOTS = [
     ("ground", "root", "ground"), ("shadow_l", "shadow_l", "shadow"), ("shadow_r", "shadow_r", "shadow"),
     ("post", "pole", "post"), ("crossbar", "pole", "crossbar"),
-    ("sleeve_l", "sleeve_l", "sleeve_l"), ("sleeve_r", "sleeve_r", "sleeve_r"),
     ("boot_l", "boot_l", "boot_l"), ("boot_r", "boot_r", "boot_r"),
     ("leg_l", "leg_l", "leg_l"), ("leg_r", "leg_r", "leg_r"),
-    ("cuff_l", "cuff_l", "cuff_l"), ("cuff_r", "cuff_r", "cuff_r"),
     ("torso", "chest", "torso"), ("hips", "hips", "hips"),
     ("belt_b", "belt_b", "belt_b"), ("belt_a", "belt", "belt_a"),
+    ("sleeve_l", "sleeve_l", "sleeve_l"), ("sleeve_r", "sleeve_r", "sleeve_r"),     # (over the torso's shoulder caps)
     ("collar", "collar", "collar"),
     ("hat_back", "hat", "hat_back"), ("hair_l", "hair_l", "hair_l"),
     ("head", "head", "head"),
@@ -304,8 +303,6 @@ def clip_frames(name, rng, used):
             "belt_b": (.7 * back["belt"]["r"], 0, 0, 1, 1),
             "leg_l": (g("leg_l", "r"), 0, 0, 1, 1),
             "leg_r": (g("leg_r", "r"), 0, 0, 1, 1),
-            "cuff_l": (g("cuff_l", "r"), 0, 0, 1, 1),
-            "cuff_r": (g("cuff_r", "r"), 0, 0, 1, 1),
             "boot_l": (g("boot_l", "r"), 0, 0, 1, 1),
             "boot_r": (g("boot_r", "r"), 0, 0, 1, 1),
             # (in the air it flies CROW_UP px higher than the mesh rig's crow did: this head and hat reach further up)
@@ -337,13 +334,13 @@ def clip_frames(name, rng, used):
             wx, wy = W[s][3], W[s][4]
             ang = math.atan2(ty - wy, tx - wx) - rest_ang[s]
             ang = (ang + math.pi) % (2 * math.pi) - math.pi
-            k = SC.cl(math.hypot(tx - wx, ty - wy) / rest_len[s], .72, 1.32)
+            k = SC.cl(math.hypot(tx - wx, ty - wy) / rest_len[s], .55, 1.7)
             sag = abs(g(s, "r")) * .012
             W[s] = [-math.degrees(ang), k, 1 + (1 - k) * .3 + sag, wx, wy]
         # the boots' shadows on the ground: under each sole, wider and thinner the higher the boot hangs
         for s, (boot, sole) in SOLE.items():
             bx, by = point(W[boot], piv[boot], sole)
-            lift = max(0.0, sole[1] - by)
+            lift = max(0.0, sole[1] - by)        # (0 at rest: the rest shadow is the full one)
             W[s] = [0.0, min(1.7, 1 + lift / 260), max(.45, 1 - lift / 300), bx, GROUND_Y]
         for j, b in enumerate(BONE_NAMES):
             r, sx, sy, x, y = W[b]

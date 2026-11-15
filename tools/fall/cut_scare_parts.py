@@ -43,18 +43,17 @@ TAKES = {
              ("hat_tuft", (.3, .9, 470, 180, .22, 0)), ("hair_r", (.05, .1, 588, 306, .2, 0, dict(mirror=True)))],
     "collar": [("collar", (.47, .15, 535, 462, .258, 0))],
     "torso": [("torso", (0, 0, 383, 466, .394, 0))],
-    "hips": [("hips", (.5, 0, 545, 726, .285, 0))],
-    "leg_l": [("leg_l", (.5, .02, 487, 823, .322, 3, dict(rows=(.28, 1))))],
-    "leg_r": [("leg_r", (0, 1, 543, 1134, .315, 0, dict(rows=(.28, 1))))],
-    "cuffs": [("cuff_l", (.5, .1, 458, 1112, .27, 0)), ("cuff_r", (.5, .1, 612, 1114, .27, 0))],
-    "boots": [("boot_l", (0, 1, 368, 1358, .34, 0)), ("boot_r", (0, 1, 520, 1358, .34, 0))],
-    "sleeve_l": [("sleeve_l", (.03, .35, 240, 497, .27, 0))],
-    "sleeve_r": [("sleeve_r", (.97, .4, 826, 497, .27, 0))],
-    "hand_l": [("hand_l", (.97, .12, 142, 460, .175, 18)), ("frill_l", (.9, .3, 245, 490, .19, 0))],
-    "hand_r": [("frill_r", (.3, .05, 838, 470, .2, 0)), ("hand_r", (.08, .1, 898, 462, .2, 0))],
+    # (2026-11-15: ONE pair of trousers - made() cuts it into hips + two legs with round overlapping tops - and plain
+    # boots, no straw; the straw cuffs are gone)
+    "trousers": [("trousers", (.5, 0, 548, 722, .34, 0))],
+    "boots_plain": [("boot_l", (.5, 0, 468, 1100, .34, 0)), ("boot_r", (.5, 0, 626, 1100, .34, 0))],
+    "sleeve_l": [("sleeve_l", (.03, .35, 172, 492, .23, 0))],
+    "sleeve_r": [("sleeve_r", (.97, .4, 868, 490, .19, 0))],
+    "hand_l": [("hand_l", (.97, .12, 142, 460, .175, 18)), ("frill_l", (.9, .3, 196, 486, .19, 0))],
+    "hand_r": [("frill_r", (.3, .05, 852, 468, .2, 0)), ("hand_r", (.08, .1, 898, 462, .2, 0))],
     "ropes": [("coil_l", (.5, .5, 152, 467, .325, 0)), ("coil_r", (.5, .5, 884, 458, .325, -8)),
               ("jug_rope", (.5, 0, 152, 470, .36, 0, dict(rows=(0, .40)))),
-              ("belt_a", (.5, .1, 612, 772, .27, 0)), ("belt_b", (.5, 0, 624, 776, .25, -8, dict(rows=(.3, 1))))],
+              ("belt_a", (.5, .1, 577, 748, .27, 0)), ("belt_b", (.5, 0, 588, 752, .25, -8, dict(rows=(.3, 1))))],
     "jug": [("jug", (0, 0, 38, 564, .222, 0))],
     "crow": [("crow", (0, 0, 757, 189, .2625, 0))],
     "crow_wing": [("wing", (.93, .78, 858, 292, .15, 0))],
@@ -427,15 +426,18 @@ def make_face(meta):
         # the lid's colour: the burlap round the eye, a little darker
         sx_, sy_ = int((cx - hx) * S), int((cy - hy) * S)
         skin = np.median(head[sy_ - 30:sy_ + 30, sx_ - 30:sx_ + 30, :3].reshape(-1, 3), axis=0) * 255
-        lid = tuple(float(c) * .92 for c in skin)
+        lid = tuple(float(c) * .985 for c in skin)
+        cover = np.clip((d_out + 2.2) / 2.0, 0, 1)                     # the whole eye and its ring, 2 px soft outside
         clip = np.clip((d_out - ink_w + .6) * k + .5, 0, 1)            # (a hair over the outline's inner edge)
         for i, f in enumerate(UPPER):
             full = f >= .999                                           # shut: the whole eye, a sleepy curve low on it
             fe, bow = (.80, .34) if full else (f, .22)
             edge = -ry + 2 * ry * fe - ry * bow * np.clip(u / rx, -1, 1) ** 2      # (its middle is its lowest point)
             edge = edge + LID_SLANT[side] * u * (0.0 if full else 1.0)
-            fill = clip if full else np.clip((edge - v) * k + .5, 0, 1) * clip
+            fill = cover if full else np.clip((edge - v) * k + .5, 0, 1) * clip
             line = np.clip((ink_w / 2 - np.abs(v - edge)) * k + .5, 0, 1) * clip
+            if full:                                                   # the lash curve stops short of the corners
+                line = line * np.clip((rx * .86 - np.abs(u)) * k, 0, 1)
             write(meta, f"lid_u{i + 1}_{side}", _down([(lid, fill), (INK, line)]), x0, y0)
         for i, f in enumerate(LOWER):
             edge = ry - 2 * ry * f + ry * .2 * np.clip(u / rx, -1, 1) ** 2
@@ -498,6 +500,56 @@ def make_mouth(meta):
     write(meta, "mouth_drunk", out, x0, y0)
 
 
+HIP_UP, HIP_FEATHER = 14, 7              # the hip pivots sit this far above the crotch; the hips' lower edge fades over this
+
+
+def make_trousers(meta):
+    """The one pair of trousers -> hips + leg_l + leg_r. Each leg keeps everything of its side below its hip pivot
+    plus a round cap about the pivot (radius = half the leg's width); the hips keep everything above the crotch plus
+    a slightly bigger disc about each pivot, its lower edge faded - so a swinging leg shows a soft fold, never a gap.
+    The pivots and hems are written to joints.json for the rig."""
+    tr, tx, ty = read_part(meta, "trousers")
+    a = tr[..., 3] > .5
+    H, W = a.shape
+    cols = np.arange(W)
+    mid = W // 2
+    crotch = None
+    for y in range(H - 1, 0, -1):                                    # up from the hems: the last row with a gap in the middle
+        row = a[y]
+        gap = ~row & (np.abs(cols - mid) < W * .2)
+        if row.any() and gap.any() and row[:mid].any() and row[mid:].any():
+            crotch = y
+        elif crotch is not None and y < crotch - 4:
+            break
+    gx = np.nonzero(~a[crotch + 6] & (np.abs(cols - mid) < W * .2))[0]
+    cx = (gx.min() + gx.max()) / 2
+    yy = min(H - 1, crotch + int(40 * S))
+    spans = {}
+    for side, sl in (("l", slice(0, int(cx))), ("r", slice(int(cx), W))):
+        xs = np.nonzero(a[yy, sl])[0] + (sl.start or 0)
+        spans[side] = (xs.min(), xs.max())
+    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
+    joints = {}
+    hips_k = _aa((crotch - 3 * S) - ys)                               # above the crotch
+    for side in "lr":
+        x0, x1 = spans[side]
+        px, py = (x0 + x1) / 2, crotch - HIP_UP * S
+        rad = (x1 - x0) / 2 - 1.5 * S
+        dist = np.hypot(xs - px, ys - py)
+        own = _aa((cx - xs) if side == "l" else (xs - cx))
+        legk = np.maximum(_aa(ys - py) * own, _aa(rad - dist))
+        leg = _mul(tr, legk)
+        write(meta, "leg_" + side, leg, tx, ty)
+        hips_k = np.maximum(hips_k, np.clip((rad + 3 * S - dist) / (HIP_FEATHER * S), 0, 1))
+        bot = np.nonzero(a[:, int(x0):int(x1)].any(1))[0].max()
+        joints["leg_" + side] = [round(tx + px / S, 1), round(ty + py / S, 1)]
+        joints["hem_" + side] = [round(tx + px / S, 1), round(ty + bot / S, 1)]
+        joints["leg_r_" + side] = round(rad / S, 1)
+    write(meta, "hips", _mul(tr, hips_k), tx, ty)
+    json.dump(joints, open(os.path.join(OUT, "joints.json"), "w"), indent=1)
+    print("trousers: crotch at art y", round(ty + crotch / S), joints)
+
+
 def made():
     mp = os.path.join(OUT, "parts.json")
     meta = json.load(open(mp))
@@ -506,6 +558,7 @@ def made():
     make_pole(meta)
     make_face(meta)
     make_mouth(meta)
+    make_trousers(meta)
     json.dump(meta, open(mp, "w"), indent=1)
     print("made:", ", ".join(k for k in meta if k.split("_")[0] in ("hat", "crow", "post", "crossbar", "ground", "eye",
                                                                      "pupil", "lid", "brow")))

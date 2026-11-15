@@ -176,6 +176,95 @@ def sheets(which=None):
         save(sheet(ims, 12, [f"{c} {f}" for c, f in picks]), "parts_crow.jpg")
 
 
+# ---- the automatic checks (2026-11-15): no background may show through a joint or an eye, in any frame
+MAGENTA = (255, 0, 255)
+# joint -> (bone, radius art px, an art point riding that bone (None: the bone's own pivot))
+JOINTS = {
+    "neck": ("head", 18, None), "collar": ("collar", 16, None), "waist": ("chest", 40, None),
+    "shoulder_l": ("chest", 22, (418, 506)), "shoulder_r": ("chest", 18, (658, 502)),
+    "wrist_l": ("sleeve_l", 10, None), "wrist_r": ("sleeve_r", 10, None),
+    "hip_l": ("leg_l", 30, None), "hip_r": ("leg_r", 30, None),
+    "ankle_l": ("boot_l", 14, None), "ankle_r": ("boot_r", 14, None),
+    "hat": ("hat", 25, None), "hat_tip": ("hat_tip", 14, None),
+    "rope": ("rope", 5, None), "jug": ("jug", 5, None), "crow_neck": ("crow_head", 16, None),
+}
+EYES = {"eye_l": (441, 342), "eye_r": (512, 312)}        # on the head bone; the disc tested is the eye and its ring
+EYE_R = 33
+
+
+def riding(R, B, bone, Q=None):
+    j = R.man["bones"].index(bone)
+    ang, sx, sy, x, y = B[j]
+    if Q is None:
+        return x, y, abs(sx)
+    P = R.man["rest"][j]
+    lx, ly = (Q[0] - P[0]) * sx, (Q[1] - P[1]) * sy
+    return x + lx * np.cos(ang) - ly * np.sin(ang), y + lx * np.sin(ang) + ly * np.cos(ang), abs(sx)
+
+
+def check_joints(scale=.5):
+    """Every frame of every clip over magenta: a disc round each posed joint must hold no magenta."""
+    R = Rig()
+    view = (-150, -420, 1180, 1520)
+    H, W = int(round((view[3] - view[1]) * scale)), int(round((view[2] - view[0]) * scale))
+    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
+    bad, total = {}, 0
+    fig = [n for n, _, _ in R.man["slots"] if n not in ("ground", "shadow_l", "shadow_r", "post", "crossbar")]
+    for c, d in R.man["clips"].items():
+        for f in range(d["frames"]):
+            img = R.frame(c, f, view=view, scale=scale, bg=MAGENTA, fx=False, only=fig)     # (no post behind him: it would hide a gap)
+            mag = (img[..., 0] > .8) & (img[..., 2] > .8) & (img[..., 1] < .25)
+            B = R.bones(c, f)
+            total += 1
+            for jn, (bone, rad, Q) in JOINTS.items():
+                x, y, k = riding(R, B, bone, Q)
+                if jn == "crow_neck":
+                    if k < .6:                      # the crow is edge-on in the middle of a turn
+                        continue
+                    rad = rad * k
+                m = np.hypot(xs + .5 - (x - view[0]) * scale, ys + .5 - (y - view[1]) * scale) < rad * scale
+                n = int((mag & m).sum())
+                if n:
+                    bad.setdefault(jn, []).append((c, f, n))
+    print(f"joint check: {total} frames x {len(JOINTS)} joints")
+    for jn in JOINTS:
+        b = bad.get(jn, [])
+        if b:
+            worst = sorted(b, key=lambda t: -t[2])[:6]
+            print(f"  FAIL {jn:11s} {len(b):4d} frames; worst (clip, frame, px): {worst}")
+        else:
+            print(f"  ok   {jn}")
+    return bad
+
+
+def check_eyes(scale=1.0):
+    """Every frame of every clip, the head over magenta and over black: inside each eye's disc the two renders must
+    be the same picture (anything see-through shows as a difference)."""
+    R = Rig()
+    worst, fails = 0.0, []
+    for c, d in R.man["clips"].items():
+        for f in range(d["frames"]):
+            hx, hy, _ = riding(R, R.bones(c, f), "head", (476, 327))
+            view = (hx - 90, hy - 90, hx + 90, hy + 90)
+            a = R.frame(c, f, view=view, scale=scale, bg=MAGENTA, fx=False)
+            b = R.frame(c, f, view=view, scale=scale, bg=(0, 0, 0), fx=False)
+            diff = np.abs(a[..., :3] - b[..., :3]).max(-1)
+            ys, xs = np.mgrid[0:diff.shape[0], 0:diff.shape[1]].astype(np.float32)
+            B = R.bones(c, f)
+            for en, Q in EYES.items():
+                x, y, _ = riding(R, B, "head", Q)
+                m = np.hypot(xs + .5 - (x - view[0]) * scale, ys + .5 - (y - view[1]) * scale) < EYE_R * scale
+                v = float(diff[m].max())
+                worst = max(worst, v)
+                if v > 2 / 255:
+                    fails.append((c, f, en, round(v, 3)))
+    print(f"eye check: worst background show-through {worst * 255:.2f}/255; {len(fails)} failing (clip, frame, eye): {fails[:10]}")
+    picks = [("idle", 23), ("idle", 250), ("hiccup", 13), ("lose", 40), ("win", 30), ("idle", 46), ("idle", 21), ("idle", 26)]
+    ims = [R.image(c, f, view=head_view(R, c, f, 75), scale=3.0, bg=bg, fx=False) for bg in (MAGENTA, (0, 0, 0)) for c, f in picks]
+    save(sheet(ims, len(picks), [f"{c} {f}" for c, f in picks] * 2), "parts_lids_magenta_black_3x.jpg")
+    return fails
+
+
 def head_view(R, clip, f, half=170):
     B = R.bones(clip, f)
     j = R.man["bones"].index("head")
@@ -189,5 +278,9 @@ if __name__ == "__main__":
         R = Rig()
         view = tuple(float(v) for v in a[4].split(",")) if len(a) > 4 else VIEW
         R.image(a[1], float(a[2]), view=view, scale=float(a[5]) if len(a) > 5 else .5).save(a[3])
+    elif a and a[0] == "joints":
+        check_joints()
+    elif a and a[0] == "eyes":
+        check_eyes()
     else:
         sheets(a[1:] if a and a[0] == "sheets" else None)

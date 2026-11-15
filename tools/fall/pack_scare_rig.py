@@ -43,6 +43,13 @@ Q_ANGLE, Q_SCALE, Q_POS = 4096, 4096, 16
 SHADOW = dict(w=156, h=22, rgb=(52, 26, 10), a=.3)        # the boots' shadow on the ground, art px
 
 
+def put_file(name, data):
+    """Written aside and swapped in (a server or viewer holding the old file open blocks a rewrite in place)."""
+    p = os.path.join(OUT, name)
+    open(p + ".new", "wb").write(data)
+    os.replace(p + ".new", p)
+
+
 def shadow_sprite():
     w, h = SHADOW["w"], SHADOW["h"]
     ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -150,7 +157,7 @@ def main():
     img = Image.fromarray((atlas * 255 + .5).clip(0, 255).astype(np.uint8))
     buf = io.BytesIO()
     img.save(buf, "WEBP", quality=90, method=6, alpha_quality=100, exact=True)      # exact: keep the bled colours
-    open(os.path.join(OUT, "atlas.webp"), "wb").write(buf.getvalue())
+    put_file("atlas.webp", buf.getvalue())
     print(f"atlas {img.size} used height {used_h} fill {fill:.2f}  {len(buf.getvalue()) / 1024:.0f} KB")
 
     sprites = []
@@ -183,7 +190,7 @@ def main():
         clips[c] = {"frames": d["frames"], "loop": d["loop"], "cues": d["cues"], "spr": d["spr"]}
         if "hold" in d:
             clips[c]["hold"] = d["hold"]
-    open(os.path.join(OUT, "rig.bin"), "wb").write(bytes(blob))
+    put_file("rig.bin", bytes(blob))
     names = [b["name"] for b in R["bones"]]
     man = {
         "format": "parts-1", "fps": R["fps"], "art": R["art"], "ground": [R["art"][0] / 2, PK.GROUND_Y],
@@ -195,7 +202,7 @@ def main():
         "sprites": sprites, "fx": R["fx"], "rects": {n: list(where[n]) for n, _ in fxp},
         "bin": offs, "bytes": len(blob), "clips": clips,
     }
-    json.dump(man, open(os.path.join(OUT, "rig.json"), "w"), separators=(",", ":"))
+    put_file("rig.json", json.dumps(man, separators=(",", ":")).encode())
     print("rig.bin", len(blob), "bytes; rig.json", os.path.getsize(os.path.join(OUT, "rig.json")), "bytes;",
           len(names), "bones", len(man["slots"]), "slots", len(sprites), "sprites")
     for c, d in clips.items():
