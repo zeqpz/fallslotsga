@@ -3414,6 +3414,25 @@
     #fsNow { -webkit-text-stroke-width: 10px; }
     #fsNow .cur { font-size: 112px; }
   }
+
+  /* the win sign always whole inside the window (fitFigure writes --fit and the nudge --fdx / --fdy) */
+  .totalwin .twin { scale: var(--fit, 1); translate: calc(-50% + var(--fdx, 0px)) calc(-50% + var(--fdy, 0px)); }
+
+  /* the bonus intro in a short wide window (Studio's Popout S, 400x225 - review 2026-11-15): as one column the
+     how-it-works text was shrunk to under 5px. Here the title, the count and the prompt stand on the left and the
+     text on the right at its full width, so the column that is scaled to fit is half as tall */
+  @media (max-height: 340px) and (orientation: landscape) {
+    .bonusintro .inner { padding: 2vh 2vw; }
+    .bonusintro .bstack { display: grid; grid-template-columns: auto 58vw; grid-template-rows: repeat(5, auto); column-gap: 2.5vw; align-content: center; align-items: center; justify-items: center; }
+    .bonusintro .bstack > * { grid-column: 1; }
+    .bonusintro .bhow { grid-column: 2; grid-row: 1 / span 5; margin-top: 0; max-width: none; width: 58vw; box-sizing: border-box; padding: 2px 4px; border-width: 10px; border-image-width: 10px;
+      font-size: 11px; line-height: 1.38; -webkit-text-stroke-width: 2.2px; }
+    .bonusintro .bhow b, .bonusintro .bhow strong { -webkit-text-stroke-width: 2.6px; }
+    .bonusintro .bhow p { margin-bottom: .5em; }
+    .bonusintro .bnum { --nh: 40px; }
+    .bonusintro .byou { font-size: 20px; } .bonusintro .bfs { font-size: 24px; }
+    .bonusintro .bcont { font-size: 10px; margin-top: 6px; max-width: 34vw; }
+  }
 </style>
 </head>
 <body>
@@ -10322,7 +10341,24 @@ function totalWinScreen(amount, { total = true } = {}) {
       const el = wrap.querySelector(".twamount");
       if (!el) return;
       const room = innerWidth * .96, need = el.offsetWidth;
-      el.style.scale = need > room ? (room / need).toFixed(3) : "";
+      const k = need > room ? room / need : 1;
+      el.style.scale = k < 1 ? k.toFixed(3) : "";
+      // ... and the whole sign - the headline's plank over the figure's - is kept inside the window (review
+      // 2026-11-15: at Popout S the headline ran off the top, on a phone both planks ran off the sides). Sizes
+      // by layout, not by rect: the planks hover and pop. The figure's plank art reaches past its box
+      // (.twamount::before inset: 131% above, 85.5% below, 22.1% each side).
+      const twin = wrap.querySelector(".twin"), head = wrap.querySelector(".twhead");
+      if (!twin || !head || !twin.offsetHeight) return;
+      const aw = el.offsetWidth * k, ah = el.offsetHeight * k, aTop = el.offsetTop + el.offsetHeight * (1 - k) / 2;
+      const W = Math.max(head.offsetWidth, aw * 1.442);
+      const top = Math.min(-(head.offsetHeight - innerHeight * .03), aTop - ah * 1.31), bot = aTop + ah * 1.855;
+      const f = Math.min(1, innerWidth * .98 / W, innerHeight * .9 / (bot - top));
+      const cx = parseFloat(wrap.style.getPropertyValue("--cx")) || innerWidth / 2, cy = parseFloat(wrap.style.getPropertyValue("--cy")) || innerHeight / 2;
+      const mid = twin.offsetHeight / 2, y0 = cy + (top - mid) * f, y1 = cy + (bot - mid) * f, x0 = cx - W * f / 2, x1 = cx + W * f / 2;
+      const m = Math.max(4, innerHeight * .045);   // room for the headline's hover and its slam
+      const dy = y0 < m ? m - y0 : y1 > innerHeight - m ? innerHeight - m - y1 : 0, dx = x0 < 2 ? 2 - x0 : x1 > innerWidth - 2 ? innerWidth - 2 - x1 : 0;
+      wrap.style.setProperty("--fit", f.toFixed(3));
+      wrap.style.setProperty("--fdx", dx.toFixed(1) + "px"); wrap.style.setProperty("--fdy", dy.toFixed(1) + "px");
     };
     // and fitted again whenever the figure changes size: its numerals are images, so a figure
     // measured the moment its digits went in could still be short of their widths (a phone's
@@ -10687,7 +10723,7 @@ function bonusIntro(spins, extreme) {
       `</div></div>`;
     document.body.appendChild(wrap);
     const stack = wrap.querySelector(".bstack");
-    const fit = () => stack.style.setProperty("--fit", Math.min(1, wrap.clientHeight * .94 / stack.offsetHeight).toFixed(3));
+    const fit = () => stack.style.setProperty("--fit", Math.min(1, wrap.clientHeight * .94 / stack.offsetHeight, wrap.clientWidth * .97 / stack.offsetWidth).toFixed(3));
     fit();
     wrap.querySelector(".blogo").addEventListener("load", fit);   // held from the loading screen, but in case
     addEventListener("resize", fit);
