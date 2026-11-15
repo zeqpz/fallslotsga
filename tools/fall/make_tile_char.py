@@ -26,10 +26,10 @@ def render(R, view):
 
 def main():
     R = Rig()
-    full = render(R, (-70, -20, 1094, 1520))
+    full = render(R, (-150, -20, 1170, 1520))
     full = full.crop(full.getbbox())
     full.save(os.path.join(OUT, "tile_character_full.png"))
-    bust = render(R, (-70, -20, 1094, 840))            # cut at the belt: the title band covers the cut
+    bust = render(R, (-150, -20, 1170, 840))            # cut at the belt: the title band covers the cut
     box = bust.getbbox()
     bust = bust.crop((box[0], box[1], box[2], bust.height))
     bust.save(os.path.join(OUT, "tile_character.png"))
