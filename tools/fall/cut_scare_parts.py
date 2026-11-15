@@ -37,7 +37,7 @@ W_ART, H_ART = 1024, 1536
 # placed by hand on the old figure: (anchor fx, fy in the piece's own box, the art x, y that anchor goes to, art px
 # per raw px, turn deg counter-clockwise [, opts: mirror=True, rows=(f0, f1) keep that span of the piece's height]).
 TAKES = {
-    "head_base": [("head", (.545, .545, 492, 374, .335, 6))],
+    "head_base": [("head", (.545, .545, 492, 374, .335, 6, dict(bulge=(490, 372, 36, 1.2))))],   # (a bigger red nose)
     "hat": [("hat", (0, 0, 232, 112, .444, 0))],
     "hair": [("hair_l", (.95, .1, 345, 285, .19, 0)), ("hair_ll", (.5, .05, 385, 335, .19, 0)),
              ("hat_tuft", (.3, .9, 470, 180, .22, 0)), ("hair_r", (.05, .1, 588, 306, .2, 0, dict(mirror=True)))],
@@ -240,6 +240,15 @@ def cut(only=None):
             vx, vy = (fx - .5) * w0, (fy - .5) * h0
             rx, ry = vx * math.cos(t) + vy * math.sin(t), -vx * math.sin(t) + vy * math.cos(t)
             ax, ay = tx - (m.shape[1] / 2 + rx) / S, ty - (m.shape[0] / 2 + ry) / S
+            if "bulge" in opts:                  # magnify a round patch of the piece (art x, y, radius, by how much)
+                bx, by, br, bk = opts["bulge"]
+                ys, xs = np.mgrid[0:m.shape[0], 0:m.shape[1]].astype(np.float32)
+                dx, dy = xs - (bx - ax) * S, ys - (by - ay) * S
+                r = np.hypot(dx, dy) / (br * S)
+                t = np.clip((1.45 - r) / .45, 0, 1)
+                k = 1 + (bk - 1) * t * t * (3 - 2 * t)
+                m = np.stack([ndimage.map_coordinates(m[..., c], [(by - ay) * S + dy / k, (bx - ax) * S + dx / k], order=1)
+                              for c in range(4)], -1).astype(np.float32)
             write(meta, name, m, ax, ay)
             print(f"{name:10s} at ({meta[name]['x']:.0f}, {meta[name]['y']:.0f})  {meta[name]['w'] / S:.0f} x {meta[name]['h'] / S:.0f} art px")
     json.dump(meta, open(mp, "w"), indent=1)
@@ -277,7 +286,10 @@ def compose(meta, names, scale=1.0, bg=None, ghost=None):
 # ---------------------------------------------------------------- the made parts
 # the hat: the lower ink line of its red band (art px) - above it is the crown + band (drawn in FRONT of the head),
 # the whole hat goes BEHIND the head (its brim would cover the face); the tip is cut at its bend, a round joint
-HAT_BAND = [(240, 345), (300, 301), (350, 284), (400, 263), (450, 251), (500, 244), (560, 240), (612, 245), (660, 232), (720, 215)]
+# (2026-11-15, owner: "the head is overlapping their hat" - the front is now the crown, the band AND the brim's upper
+# face: everything above the line where the brim's dark underside begins; only that underside stays behind the head)
+HAT_BAND = [(200, 440), (332, 440), (346, 392), (362, 352), (382, 322), (402, 304), (450, 289), (500, 277), (560, 269),
+            (620, 264), (700, 252), (740, 240)]
 HAT_TIP = (301, 163, 31)                 # the bend: x, y, r (the tip is everything left of x, plus the disc)
 CROW_NECK = (876, 283, 34)               # the crow's neck joint: x, y, r
 CROW_HEAD = (902, 222)                   # ... and a point in the middle of its head (the cut is square to that line)
@@ -286,12 +298,13 @@ BAR_Y = (398, 514)
 INK = (38, 20, 10)
 WHITE = (252, 246, 232)
 # the eyes, in art px on the new head: centre x, y, radii, tilt deg (counter-clockwise)
-EYES = {"l": (441, 340, 28, 30, 14), "r": (512, 306, 30, 31, 14)}
+EYES = {"l": (441, 342, 28, 30, 14), "r": (512, 312, 30, 31, 14)}
 UPPER = (.18, .32, .46, .60, .74, .88, 1.0)      # how far down the upper lid's edge is, as a share of the eye's height
 LOWER = (.14, .26, .38)                          # ... and the lower lid's, up from the bottom
-PUPIL_R = 5.6
-PUPIL_AT = {"l": (5, 3), "r": (-5, 4)}        # where each pupil rests, from its eye's centre (a drunk's cross-eyed look)
-BROWS = {"l": (433, 297, 50, 14), "r": (511, 263, 54, 14)}     # centre x, y, length, tilt
+PUPIL_R = 4.9
+LID_SLANT = {"l": -.24, "r": .24}        # the upper lids droop toward the outer corners (a drunk's heavy eyes)
+PUPIL_AT = {"l": (8, 9), "r": (-3, 13)}        # where each pupil rests, from its eye's centre (a drunk's cross-eyed look)
+BROWS = {"l": (433, 299, 50, 14), "r": (511, 270, 54, 14)}     # centre x, y, length, tilt
 
 
 def _aa(d):
@@ -420,6 +433,7 @@ def make_face(meta):
             full = f >= .999                                           # shut: the whole eye, a sleepy curve low on it
             fe, bow = (.80, .34) if full else (f, .22)
             edge = -ry + 2 * ry * fe - ry * bow * np.clip(u / rx, -1, 1) ** 2      # (its middle is its lowest point)
+            edge = edge + LID_SLANT[side] * u * (0.0 if full else 1.0)
             fill = clip if full else np.clip((edge - v) * k + .5, 0, 1) * clip
             line = np.clip((ink_w / 2 - np.abs(v - edge)) * k + .5, 0, 1) * clip
             write(meta, f"lid_u{i + 1}_{side}", _down([(lid, fill), (INK, line)]), x0, y0)
@@ -449,6 +463,41 @@ def make_face(meta):
         write(meta, "brow_" + side, _down([(INK, cov)]), cx - L / 2 - 8, cy - 18)
 
 
+DROOL = (464, 431)                       # the low corner of the smirk (mouth_smug), where the drool hangs
+STITCHES = [(478, 430, 92), (493, 428, 102), (508, 420, 124), (520, 407, 146)]     # across the smirk: x, y, the tick's slant deg
+
+
+def make_mouth(meta):
+    """The drunk's resting mouth: the closed lopsided smirk, stitched, a drool drop hanging off its low corner."""
+    m, mx, my = read_part(meta, "mouth_smug")
+    x0, y0, x1, y1 = mx - 6, my - 4, mx + m.shape[1] / S + 4, my + m.shape[0] / S + 26
+    ax, ay, k = _canvas(x0, y0, x1, y1)
+    ink = np.zeros_like(ax)
+    for sx_, sy_, ang in STITCHES:
+        t = math.radians(ang)
+        u = (ax - sx_) * math.cos(t) - (ay - sy_) * math.sin(t)
+        v = (ax - sx_) * math.sin(t) + (ay - sy_) * math.cos(t)
+        ink = np.maximum(ink, np.clip((1.3 - np.hypot(np.maximum(np.abs(u) - 5.5, 0), v)) * k + .5, 0, 1))
+    dx, dy = DROOL
+    # a strand, then a teardrop
+    strand = np.clip((1.6 - np.hypot(ax - dx, np.maximum(np.abs(ay - dy - 6) - 6, 0))) * k + .5, 0, 1)
+    cy = dy + 19
+    w = np.where(ay < cy, 5.2 * np.clip((ay - (cy - 11)) / 11, 0, 1) ** .8, 5.2)
+    dist = np.where(ay < cy, w - np.abs(ax - dx), 5.2 - np.hypot(ax - dx, ay - cy))
+    drop_o = np.clip((dist + 1.5) * k + .5, 0, 1) * (ay > cy - 11.5)
+    drop_i = np.clip(dist * k + .5, 0, 1) * (ay > cy - 10)
+    shine = np.clip((1.4 - np.hypot(ax - dx + 1.6, ay - cy + 1.2)) * k + .5, 0, 1)
+    over = _down([(INK, ink), ((150, 200, 232), strand), (INK, drop_o), ((158, 208, 238), drop_i), ((240, 250, 255), shine)])
+    out = np.zeros_like(over)
+    px, py = int(round((mx - x0) * S)), int(round((my - y0) * S))
+    out[py:py + m.shape[0], px:px + m.shape[1]] = m
+    a = over[..., 3:]
+    na = a + out[..., 3:] * (1 - a)
+    out[..., :3] = np.where(na > 1e-4, (over[..., :3] * a + out[..., :3] * out[..., 3:] * (1 - a)) / np.maximum(na, 1e-4), 0)
+    out[..., 3:] = na
+    write(meta, "mouth_drunk", out, x0, y0)
+
+
 def made():
     mp = os.path.join(OUT, "parts.json")
     meta = json.load(open(mp))
@@ -456,6 +505,7 @@ def made():
     make_crow(meta)
     make_pole(meta)
     make_face(meta)
+    make_mouth(meta)
     json.dump(meta, open(mp, "w"), indent=1)
     print("made:", ", ".join(k for k in meta if k.split("_")[0] in ("hat", "crow", "post", "crossbar", "ground", "eye",
                                                                      "pupil", "lid", "brow")))

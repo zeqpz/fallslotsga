@@ -222,7 +222,7 @@ def layers(R, meta):
             e = dict(meta["brow_" + side])
             e["y"] = e["y"] + F[k][0]
             m["brow_" + side] = e
-        show = {"mouth": "mouth_" + (F["mouth"] or "grin"),
+        show = {"mouth": "mouth_" + (F["mouth"] or "drunk"),
                 "lid_u_l": f"lid_u{F['u'][0]}_l" if F["u"][0] else None, "lid_u_r": f"lid_u{F['u'][1]}_r" if F["u"][1] else None,
                 "lid_d_l": f"lid_d{F['d'][0]}_l" if F["d"][0] else None, "lid_d_r": f"lid_d{F['d'][1]}_r" if F["d"][1] else None}
         names = []

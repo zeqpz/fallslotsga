@@ -49,10 +49,10 @@ BONES = [
     ("hair_l", "head", (345, 285)),
     ("hair_ll", "head", (385, 335)),
     ("hair_r", "head", (588, 306)),
-    ("pupil_l", "head", (446, 343)),         # (the eyes' centres + where the pupils rest: cut_scare_parts.PUPIL_AT)
-    ("pupil_r", "head", (507, 310)),
-    ("brow_l", "head", (433, 297)),
-    ("brow_r", "head", (511, 263)),
+    ("pupil_l", "head", (449, 351)),         # (the eyes' centres + where the pupils rest: cut_scare_parts.PUPIL_AT)
+    ("pupil_r", "head", (509, 325)),
+    ("brow_l", "head", (433, 299)),
+    ("brow_r", "head", (511, 270)),
     ("sleeve_l", "pole", (245, 495)),
     ("sleeve_r", "pole", (822, 495)),
     ("frill_l", "pole", (240, 490)),
@@ -97,10 +97,10 @@ SLOTS = [
     ("head", "head", "head"),
     ("eye_l", "head", "eye_l"), ("eye_r", "head", "eye_r"),
     ("pupil_l", "pupil_l", "pupil_l"), ("pupil_r", "pupil_r", "pupil_r"),
-    ("lid_u_l", "head", "lid_u2_l"), ("lid_u_r", "head", "lid_u1_r"),
-    ("lid_d_l", "head", None), ("lid_d_r", "head", None),
+    ("lid_u_l", "head", "lid_u3_l"), ("lid_u_r", "head", "lid_u4_r"),
+    ("lid_d_l", "head", "lid_d1_l"), ("lid_d_r", "head", "lid_d1_r"),
     ("brow_l", "brow_l", "brow_l"), ("brow_r", "brow_r", "brow_r"),
-    ("mouth", "head", "mouth_grin"),
+    ("mouth", "head", "mouth_drunk"),
     ("hair_ll", "hair_ll", "hair_ll"), ("hair_r", "hair_r", "hair_r"),
     ("hat_front", "hat", "hat_front"), ("hat_tip", "hat_tip", "hat_tip"), ("hat_tuft", "hat_tuft", "hat_tuft"),
     ("frill_l", "frill_l", "frill_l"), ("frill_r", "frill_r", "frill_r"),
@@ -112,14 +112,14 @@ SLOTS = [
     ("crow_body", "crow", "crow_body"), ("crow_head", "crow_head", "crow_head"),
 ]
 SLOT_NAMES = [s[0] for s in SLOTS]
-MOUTHS = ["grin", "cheer", "smile", "o", "smug", "hiccup", "sad", "drool"]
+MOUTHS = ["drunk", "grin", "cheer", "o", "smug", "hiccup", "sad", "drool"]
 SPRITES = []                                    # every sprite a slot can show, in a fixed order
 for _n, _b, _s in SLOTS:
     if _s and _s not in SPRITES:
         SPRITES.append(_s)
 for _side in "lr":
     SPRITES += [f"lid_u{i}_{_side}" for i in range(1, 8) if f"lid_u{i}_{_side}" not in SPRITES]
-    SPRITES += [f"lid_d{i}_{_side}" for i in range(1, 4)]
+    SPRITES += [f"lid_d{i}_{_side}" for i in range(1, 4) if f"lid_d{i}_{_side}" not in SPRITES]
 SPRITES += ["mouth_" + m for m in MOUTHS if "mouth_" + m not in SPRITES] + ["wing"]
 HIDDEN = 255
 CROW_UP = 70
@@ -128,14 +128,16 @@ CROW_UP = 70
 # centre (art px, in the head's frame: x right, y down; the pupils REST at neutral's), pupil size, brows (lift px
 # (up = negative y), turn deg counter-clockwise)
 FACE = {
-    "neutral": dict(mouth="grin", u=(2, 1), d=(0, 0), pl=(5, 3), pr=(-5, 4), ps=1.0, bl=(0, 0), br=(0, 0)),
-    "blink": dict(mouth=None, u=(7, 7), d=(0, 0), pl=(5, 3), pr=(-5, 4), ps=1.0, bl=(2, 0), br=(2, 0)),
-    "cheer": dict(mouth="cheer", u=(0, 0), d=(2, 2), pl=(2, -3), pr=(-2, -3), ps=1.0, bl=(-7, 4), br=(-6, -4)),
-    "happy": dict(mouth="grin", u=(0, 0), d=(2, 2), pl=(3, -1), pr=(-3, -1), ps=1.0, bl=(-5, 3), br=(-5, -3)),
-    "hiccup": dict(mouth="hiccup", u=(6, 0), d=(2, 0), pl=(0, 3), pr=(0, -5), ps=.8, bl=(4, -9), br=(-8, 0)),
-    "sad": dict(mouth="sad", u=(3, 3), d=(0, 0), pl=(-2, 8), pr=(-3, 8), ps=1.0, bl=(2, 15), br=(1, -15)),
-    "shock": dict(mouth="o", u=(0, 0), d=(0, 0), pl=(0, 0), pr=(0, 0), ps=.62, bl=(-10, 0), br=(-8, 0)),
-    "smug": dict(mouth="smug", u=(4, 3), d=(1, 0), pl=(10, 5), pr=(9, 6), ps=1.0, bl=(3, -9), br=(-7, 5)),
+    # (2026-11-15, owner: the DRUNK face is the resting one - heavy slanted lids, bags, small pupils wandering apart,
+    # the closed stitched smirk with its drool; the livelier faces keep one eye drooped)
+    "neutral": dict(mouth="drunk", u=(3, 4), d=(1, 1), pl=(8, 9), pr=(-3, 13), ps=1.0, bl=(0, 0), br=(0, 0)),
+    "blink": dict(mouth=None, u=(7, 7), d=(0, 0), pl=(8, 9), pr=(-3, 13), ps=1.0, bl=(2, 0), br=(2, 0)),
+    "cheer": dict(mouth="cheer", u=(0, 2), d=(2, 2), pl=(3, 0), pr=(-2, 5), ps=1.0, bl=(-7, 4), br=(-5, -4)),
+    "happy": dict(mouth="grin", u=(1, 3), d=(2, 1), pl=(4, 3), pr=(-8, 9), ps=1.0, bl=(-5, 3), br=(-2, -3)),
+    "hiccup": dict(mouth="hiccup", u=(6, 1), d=(2, 0), pl=(0, 6), pr=(0, -2), ps=.85, bl=(4, -9), br=(-7, 0)),
+    "sad": dict(mouth="sad", u=(5, 4), d=(1, 1), pl=(0, 14), pr=(-5, 14), ps=1.0, bl=(2, 15), br=(1, -15)),
+    "shock": dict(mouth="o", u=(0, 0), d=(0, 0), pl=(0, 0), pr=(0, 0), ps=.7, bl=(-10, 0), br=(-7, 0)),
+    "smug": dict(mouth="drunk", u=(5, 3), d=(1, 1), pl=(11, 12), pr=(10, 10), ps=1.0, bl=(3, -9), br=(-6, 5)),
 }
 SLEEP = (6, 30)          # a blink held this many frames is a doze: the closed smile, then the drool
 
@@ -185,9 +187,9 @@ def face_tracks(faces, nf, loop):
     keys = sorted(faces.items())
     out = []
     cur = dict(FACE["neutral"])
-    lids = [2.0, 1.0, 0.0, 0.0]
+    lids = [float(v) for v in FACE["neutral"]["u"] + FACE["neutral"]["d"]]
     sm = None
-    mouth = "grin"
+    mouth = "drunk"
     held = 0
     for i in range(nf):
         nm = "neutral"
@@ -199,10 +201,8 @@ def face_tracks(faces, nf, loop):
         if F["mouth"]:
             mouth = F["mouth"]
         m = mouth
-        if held > SLEEP[1]:
-            m = "drool"
-        elif held > SLEEP[0]:
-            m = "smile"
+        if held > SLEEP[0]:                        # dozing: back to the closed, drooling smirk whatever he was doing
+            m = "drunk"
         tgt = [F["u"][0], F["u"][1], F["d"][0], F["d"][1]]
         for k in range(4):                         # the lids shut fast (2 frames) and open a little slower
             dlt = tgt[k] - lids[k]
