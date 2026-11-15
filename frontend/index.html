@@ -3395,6 +3395,25 @@
      frame's opening like the pops are; its chunks and drops over the frame and out past the board */
   .stainlayer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; clip-path: inset(14px); }
   .flylayer { position: absolute; left: -200px; top: -200px; width: calc(100% + 400px); height: calc(100% + 400px); z-index: 5; pointer-events: none; }
+
+  /* the bonus counter shows the rounds left and nothing else (owner, 2026-11-15): the bonus's running win is on
+     the WIN readout already; the box and its counter stay in the page, unseen, so paintFsWin has its element */
+  .fswinbox { display: none !important; }
+
+  /* ROUNDS LEFT is one big bright figure (owner, 2026-11-15: "make the number more visible"): the spin-of-total
+     pair is gone, the count that is left stands alone in gold-lit white, half as big again */
+  #fsNow .of, #fsNow .tot { display: none; }
+  .fsplate { height: 104px; padding: 0 22px; }
+  .fscount { gap: 2px; }
+  .fslbl { font-size: 14px; }
+  #fsNow { -webkit-text-stroke-width: 6px; text-shadow: 0 3px 0 rgba(0, 0, 0, .6), 0 0 16px rgba(var(--glow), .95), 0 0 34px rgba(var(--glow), .55); }
+  #fsNow .cur { font-size: 60px; min-width: 1.3em; text-align: center; }
+  @media (max-width: 760px) and (orientation: portrait) {
+    .fsplate { height: 196px; padding: 0 44px; }
+    .fslbl { font-size: 28px; }
+    #fsNow { -webkit-text-stroke-width: 10px; }
+    #fsNow .cur { font-size: 112px; }
+  }
 </style>
 </head>
 <body>
@@ -3414,7 +3433,7 @@
   </div>
 
   <div class="rail">
-    <div class="fsline" id="fsCard"><div class="fsplate"><div class="fscount"><span class="fslbl">Free spins</span><b id="fsNow">—</b></div><div class="fswinbox"><span class="fslbl">Bonus win</span><div class="fswin" id="fsWin" aria-label="Bonus win"></div></div></div></div>
+    <div class="fsline" id="fsCard"><div class="fsplate"><div class="fscount"><span class="fslbl">Rounds left</span><b id="fsNow">—</b></div><div class="fswinbox"><span class="fslbl">Bonus win</span><div class="fswin" id="fsWin" aria-label="Bonus win"></div></div></div></div>
   </div>
 </div>
 
@@ -6494,7 +6513,7 @@ function paintFsCount(cur, total, quiet) {
   state.fsShown = { cur, total };
   if (!el.querySelector(".cur")) el.innerHTML = `<span class="cur"></span><span class="of">/</span><span class="tot"></span>`;
   const c = el.querySelector(".cur");
-  c.textContent = cur;
+  c.textContent = Math.max(0, total - cur);   // the rounds still to come (owner, 2026-11-15): one figure, counting down
   el.querySelector(".tot").textContent = total;
   if (String(cur).length !== String(was.cur).length || String(total).length !== String(was.total).length) fitFsCard();   // a digit more: it may have outgrown a phone
   if (quiet || REDUCED_MOTION) return;
