@@ -4338,6 +4338,7 @@ function rigPlay(cell, clip, { loop = false, speed = 1 } = {}) {
 // of the pauses"). The cork, the gush and the splash are simulated on one canvas (fxSim, pooled, capped at FX_FPS).
 // Everything cosmetic that is random comes from a seed made of the book (the Multi's cell, value and its place in
 // the round), so a replay shows the same shots every time.
+const CORK_SKIP = 2.2;       // a skipped spin's cork flies this many times as fast: about 140 ms, seen but not waited on for long
 const CORK_FLIGHT = 620;     // ms at tempo 1: the cork in the air, bottom edge to cell (a hair either side per cork); 2/3 of the bottle's 950
 const CORK_STAGGER = 300;    // ms at tempo 1 between one Multi's cork leaving and the next one's
 const CORKS_MAX = 6;         // Multis that get a cork each; the rest of a board cover go off in a ripple after them
@@ -4583,7 +4584,7 @@ function corkShot(to, seed, hit) {
     fxS = p.rs;
     p.t += dt;
     if (!p.hit) {
-      if (state.skip) p.t = Math.max(p.t, T);   // skipped: it is on the cell this frame
+      if (state.skip) p.t += dt * (CORK_SKIP - 1);   // skipped: it still flies, CORK_SKIP times as fast (owner, 2026-11-15)
       const t = Math.min(p.t, T), e = t / T;
       p.x = x0 + vx * t; p.y = y0 + vy * t + gg * t * t / 2;
       p.vx = vx; p.vy = vy + gg * t;
@@ -4698,7 +4699,20 @@ function symIdleTick() {
 // for a bare Multi - the can, sent for the moment the drop is done (`ms`, its length). The
 // landing's animationend sends it too, and spraysDone catches any the two both missed; sprayDue
 // only ever acts once.
+// Every icon that lands plays its landing through to the end (owner, 2026-11-15: the next win used to start about
+// half a second into an 0.8 s landing and cut it off). dropIn notes when the last landing clip under way will be
+// over; landsDone() resolves then - at once on a skip, which is the player asking for exactly that.
+let landUntil = 0;
+function landsDone() {
+  if (REDUCED_MOTION) return Promise.resolve();
+  return new Promise(res => {
+    const look = () => { const left = landUntil - performance.now(); if (state.skip || left <= 0) res(); else setTimeout(look, Math.min(left, 40)); };
+    look();
+  });
+}
 function dropIn(cell, ms, hit = ms * DROP_CONTACT) {
+  const rig = rigOf(cell), lc = rig && rig._m && rig._m.clips.land;
+  if (lc) landUntil = Math.max(landUntil, performance.now() + Math.max(0, hit) + lc.frames / lc.fps * 1000 * tempo() + 30);
   if (hit > 0) setTimeout(() => rigDrop(cell), hit); else rigDrop(cell);
   if (cell._spray === "due") setTimeout(() => sprayDue(cell), ms);
 }
@@ -6273,6 +6287,7 @@ async function renderReveal(ev) {
     dropReel(r, ev, r * stagger, (ev.anticipation?.[r] || 0) * anticExtra, onCrewLeader, slowOf(r))));
   hushReels();   // a skipped reveal cuts it short; a full one has already faded out
   boardZoom(false);   // the lean-in lets go as the board settles, hit or miss
+  await landsDone();   // the last column's icons finish their landings before a win lights them
   await spraysDone();   // every Multi's value is on its brick before anything is paid off it
   // near-miss resolution: linger on landed scatters when the reveal carried anticipation
   if (ev.anticipation && ev.anticipation.some(a => a > 0)) {
@@ -7349,6 +7364,7 @@ const handlers = {
       multEls[r][y].classList.remove("bare");
     });
     for (let r = 0; r < REELS; r++) cellEls[r][0].parentElement.classList.remove("tumbling");
+    await landsDone();    // every icon that fell has finished its landing before anything else touches it
     await spraysDone();   // a Multi that just fell in has its value before the next win is read
   },
 
@@ -7406,7 +7422,7 @@ const handlers = {
       const b = list[k];
       if (k) await beat(k < CORKS_MAX ? CORK_STAGGER : stagger);
       let landed = null;
-      if (k < CORKS_MAX && !state.skip && !REDUCED_MOTION) {
+      if (k < CORKS_MAX && !REDUCED_MOTION) {   // on a skipped spin too: the cork is seen, very quickly (its flight runs CORK_SKIP times as fast)
         let hit;
         landed = new Promise(r => { hit = r; });
         if (!corkShot(at(b), seedOf(b, k), hit)) landed = null;
