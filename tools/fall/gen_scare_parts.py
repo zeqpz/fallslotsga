@@ -8,6 +8,9 @@ where its neighbours used to cover it, on a transparent background.
 
   .venv/Scripts/python.exe -I tools/fall/gen_scare_parts.py refs                # the reference pictures
   .venv/Scripts/python.exe -I tools/fall/gen_scare_parts.py gen [name,name|all] [--redo]   # the raw parts
+  .venv/Scripts/python.exe -I tools/fall/gen_scare_parts.py takeref <name> <raw.png>      # an earlier take as a ref
+  .venv/Scripts/python.exe -I tools/fall/gen_scare_parts.py cand <name> <first n> <count>   # takes into raw/cand/
+  .venv/Scripts/python.exe -I tools/fall/gen_scare_parts.py pick <name> <n>                # raw/cand/<name>_<n> -> raw/
 -> art/fall-src/scare_parts/ref/*.png, raw/<name>.png (an older take is kept as raw/old/<name>_<n>.png),
    log.jsonl (time, part, prompt, refs, cost). tools/fall/cut_scare_parts.py turns the raw takes into clean parts."""
 import json, os, shutil, sys, time
@@ -140,9 +143,18 @@ PARTS = {
     "jug": ("jug", "Draw ONLY his brown moonshine JUG as one separate piece: the stoneware jug with the tan XXX label "
             "band, the little handle ring, the cork, and the ring of rope tied round its neck. The rope that it "
             "hangs from is cut off just above the neck. NO straw, NO sleeve, NO hand, no wood."),
-    "crow": ("crow", "Draw ONLY the black CROW as one separate piece, wings folded, with its cream eye, grey beak and "
-             "both grey feet with their claws drawn COMPLETE (gripping nothing). NO wooden crossbar, NO rope, NO "
-             "straw."),
+    # (2026-11-15, owner: "fix the missing eye in our bird" - the first take drew the far eye's brow bump over the
+    # beak with nothing under it; the crow is redrawn from that take (reference 3) with BOTH eyes)
+    "crow": ("crow", "Draw ONLY the black CROW as one separate piece, wings folded, with its grey beak and both grey "
+             "feet with their claws drawn COMPLETE (gripping nothing). Reference 3 is the crow as it is drawn now: "
+             "copy reference 3 EXACTLY - the same pose, body, head, feathers, tail, beak, feet, proportions, line "
+             "weight and colours, at the same size and in the same place on the canvas - with ONE fix: it has only "
+             "one eye. Give it BOTH EYES, as in reference 2: the near eye stays exactly as it is (big round cream "
+             "eye, dark ink outline, small black pupil), and the FAR EYE is added on the other side of the head, "
+             "peeking out just above the top of the beak under that dark feather brow bump in front of the near "
+             "eye: a smaller cream eye (about two thirds the near eye's size) with the same dark ink outline and a "
+             "small black pupil looking the same way, partly hidden behind the beak and the head's front edge. Both "
+             "eyes are solid, opaque and clearly readable. NO wooden crossbar, NO rope, NO straw."),
     "crow_wing": ("crow", "Draw ONLY ONE spread WING of this black crow, as a separate piece on its own: the wing "
                   "opened out wide for flapping, the shoulder end at the lower right of the picture and the long "
                   "flight feathers fanned out to the upper left, in the crow's own purple-black colours with the same "
@@ -196,6 +208,56 @@ def prompt_of(name):
     return HEAD + what + SAME + STYLE
 
 
+# a part redrawn from an earlier take: ref/<file> is that take, cleaned and flattened on white (made by `takeref`)
+TAKE_REF = {"crow": "crow_take1.png"}
+
+
+def take_ref(name, src):
+    """An earlier raw take -> ref/TAKE_REF[name]: its alpha cleaned (cut_scare_parts.clean) and laid on white."""
+    import numpy as np
+    import cut_scare_parts as C
+    im = C.clean(C.load(src))
+    rgb = im[..., :3] * im[..., 3:] + (1 - im[..., 3:])
+    Image.fromarray((rgb * 255 + .5).clip(0, 255).astype(np.uint8)).save(os.path.join(REF, TAKE_REF[name]))
+
+
+def refs_of(name):
+    region, _ = PARTS[name]
+    rf = [os.path.join(REF, "full.png"), os.path.join(REF, region + ".png")]
+    if name in TAKE_REF:
+        rf.append(os.path.join(REF, TAKE_REF[name]))
+    return rf
+
+
+def candidate(name, n):
+    """One more take of a part into raw/cand/<name>_<n>.png (the current raw take is left alone; `pick` swaps one in)."""
+    import orimg
+    region, _ = PARTS[name]
+    out = os.path.join(RAW, "cand", f"{name}_{n}.png")
+    p, rf = prompt_of(name), refs_of(name)
+    try:
+        _, cost = orimg.generate(out, p, aspect=REGIONS[region][1], refs=rf)
+    except RuntimeError as e:
+        return f"FAIL {name}_{n} {e}"
+    with open(LOG, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"t": time.strftime("%Y-%m-%d %H:%M:%S"), "part": f"{name} (candidate {n})",
+                             "region": region, "aspect": REGIONS[region][1],
+                             "refs": [os.path.relpath(r, ROOT) for r in rf], "prompt": p, "cost": cost}) + "\n")
+    return f"OK {name}_{n} {cost}"
+
+
+def pick(name, n):
+    """raw/cand/<name>_<n>.png becomes raw/<name>.png (the take it replaces is kept as raw/old/<name>_<k>.png)."""
+    out = os.path.join(RAW, name + ".png")
+    if os.path.exists(out):
+        os.makedirs(os.path.join(RAW, "old"), exist_ok=True)
+        k = 1
+        while os.path.exists(os.path.join(RAW, "old", f"{name}_{k}.png")):
+            k += 1
+        shutil.move(out, os.path.join(RAW, "old", f"{name}_{k}.png"))
+    shutil.copyfile(os.path.join(RAW, "cand", f"{name}_{n}.png"), out)
+
+
 def one(name):
     import orimg
     region, _ = PARTS[name]
@@ -207,7 +269,7 @@ def one(name):
             n += 1
         shutil.move(out, os.path.join(RAW, "old", f"{name}_{n}.png"))
     p = prompt_of(name)
-    rf = [os.path.join(REF, "full.png"), os.path.join(REF, region + ".png")]
+    rf = refs_of(name)
     try:
         _, cost = orimg.generate(out, p, aspect=REGIONS[region][1], refs=rf)
     except RuntimeError as e:
@@ -231,3 +293,12 @@ if __name__ == "__main__":
         with ThreadPoolExecutor(6) as ex:
             for r in ex.map(one, names):
                 print(r, flush=True)
+    elif step == "takeref":                  # takeref <name> <raw take png>
+        take_ref(sys.argv[2], sys.argv[3])
+    elif step == "cand":                     # cand <name> <first n> <how many>
+        name, n0, k = sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+        with ThreadPoolExecutor(6) as ex:
+            for r in ex.map(lambda n: candidate(name, n), range(n0, n0 + k)):
+                print(r, flush=True)
+    elif step == "pick":                     # pick <name> <n>
+        pick(sys.argv[2], int(sys.argv[3]))

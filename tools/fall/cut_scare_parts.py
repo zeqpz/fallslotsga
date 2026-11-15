@@ -14,7 +14,7 @@ Then the made parts (make_*): the crow's head cut off its body at the neck, the 
 and its foot from the round-2 pole layer, and the eyes / pupils / lids / brows, which are DRAWN here (solid, crisp,
 exactly registered on each other - the old whole-head face swaps had see-through eyes and a shadow behind the head).
 
-  .venv/Scripts/python.exe -I tools/fall/cut_scare_parts.py [cut] [made] [sheet]"""
+  .venv/Scripts/python.exe -I tools/fall/cut_scare_parts.py [cut [take,take]] [made [crow,hat,..]] [sheet]"""
 import json, math, os, sys
 
 import numpy as np
@@ -55,7 +55,9 @@ TAKES = {
               ("jug_rope", (.5, 0, 152, 470, .36, 0, dict(rows=(0, .40)))),
               ("belt_a", (.5, .1, 577, 748, .27, 0)), ("belt_b", (.5, 0, 588, 752, .25, -8, dict(rows=(.3, 1))))],
     "jug": [("jug", (0, 0, 38, 564, .222, 0))],
-    "crow": [("crow", (0, 0, 757, 189, .2625, 0))],
+    # (2026-11-15: the take with both eyes, redrawn from the first; registered on it - scale .956, shift (20, 32) raw
+    # px, silhouette IoU .954 - so the feet, the neck joint and the wings' shoulders stay where they were)
+    "crow": [("crow", (0, 0, 757.7, 189.0, .2510, 0))],
     "crow_wing": [("wing", (.93, .78, 858, 292, .15, 0))],
     # the mouths: every one centred on MOUTH (the head's own tilt turned into them: the takes are drawn level)
     "mouths_a": [("mouth_grin", (.5, .5, 505, 412, .26, 4)), ("mouth_cheer", (.5, .4, 505, 412, .25, 18)),
@@ -550,15 +552,16 @@ def make_trousers(meta):
     print("trousers: crotch at art y", round(ty + crotch / S), joints)
 
 
-def made():
+MAKERS = {"hat": make_hat, "crow": make_crow, "pole": make_pole, "face": make_face, "mouth": make_mouth,
+          "trousers": make_trousers}
+
+
+def made(only=None):
     mp = os.path.join(OUT, "parts.json")
     meta = json.load(open(mp))
-    make_hat(meta)
-    make_crow(meta)
-    make_pole(meta)
-    make_face(meta)
-    make_mouth(meta)
-    make_trousers(meta)
+    for k, fn in MAKERS.items():
+        if not only or k in only:
+            fn(meta)
     json.dump(meta, open(mp, "w"), indent=1)
     print("made:", ", ".join(k for k in meta if k.split("_")[0] in ("hat", "crow", "post", "crossbar", "ground", "eye",
                                                                      "pupil", "lid", "brow")))
@@ -569,8 +572,8 @@ if __name__ == "__main__":
     args = sys.argv[1:] or ["cut"]
     if args[0] == "cut":
         cut(args[1].split(",") if len(args) > 1 else None)
-    elif args[0] == "made":
-        made()
+    elif args[0] == "made":                      # made [hat,crow,pole,face,mouth,trousers]
+        made(args[1].split(",") if len(args) > 1 else None)
     elif args[0] == "ghost":                     # the parts over the faded old figure: ghost out.png name,name [x0,y0,x1,y1] [zoom]
         meta = json.load(open(os.path.join(OUT, "parts.json")))
         z = float(args[4]) if len(args) > 4 else 1.0
