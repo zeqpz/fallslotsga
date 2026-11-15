@@ -86,13 +86,15 @@ CHECKS = {
 }
 
 
-def run_size(b, name, w, h, out, social):
+def run_size(b, name, w, h, out, social, scan=None):   # scan(key): called on every screen (tools/social_check.py)
     res = {}
     b.size(w, h)
 
     def snap(key, settle=.5):
         time.sleep(settle)
         b.shot(out / f"{key}.png")
+        if scan:
+            scan(key)
         parts, root = CHECKS[key]
         b.js(HELPERS)
         res[key] = {"parts": b.js(f"__rv.parts({json.dumps(parts)})"), "minFont": b.js(f"__rv.minFont({json.dumps(root)})"),
