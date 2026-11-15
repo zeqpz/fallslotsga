@@ -40,6 +40,20 @@ SHEETS = {
             "translucent with bright white glints, two cream stoneware shards (one with a stitched black X on it), "
             "and the cork."),
     "splat": (None, 6, None),
+    # more of them, and thrown ones (owner, 2026-11-15: "more different angles and splats")
+    "splat_b": (None, 6, "Game effect sprite sheet. Fully transparent background. 6 different juice splatter marks as left on a "
+                "wall in a fruit-slicing arcade game, laid out in a 3 by 2 grid with wide gaps, none touching. Each one was "
+                "THROWN SIDEWAYS and hit the wall at a shallow angle travelling from left to right: a fat rounded blob at "
+                "the left that smears out into a long tapering streak to the right, with elongated droplets flying off "
+                "ahead of it to the right. All six point exactly to the right; each a different length and shape. Flat "
+                "cartoon look: pure white fill, a few very light grey patches for wet shading, NO outline, no colour, no "
+                "text, no shadows."),
+    "splat_c": (None, 6, "Game effect sprite sheet. Fully transparent background. 6 different juice marks as left on a wall "
+                "in a fruit-slicing arcade game, laid out in a 3 by 2 grid with wide gaps, none touching: two small "
+                "starburst splats with many thin radiating spikes, two loose clusters of small round spatter dots of "
+                "mixed sizes, and two splats with three or four long drips running straight down from them. Flat cartoon "
+                "look: pure white fill, a few very light grey patches for wet shading, NO outline, no colour, no text, "
+                "no shadows."),
 }
 SPLAT = ("Game effect sprite sheet. Fully transparent background. 6 different juice splatter marks as left on a wall in "
          "a fruit-slicing arcade game, laid out in a 3 by 2 grid with wide gaps, none touching. Each is one big wet "
@@ -50,7 +64,7 @@ SPLAT = ("Game effect sprite sheet. Fully transparent background. 6 different ju
 def one(name):
     ref, n, what = SHEETS[name]
     out = os.path.join(OUT, name + ".png")
-    prompt = SPLAT if what is None else STYLE.format(n=n) + what
+    prompt = (what or SPLAT) if ref is None else STYLE.format(n=n) + what
     refs = [os.path.join(ROOT, "frontend", "assets", "flat", ref + ".webp")] if ref else []
     try:
         _, cost = orimg.generate(out, prompt, "1:1", True, refs)

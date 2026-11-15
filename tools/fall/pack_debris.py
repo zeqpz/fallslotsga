@@ -9,9 +9,10 @@ from scipy import ndimage
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(ROOT, "art", "fall-src", "debris")
-SHEETS = ["apple", "grapes", "pumpkin", "pie", "turkey", "horn", "corn", "hat", "leaf", "jug", "splat"]
-BOX = {"splat": 176}          # the longest side a piece is shipped at (drawn ~40 css px, at 2x)
-JOIN = {"splat": 16}          # px a piece's loose crumbs and droplets may sit from it and still be part of it
+SHEETS = ["apple", "grapes", "pumpkin", "pie", "turkey", "horn", "corn", "hat", "leaf", "jug", "splat", "splat_c", "splat_b"]
+INTO = {"splat_c": "splat", "splat_b": "splatdir"}   # table key a sheet's pieces go under: splat = round marks, splatdir = thrown ones, pointing right
+BOX = {"splat": 136, "splat_c": 136, "splat_b": 150}          # the longest side a piece is shipped at (drawn ~40 css px, at 2x)
+JOIN = {"splat": 16, "splat_c": 22, "splat_b": 22}          # px a piece's loose crumbs and droplets may sit from it and still be part of it
 W = 1024
 
 
@@ -40,7 +41,8 @@ def main():
             rel = min(1.35, max(.6, max(p.size) / mid))
             k = box * rel / max(p.size)
             q = p.resize((max(1, round(p.width * k)), max(1, round(p.height * k))), Image.LANCZOS)
-            placed.append((name, q, round(rel, 2)))
+            key = "splatdrip" if name == "splat_c" and p.height > 1.4 * p.width else INTO.get(name, name)   # the ones that run down stay upright
+            placed.append((key, q, round(rel, 2)))
         print(name, len(ps))
     x = y = row = 0
     spots = []
