@@ -1196,6 +1196,7 @@ _SPRINGS = dict(head=(3.0, .40), hat=(3.0, .24), hatlift=(3.6, .30), hats=(3.4, 
                 sleeve_l=(1.7, .25), sleeve_r=(1.8, .25), hand_l=(1.9, .2), hand_r=(1.75, .2), rope=(.8, .075),
                 jug=(1.7, .22), belt=(1.9, .15), cuff_l=(2.6, .2), cuff_r=(2.4, .2), crow=(3.2, .38),
                 boot_l=(2.0, .2), boot_r=(1.9, .2), leg_l=(1.15, .24), leg_r=(1.3, .26))
+LEG_CLAMP = True            # the skinned mesh's legs are one piece; the cut-out rig (tools/fall/scare_rig.py) turns this off
 _C0, _PV = u(*BONES["crow"][0]), u(*BONES["pole"][0])
 _WING_REST = math.degrees(math.atan2(-(BONES["wing_l"][1][1] - BONES["wing_l"][0][1]),
                                      BONES["wing_l"][1][0] - BONES["wing_l"][0][0]))     # the fold's direction (y up)
@@ -1282,7 +1283,7 @@ def run_clip(name, rng, warm=None):
         # the legs hang off the hips: they trail the body's swings and overshoot (each at its own rate), under the kicks
         ll = S["leg_l"].step(-.72 * hips_w) + d["swing"] + d["legs"] + 2.2 * tr * sh3
         lr = S["leg_r"].step(-.72 * hips_w) + d["swing"] - .8 * d["legs"] - 2.2 * tr * sh3
-        if abs(ll - lr) > 15:                                      # (the trouser legs tear if they part further)
+        if LEG_CLAMP and abs(ll - lr) > 15:                        # (the trouser legs tear if they part further)
             m, h = (ll + lr) / 2, (7.5 if ll > lr else -7.5)
             ll, lr = m + h, m - h
         ll_v, lr_v = (ll - prev["ll"]) * FPS, (lr - prev["lr"]) * FPS

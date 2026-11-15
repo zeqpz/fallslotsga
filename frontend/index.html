@@ -9079,14 +9079,15 @@ async function makeCharacterFrames({ el, name, flavour, swap = {}, shadow = true
 // the painted field behind him. A cut between clips is a short blend between the two POSES (not a cross-fade of
 // two pictures), so a reaction can cut in at once without a pop.
 const CHAR_FRAMES = /[?&]charframes\b/.test(location.search);
+const CHAR_MESH = /[?&]charmesh\b/.test(location.search);   // the skinned-mesh scarecrow of before 2026-11-15
 const CHAR_RIG = {
   cueWait: 120,    // ms a reaction waits for the playing clip's next rest pose before cutting in anyway (blended)
   blend: 200,      // ms a cut blends the poses over (off a rest pose: cueBlend)
   cueBlend: 90,
   backBlend: 140,  // ms a finished one-shot blends back into the idle (its first pose is the idle's, near enough)
 };
-async function charRig(name) {
-  const base = `assets/chars/${name}_rig`;
+async function charRig(name, kind = "_rig") {
+  const base = `assets/chars/${name}${kind}`;
   const get = async (f, kind) => {   // a dropped request is tried again (twice) before the figure gives up
     for (let n = 0; ; n++) {
       try {
@@ -9418,10 +9419,254 @@ async function makeCharacterRig({ el, name, flavour, swap = {} }) {
   return { react, enter, exit };
 }
 
+// The scarecrow as separate cut-out parts (2026-11-15: tools/fall/scare_rig.py -> pack_scare_rig.py ->
+// assets/chars/<name>_parts): rigid pictures on bones - head, hat, limbs, boots, straw, jug, crow, eyes, lids,
+// brows and mouths that swap - instead of one skinned mesh that smeared where it bent. The clock, the cue cuts,
+// the ranks and the hold loop are makeCharacterRig's own. ?charmesh keeps the old mesh for comparison.
+async function makeCharacterParts({ el, name, flavour, swap = {} }) {
+  const root = document.getElementById(el);
+  if (!root || typeof PIXI === "undefined") return null;
+  const headroom = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--char-headroom")) || 1;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  let R;
+  try { R = await charRig(name, "_parts"); }
+  catch (e) { console.warn("character rig failed to load:", name, e.message); return null; }
+  const { man, arr } = R, fps = man.fps, NB = man.bones.length;
+  const has = clip => !!man.clips[clip];
+  if (!has("idle")) { console.warn("character has no idle:", name); return null; }
+
+  const app = new PIXI.Application();
+  await app.init({ backgroundAlpha: 0, antialias: false, autoDensity: true, resolution: dpr, resizeTo: root, preference: "webgl" });
+  app.ticker.maxFPS = CHAR_FPS;
+  root.appendChild(app.canvas);
+  // drawn only when the pose (or the light on it) changes - the canvas keeps the last picture in between
+  let dirty = true, renderMs = 0;
+  const touch = () => { dirty = true; };
+  app.ticker.remove(app.render, app);
+  app.ticker.add(() => {
+    if (!dirty) return;
+    dirty = false;
+    const t0 = performance.now();
+    app.render();
+    renderMs = renderMs * .95 + (performance.now() - t0) * .05;
+  }, null, PIXI.UPDATE_PRIORITY.LOW);
+  app.renderer.on("resize", touch);
+
+  // ---- the figure, in art px (x right, y down); fit() scales and places it. Every slot is one sprite, back to
+  // front as the rig lists them; a slot's picture switches on the key (255: hidden), its place, turn and
+  // stretch are its bone's five numbers, lerped between the 30 fps keys.
+  const fig = new PIXI.Container();
+  app.stage.addChild(fig);
+  const SPR = man.sprites.map(q => ({ tex: R.sub([q[1], q[2], q[3], q[4]]), px: q[5], py: q[6], s: q[7] || 1 }));
+  const slots = man.slots.map(([, bone, rest]) => {
+    const sp = new PIXI.Sprite(SPR[rest] ? SPR[rest].tex : PIXI.Texture.EMPTY);   // (a slot hidden at rest has no rest picture)
+    sp.visible = false;
+    fig.addChild(sp);
+    return { sp, b: bone * 5, shown: -1 };
+  });
+  const NS = slots.length;
+  // effect sprites (straw, leaves, feathers, bubbles, sparkles), pooled
+  const rect = k => man.rects[k];
+  const fxTex = man.fx.map(k => R.sub(rect("fx_" + k))), fxPool = [], FXS = rect("fx_" + man.fx[0])[2];
+  const fxLayer = new PIXI.Container();
+  fig.addChild(fxLayer);
+  const mtx = new PIXI.Matrix();
+
+  const fit = () => {
+    const w = app.screen.width, h = app.screen.height;
+    if (!w || !h) return;
+    // his standing height fills the box less its headroom, his ground on the box's bottom, centred
+    const k = h / headroom() / man.rest_height;
+    fig.scale.set(k);
+    fig.position.set(w / 2 - man.ground[0] * k, h - man.ground[1] * k);
+    touch();
+  };
+  fit();
+  app.renderer.on("resize", fit);
+  addEventListener("resize", fit);
+  const repose = neonRim(app, fig, null, touch);   // the tag's light, where the scene has one (not in this reskin)
+
+  // ---- poses: a clip's bones at a (fractional) frame - angle, stretch x / y, place x / y each - lerped between
+  // its keys; a cut blends from the last shown pose
+  const Q = {}, SL = {}, QA = man.q.angle, QS = man.q.scale, QP = man.q.pos;
+  for (const c of Object.keys(man.clips)) { Q[c] = arr("clip_" + c); SL[c] = arr("slots_" + c); }
+  const M = new Float32Array(NB * 5), shownM = new Float32Array(NB * 5), fromM = new Float32Array(NB * 5);
+  const poseAt = (clip, ff, out) => {
+    const C = man.clips[clip], n = C.frames, q = Q[clip];
+    let i0 = Math.floor(ff), k = ff - i0, i1;
+    if (C.loop) { i0 = ((i0 % n) + n) % n; i1 = (i0 + 1) % n; }
+    else if (i0 >= n - 1) { i0 = i1 = n - 1; k = 0; }
+    else { if (i0 < 0) { i0 = 0; k = 0; } i1 = i0 + 1; }
+    const a = i0 * NB * 5, b = i1 * NB * 5;
+    for (let j = 0; j < NB * 5; j += 5) {
+      // a part that flips between two keys (the crow turning round) snaps on the key instead of squashing through nothing
+      const flip = q[a + j + 1] * q[b + j + 1] < 0 || q[a + j + 2] * q[b + j + 2] < 0, kk = flip ? (k < .5 ? 0 : 1) : k;
+      out[j] = (q[a + j] + (q[b + j] - q[a + j]) * kk) / QA;
+      out[j + 1] = (q[a + j + 1] + (q[b + j + 1] - q[a + j + 1]) * kk) / QS;
+      out[j + 2] = (q[a + j + 2] + (q[b + j + 2] - q[a + j + 2]) * kk) / QS;
+      out[j + 3] = (q[a + j + 3] + (q[b + j + 3] - q[a + j + 3]) * kk) / QP;
+      out[j + 4] = (q[a + j + 4] + (q[b + j + 4] - q[a + j + 4]) * kk) / QP;
+    }
+    return C.loop ? Math.round(ff) % n : Math.min(n - 1, Math.max(0, Math.round(ff)));   // the nearest key (slot pictures, effects)
+  };
+  const show = (clip, key) => {
+    const sl = SL[clip], o = key * NS;
+    for (let i = 0; i < NS; i++) {
+      const S = slots[i], idx = sl[o + i];
+      if (idx === 255) { S.sp.visible = false; continue; }
+      const P = SPR[idx], b = S.b;
+      if (idx !== S.shown) { S.sp.texture = P.tex; S.sp.pivot.set(P.px, P.py); S.shown = idx; }
+      S.sp.position.set(M[b + 3], M[b + 4]);
+      S.sp.rotation = M[b];
+      S.sp.scale.set(M[b + 1] / P.s, M[b + 2] / P.s);
+      S.sp.visible = true;
+    }
+    // the effect sprites of the nearest key: each a unit square -> art px
+    const list = man.clips[clip].spr[key] || [];
+    for (let i = 0; i < list.length; i++) {
+      const q = list[i];
+      let sp = fxPool[i];
+      if (!sp) { sp = fxPool[i] = new PIXI.Sprite(fxTex[0]); fxLayer.addChild(sp); }
+      sp.texture = fxTex[q[0]];
+      mtx.set(q[1] / FXS, q[2] / FXS, q[3] / FXS, q[4] / FXS, q[5], q[6]);
+      sp.setFromMatrix(mtx);
+      sp.alpha = q[7];
+      sp.visible = true;
+    }
+    for (let i = list.length; i < fxPool.length; i++) fxPool[i].visible = false;
+    shownM.set(M);
+    if (repose) repose();
+    touch();
+  };
+
+  // ---- the clock: what plays, from when, and what waits for the playing clip's next rest pose
+  let cur = { clip: "idle", t0: performance.now(), rank: -1 }, next = null, blendT0 = 0, blendMs = 0;
+  let rank = -1, until = 0, away = true, timer = 0, fadeTimer = 0, lastFF = -1, lastClip = null, skinMs = 0;
+  const lengthOf = clip => man.clips[clip].frames * 1000 / fps;
+  const ffOf = (c, now) => (now - c.t0) * fps / 1000;
+  const start = (clip, now, blend, r = -1) => {
+    if (blend > 0 && lastClip) { fromM.set(shownM); blendT0 = now; blendMs = blend; } else blendMs = 0;
+    cur = { clip, t0: now, rank: r };
+    if (clip !== "idle") until = now + lengthOf(clip);
+  };
+  // on a rest pose: a frame the packer found within a few px of the rest pose, passed since the last tick
+  const passedCue = (clip, from, to) => (man.clips[clip].cues || []).some(c => c > from && c <= to);
+  let frozen = null;   // QA: a pose held still (__chars[i].freeze)
+  app.ticker.add(() => {
+    const now = performance.now();
+    if (frozen) {
+      if (frozen.drawn) return;
+      show(frozen.clip, poseAt(frozen.clip, frozen.ff, M)); frozen.drawn = true; lastClip = null;
+      return;
+    }
+    const C = man.clips[cur.clip];
+    // a one-shot over: on into a reaction waiting behind it, else back to the idle (the exit holds its last pose)
+    if (!C.loop && ffOf(cur, now) >= C.frames - 1 && cur.clip !== "exit") {
+      const endAt = Math.min(now, cur.t0 + lengthOf(cur.clip));
+      if (next) { charSfx(name, next.clip); start(next.clip, endAt, CHAR_RIG.cueBlend, next.rank); next = null; }
+      else { start("idle", endAt, CHAR_RIG.backBlend); rank = -1; }
+    }
+    // a waiting clip cuts in on the playing clip's next rest pose, or, past cueWait, at once with a pose blend.
+    // A bigger moment cuts off a smaller one-shot the same way; enter / exit are never cut.
+    if (next && cur.clip !== "enter" && cur.clip !== "exit" && (cur.clip === "idle" || next.rank > cur.rank)) {
+      const ff = ffOf(cur, now), n = man.clips[cur.clip].frames;
+      const f0 = lastClip === cur.clip ? lastFF : ff, a = Math.floor(f0), b = Math.floor(ff);
+      const onCue = cur.clip === "idle" ? passedCue("idle", a % n, b % n) || (b % n) < (a % n) : passedCue(cur.clip, a, b);
+      const late = now - next.at > CHAR_RIG.cueWait;
+      if (onCue || late) {
+        charSfx(name, next.clip);
+        start(next.clip, now, onCue ? CHAR_RIG.cueBlend : CHAR_RIG.blend, next.rank);
+        next = null;
+      }
+    }
+    // a clip with a hold (the tease's `anticipate`) cycles its held middle for as long as the tease is up
+    const H = man.clips[cur.clip] && man.clips[cur.clip].hold;
+    if (H && document.body.classList.contains("tease") && ffOf(cur, now) >= H[1]) cur.t0 += (H[1] - H[0]) * 1000 / fps;
+    const ff = Math.max(0, ffOf(cur, now));
+    const blending = blendMs > 0 && now - blendT0 < blendMs;
+    if (!blending && cur.clip === lastClip && Math.abs(ff - lastFF) < 1e-3) return;   // nothing moved
+    const t0 = performance.now();
+    const key = poseAt(cur.clip, ff, M);
+    if (blending) {
+      let e = (now - blendT0) / blendMs; e = e * e * (3 - 2 * e);
+      for (let j = 0; j < M.length; j++) M[j] = fromM[j] + (M[j] - fromM[j]) * e;
+    }
+    show(cur.clip, key);
+    skinMs = skinMs * .95 + (performance.now() - t0) * .05;
+    lastFF = ff; lastClip = cur.clip;
+  });
+
+  const pick = list => list[Math.floor(Math.random() * list.length)];
+  const oneShot = (clip, want) => {
+    if (!has(clip)) return false;
+    const now = performance.now();
+    if (want <= rank && now < until) return false;   // a bigger moment still has the floor
+    if (next && want <= next.rank) return false;      // one is already waiting for its cue
+    next = { clip, rank: want, at: now };
+    const startsAt = cur.clip !== "idle" && cur.clip !== "exit" && want <= cur.rank ? Math.max(now, cur.t0 + lengthOf(cur.clip)) : now + CHAR_RIG.cueWait;
+    rank = want; until = startsAt + lengthOf(clip);
+    return true;
+  };
+  // idle breaks, re-armed after every clip, skipped (not banked) while busy or hidden
+  const armFlavour = () => {
+    clearTimeout(timer);
+    if (REDUCED_MOTION || away || !flavour.length) return;
+    timer = setTimeout(() => {
+      if (!document.hidden && !state.playing && performance.now() >= until) oneShot(pick(pick(flavour)), CHAR_RANK.flavour);
+      armFlavour();
+    }, CHAR_FLAVOUR_GAP[0] + Math.random() * (CHAR_FLAVOUR_GAP[1] - CHAR_FLAVOUR_GAP[0]));
+  };
+  const react = kind => {
+    if (REDUCED_MOTION || away) return;
+    const want = CHAR_RANK[kind];
+    if (want === undefined) return;
+    const clip = swap[kind] || kind;
+    if (oneShot(clip, want)) armFlavour();
+  };
+  const enter = () => {
+    if (!away) return;
+    away = false;
+    rank = -1; until = 0; next = null;
+    clearTimeout(fadeTimer);
+    app.canvas.classList.add("on");
+    if (REDUCED_MOTION) { app.ticker.stop(); start("idle", performance.now(), 0); poseAt("idle", 0, M); show("idle", 0); app.render(); return; }
+    if (has("enter")) charSfx(name, "enter");
+    start(has("enter") ? "enter" : "idle", performance.now(), 0);
+    rank = has("enter") ? CHAR_RANK.enter : -1;
+    armFlavour();
+  };
+  const exit = () => {
+    if (away) return;
+    away = true;
+    clearTimeout(timer);
+    next = null;
+    clearTimeout(fadeTimer);
+    if (REDUCED_MOTION || !has("exit")) { app.canvas.classList.remove("on"); return; }
+    charSfx(name, "exit");
+    start("exit", performance.now(), CHAR_RIG.blend);
+    rank = CHAR_RANK.exit; until = performance.now() + lengthOf("exit");
+    const fadeMs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--char-fade")) || 280;
+    fadeTimer = setTimeout(() => app.canvas.classList.remove("on"), Math.max(0, lengthOf("exit") - fadeMs));
+  };
+  // the first pose drawn (and the atlas uploaded) before the loading screen lifts
+  poseAt("enter", 0, M); show("enter", 0);
+  if (app.renderer.prepare) { try { await app.renderer.prepare.upload(fig); } catch (e) { /* drawn on first render instead */ } }
+  app.render();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) fit(); });
+  // debug / QA handle: play(clip) cuts straight to a clip; perf() the mean ms per tick of skinning and of drawing
+  (window.__chars || (window.__chars = [])).push({
+    name, app, rig: true, parts: true, state: () => ({ cur, next, rank }),
+    play: clip => { frozen = null; start(clip, performance.now(), CHAR_RIG.blend, 5); rank = 5; until = performance.now() + lengthOf(clip); },
+    freeze: (clip, ff) => { frozen = clip ? { clip, ff, drawn: false } : null; },
+    perf: () => ({ skinMs, renderMs, sprites: NS, bones: NB }),
+  });
+  return { react, enter, exit };
+}
+
 // the loading screen waits for both characters (their walk-on and idle decoded)
 let charsLoaded = Promise.resolve([]);
 (async function characters() {
-  charsLoaded = Promise.all(CHARACTERS.map(c => (CHAR_FRAMES ? makeCharacterFrames : makeCharacterRig)(c)));
+  charsLoaded = Promise.all(CHARACTERS.map(c => (CHAR_FRAMES ? makeCharacterFrames : CHAR_MESH ? makeCharacterRig : makeCharacterParts)(c)));
   const rigs = (await charsLoaded).filter(Boolean);
   if (!rigs.length) return;
   charReact = kind => rigs.forEach(r => r.react(kind));

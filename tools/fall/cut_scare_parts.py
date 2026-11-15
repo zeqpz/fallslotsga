@@ -40,13 +40,13 @@ TAKES = {
     "head_base": [("head", (.545, .545, 492, 374, .335, 6))],
     "hat": [("hat", (0, 0, 232, 112, .444, 0))],
     "hair": [("hair_l", (.95, .1, 345, 285, .19, 0)), ("hair_ll", (.5, .05, 385, 335, .19, 0)),
-             ("hat_tuft", (.3, .9, 470, 180, .22, 0)), ("hair_r", (.05, .1, 560, 240, .2, 0, dict(mirror=True)))],
+             ("hat_tuft", (.3, .9, 470, 180, .22, 0)), ("hair_r", (.05, .1, 588, 306, .2, 0, dict(mirror=True)))],
     "collar": [("collar", (.47, .15, 535, 462, .258, 0))],
     "torso": [("torso", (0, 0, 383, 466, .394, 0))],
     "hips": [("hips", (.5, 0, 545, 726, .285, 0))],
-    "leg_l": [("leg_l", (.72, .02, 480, 745, .315, -10, dict(rows=(.1, 1))))],
-    "leg_r": [("leg_r", (0, 1, 543, 1134, .315, 0, dict(rows=(.1, 1))))],
-    "cuffs": [("cuff_l", (.5, .1, 425, 1114, .27, 0)), ("cuff_r", (.5, .1, 612, 1114, .27, 0))],
+    "leg_l": [("leg_l", (.5, .02, 487, 823, .322, 3, dict(rows=(.28, 1))))],
+    "leg_r": [("leg_r", (0, 1, 543, 1134, .315, 0, dict(rows=(.28, 1))))],
+    "cuffs": [("cuff_l", (.5, .1, 458, 1112, .27, 0)), ("cuff_r", (.5, .1, 612, 1114, .27, 0))],
     "boots": [("boot_l", (0, 1, 368, 1358, .34, 0)), ("boot_r", (0, 1, 520, 1358, .34, 0))],
     "sleeve_l": [("sleeve_l", (.03, .35, 240, 497, .27, 0))],
     "sleeve_r": [("sleeve_r", (.97, .4, 826, 497, .27, 0))],
@@ -72,7 +72,9 @@ def load(path):
 
 
 def save(img, path):
-    Image.fromarray((img * 255 + .5).clip(0, 255).astype(np.uint8)).save(path)
+    tmp = path + ".tmp.png"              # (written aside and swapped in: a viewer holding the old file open blocks a rewrite)
+    Image.fromarray((img * 255 + .5).clip(0, 255).astype(np.uint8)).save(tmp)
+    os.replace(tmp, path)
 
 
 def clean(im, lo=.30, hi=.80, speck=.004):
@@ -188,12 +190,12 @@ def crop(m, pad=2):
     return m[y0:y1, x0:x1], x0, y0
 
 
-def write(meta, name, m, ax, ay):
-    """m: master picture whose top-left is at art (ax, ay)."""
+def write(meta, name, m, ax, ay, s=S):
+    """m: master picture (s px per art px) whose top-left is at art (ax, ay)."""
     m, cx, cy = crop(m)
-    ax, ay = ax + cx / S, ay + cy / S
+    ax, ay = ax + cx / s, ay + cy / s
     save(m, os.path.join(OUT, name + ".png"))
-    meta[name] = {"x": round(ax, 2), "y": round(ay, 2), "w": m.shape[1], "h": m.shape[0], "s": S}
+    meta[name] = {"x": round(ax, 3), "y": round(ay, 3), "w": m.shape[1], "h": m.shape[0], "s": s}
     return m
 
 
@@ -256,7 +258,8 @@ def compose(meta, names, scale=1.0, bg=None, ghost=None):
         out[..., :3] = out[..., :3] * (1 - ghost) + g * ghost
     for n in names:
         im, ax, ay = read_part(meta, n)
-        w, h = max(1, round(im.shape[1] / S * scale)), max(1, round(im.shape[0] / S * scale))
+        ps = meta[n].get("s", S)
+        w, h = max(1, round(im.shape[1] / ps * scale)), max(1, round(im.shape[0] / ps * scale))
         p = resize(im, w, h)
         x, y = int(round(ax * scale)), int(round(ay * scale))
         x0, y0, x1, y1 = max(0, x), max(0, y), min(W, x + w), min(H, y + h)
@@ -271,10 +274,200 @@ def compose(meta, names, scale=1.0, bg=None, ghost=None):
     return out
 
 
+# ---------------------------------------------------------------- the made parts
+# the hat: the lower ink line of its red band (art px) - above it is the crown + band (drawn in FRONT of the head),
+# the whole hat goes BEHIND the head (its brim would cover the face); the tip is cut at its bend, a round joint
+HAT_BAND = [(240, 345), (300, 301), (350, 284), (400, 263), (450, 251), (500, 244), (560, 240), (612, 245), (660, 232), (720, 215)]
+HAT_TIP = (301, 163, 31)                 # the bend: x, y, r (the tip is everything left of x, plus the disc)
+CROW_NECK = (876, 283, 34)               # the crow's neck joint: x, y, r
+CROW_HEAD = (902, 222)                   # ... and a point in the middle of its head (the cut is square to that line)
+POST_X = (458, 586)                      # the post's columns, the crossbar's rows (the round-2 pole layer)
+BAR_Y = (398, 514)
+INK = (38, 20, 10)
+WHITE = (252, 246, 232)
+# the eyes, in art px on the new head: centre x, y, radii, tilt deg (counter-clockwise)
+EYES = {"l": (441, 340, 28, 30, 14), "r": (512, 306, 30, 31, 14)}
+UPPER = (.18, .32, .46, .60, .74, .88, 1.0)      # how far down the upper lid's edge is, as a share of the eye's height
+LOWER = (.14, .26, .38)                          # ... and the lower lid's, up from the bottom
+PUPIL_R = 5.6
+PUPIL_AT = {"l": (5, 3), "r": (-5, 4)}        # where each pupil rests, from its eye's centre (a drunk's cross-eyed look)
+BROWS = {"l": (433, 297, 50, 14), "r": (511, 263, 54, 14)}     # centre x, y, length, tilt
+
+
+def _aa(d):
+    """Signed distance in master px (positive inside) -> coverage."""
+    return np.clip(d + .5, 0, 1)
+
+
+def _mul(im, k):
+    out = im.copy()
+    out[..., 3] *= k
+    return out
+
+
+def make_hat(meta):
+    hat, hx, hy = read_part(meta, "hat")
+    H, W = hat.shape[:2]
+    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
+    ax, ay = hx + (xs + .5) / S, hy + (ys + .5) / S
+    band = np.interp(ax, [p[0] for p in HAT_BAND], [p[1] for p in HAT_BAND])
+    above = _aa((band - ay) * S)
+    tx, ty, tr = HAT_TIP
+    disc = _aa((tr - np.hypot(ax - tx, ay - ty)) * S)
+    tipside = _aa((tx - ax) * S) * (ay < ty + 100)        # (not the brim's left end, far below it)
+    write(meta, "hat_tip", _mul(hat, np.maximum(tipside, disc)), hx, hy)
+    write(meta, "hat_back", _mul(hat, np.maximum(1 - tipside, disc)), hx, hy)
+    write(meta, "hat_front", _mul(hat, above * np.maximum(1 - tipside, disc)), hx, hy)
+
+
+def make_crow(meta):
+    crow, cx, cy = read_part(meta, "crow")
+    H, W = crow.shape[:2]
+    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
+    ax, ay = cx + (xs + .5) / S, cy + (ys + .5) / S
+    jx, jy, jr = CROW_NECK
+    nx, ny = CROW_HEAD[0] - jx, CROW_HEAD[1] - jy
+    nl = math.hypot(nx, ny)
+    side = _aa(((ax - jx) * nx + (ay - jy) * ny) / nl * S)
+    disc = _aa((jr - np.hypot(ax - jx, ay - jy)) * S)
+    write(meta, "crow_head", _mul(crow, np.maximum(side, disc)), cx, cy)
+    write(meta, "crow_body", _mul(crow, np.maximum(1 - side, disc)), cx, cy)
+
+
+def make_pole(meta):
+    import pack_char_rig as PK
+    src = PK.rgba(os.path.join(PK.LAY, "pole.png"))
+    keep = dict(PK.GROUND)
+    try:
+        PK.GROUND = dict(keep, occl=keep["occl"][:4] + (0.0,), pool=keep["pool"][:4] + (0.0,), strokes=[])
+        post = PK.ground_pole(src)                       # the post alone, going into the ground
+        PK.GROUND = keep
+        ground = PK.ground_pole(np.zeros_like(src))      # its contact shadow and the dirt strokes alone
+    finally:
+        PK.GROUND = keep
+    bar = np.zeros_like(post)
+    bar[BAR_Y[0]:BAR_Y[1]] = post[BAR_Y[0]:BAR_Y[1]]
+    pst = np.zeros_like(post)
+    pst[:, POST_X[0]:POST_X[1]] = post[:, POST_X[0]:POST_X[1]]
+    rest = post.copy()
+    rest[BAR_Y[0]:BAR_Y[1]] = 0
+    rest[:, POST_X[0]:POST_X[1]] = 0
+    assert rest[..., 3].max() < .05, ("the pole layer has something outside the post and the crossbar", rest[..., 3].max())
+    write(meta, "post", pst, 0, 0, 1.0)
+    write(meta, "crossbar", bar, 0, 0, 1.0)
+    write(meta, "ground", ground, 0, 0, 1.0)
+
+
+def _canvas(x0, y0, x1, y1, q=4):
+    """A drawing grid over art (x0, y0)..(x1, y1) at q x the master's size -> (art x, art y arrays, px per art px)."""
+    k = S * q
+    w, h = int(math.ceil((x1 - x0) * S)) * q, int(math.ceil((y1 - y0) * S)) * q
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
+    return x0 + (xs + .5) / k, y0 + (ys + .5) / k, k
+
+
+def _down(layers, q=4):
+    """[(rgb, coverage)] drawn back to front at q x -> the master picture (straight alpha)."""
+    h, w = layers[0][1].shape
+    pm = np.zeros((h, w, 3), np.float32)
+    a = np.zeros((h, w), np.float32)
+    for rgb, cov in layers:
+        c = np.array(rgb, np.float32) / 255
+        pm = pm * (1 - cov[..., None]) + c * cov[..., None]
+        a = a * (1 - cov) + cov
+    pm = pm.reshape(h // q, q, w // q, q, 3).mean(axis=(1, 3))
+    a = a.reshape(h // q, q, w // q, q).mean(axis=(1, 3))
+    rgb = np.where(a[..., None] > 1e-4, pm / np.maximum(a[..., None], 1e-4), 0)
+    return np.concatenate([rgb, a[..., None]], -1).astype(np.float32)
+
+
+def make_face(meta):
+    """The eyes (white + outline), pupils, lids and brows, drawn. Every picture of one eye is cut from the same
+    grid, so the lids register on the white exactly; the lids are clipped just inside the outline."""
+    head, hx, hy = read_part(meta, "head")
+    for side, (cx, cy, rx, ry, tilt) in EYES.items():
+        pad = 6
+        R = max(rx, ry) + pad
+        x0, y0 = cx - R, cy - R
+        ax, ay, k = _canvas(x0, y0, cx + R, cy + R)
+        t = math.radians(tilt)
+        u = (ax - cx) * math.cos(t) - (ay - cy) * math.sin(t)          # the eye's own axes (u along its width)
+        v = (ax - cx) * math.sin(t) + (ay - cy) * math.cos(t)
+        e = np.hypot(u / rx, v / ry)
+        grad = np.maximum(1e-3, np.hypot(u / rx ** 2, v / ry ** 2) / np.maximum(e, 1e-3))
+        d_out = (1 - e) / grad                                          # art px inside the eye's edge
+        ink_w = 3.4
+        inner = np.clip((d_out - ink_w) * k + .5, 0, 1)                # the white inside the outline
+        outer = np.clip(d_out * k + .5, 0, 1)
+        # a few tired veins from the rim
+        vein = np.zeros_like(e)
+        rng = np.random.default_rng(3 if side == "l" else 4)
+        for a0 in rng.uniform(0, 2 * math.pi, 5):
+            L = rng.uniform(.28, .42)
+            for s_ in np.linspace(0, 1, 40):
+                rr = 1 - .1 - L * s_
+                ang = a0 + .35 * s_ * s_
+                px, py = rr * rx * math.cos(ang), rr * ry * math.sin(ang)
+                vein = np.maximum(vein, np.clip((.75 * (1 - s_) + .25 - np.hypot(u - px, v - py)) * k + .5, 0, 1))
+        white = _down([(INK, outer), (WHITE, inner), ((226, 150, 140), vein * inner * .8)])
+        write(meta, "eye_" + side, white, x0, y0)
+        # the lid's colour: the burlap round the eye, a little darker
+        sx_, sy_ = int((cx - hx) * S), int((cy - hy) * S)
+        skin = np.median(head[sy_ - 30:sy_ + 30, sx_ - 30:sx_ + 30, :3].reshape(-1, 3), axis=0) * 255
+        lid = tuple(float(c) * .92 for c in skin)
+        clip = np.clip((d_out - ink_w + .6) * k + .5, 0, 1)            # (a hair over the outline's inner edge)
+        for i, f in enumerate(UPPER):
+            full = f >= .999                                           # shut: the whole eye, a sleepy curve low on it
+            fe, bow = (.80, .34) if full else (f, .22)
+            edge = -ry + 2 * ry * fe - ry * bow * np.clip(u / rx, -1, 1) ** 2      # (its middle is its lowest point)
+            fill = clip if full else np.clip((edge - v) * k + .5, 0, 1) * clip
+            line = np.clip((ink_w / 2 - np.abs(v - edge)) * k + .5, 0, 1) * clip
+            write(meta, f"lid_u{i + 1}_{side}", _down([(lid, fill), (INK, line)]), x0, y0)
+        for i, f in enumerate(LOWER):
+            edge = ry - 2 * ry * f + ry * .2 * np.clip(u / rx, -1, 1) ** 2
+            fill = np.clip((v - edge) * k + .5, 0, 1) * clip
+            line = np.clip((ink_w / 2 - np.abs(v - edge)) * k + .5, 0, 1) * clip
+            write(meta, f"lid_d{i + 1}_{side}", _down([(lid, fill), (INK, line)]), x0, y0)
+        # the pupil
+        pr = PUPIL_R
+        cx, cy = cx + PUPIL_AT[side][0], cy + PUPIL_AT[side][1]
+        ax, ay, k = _canvas(cx - pr - 2, cy - pr - 2, cx + pr + 2, cy + pr + 2)
+        dd = np.hypot(ax - cx, ay - cy)
+        pup = _down([((16, 10, 8), np.clip((pr - dd) * k + .5, 0, 1)),
+                     ((255, 255, 255), np.clip((1.5 - np.hypot(ax - cx + 1.9, ay - cy + 2.0)) * k + .5, 0, 1))])
+        write(meta, "pupil_" + side, pup, cx - pr - 2, cy - pr - 2)
+    for side, (cx, cy, L, tilt) in BROWS.items():
+        ax, ay, k = _canvas(cx - L / 2 - 8, cy - 18, cx + L / 2 + 8, cy + 18)
+        t = math.radians(tilt)
+        u = (ax - cx) * math.cos(t) - (ay - cy) * math.sin(t)
+        v = (ax - cx) * math.sin(t) + (ay - cy) * math.cos(t)
+        s_ = np.clip(u / (L / 2), -1, 1)
+        arc = -7.0 * (1 - s_ * s_) + 3.5                               # an arch, its middle highest
+        half = .9 + 2.2 * (1 - np.abs(s_) ** 1.6)                      # thick in the middle, tapered
+        dist = np.hypot(np.maximum(np.abs(u) - L / 2, 0), v - arc)
+        cov = np.clip((half - dist) * k + .5, 0, 1)
+        write(meta, "brow_" + side, _down([(INK, cov)]), cx - L / 2 - 8, cy - 18)
+
+
+def made():
+    mp = os.path.join(OUT, "parts.json")
+    meta = json.load(open(mp))
+    make_hat(meta)
+    make_crow(meta)
+    make_pole(meta)
+    make_face(meta)
+    json.dump(meta, open(mp, "w"), indent=1)
+    print("made:", ", ".join(k for k in meta if k.split("_")[0] in ("hat", "crow", "post", "crossbar", "ground", "eye",
+                                                                     "pupil", "lid", "brow")))
+    return meta
+
+
 if __name__ == "__main__":
     args = sys.argv[1:] or ["cut"]
     if args[0] == "cut":
         cut(args[1].split(",") if len(args) > 1 else None)
+    elif args[0] == "made":
+        made()
     elif args[0] == "ghost":                     # the parts over the faded old figure: ghost out.png name,name [x0,y0,x1,y1] [zoom]
         meta = json.load(open(os.path.join(OUT, "parts.json")))
         z = float(args[4]) if len(args) > 4 else 1.0
