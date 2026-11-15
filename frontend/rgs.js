@@ -244,21 +244,22 @@ const RGS = (() => {
       return (m && typeof m.costMultiplier === "number") ? m.costMultiplier : null;
     },
 
-    /** The highest BASE bet a mode allows, from the RGS config (gameModes[].maxBet), or null
-     *  when the config names none. 0 means the mode is switched off for this session (seen for
-     *  every mode under XGC) - never "unlimited". */
+    /** The highest BASE bet a mode allows: its own cap (gameModes[].maxBet) when the RGS names a
+     *  positive one, else the session's config.maxBet, else null (no cap known). A cap of 0 or a
+     *  missing one means "no cap of its own" - the RGS sends maxBet 0 for every mode under XGC,
+     *  and the modes are all playable there (review 2026-11-15: reading 0 as "switched off" hid
+     *  every bonus card). */
     maxBetOf(mode) {
-      const modes = (state.config && state.config.gameModes) || [];
-      const m = modes.find(x => x.mode === mode);
-      return (m && typeof m.maxBet === "number") ? m.maxBet : null;
+      const c = state.config || {};
+      const m = (c.gameModes || []).find(x => x.mode === mode);
+      if (m && typeof m.maxBet === "number" && m.maxBet > 0) return m.maxBet;
+      return (typeof c.maxBet === "number" && c.maxBet > 0) ? c.maxBet : null;
     },
 
-    /** Whether a mode can be played at this base bet: not switched off, and not above its cap. */
+    /** Whether a mode can be played at this base bet: not above its cap. */
     modeAllowed(mode, amount) {
       const max = this.maxBetOf(mode);
-      if (max === null) return true;
-      if (max === 0) return false;
-      return amount <= max;
+      return max === null || amount <= max;
     },
 
     /** Optional progress marker so a disconnect can resume mid-round. */
@@ -291,7 +292,8 @@ const RGS = (() => {
         if (s.split(".")[1] && s.split(".")[1].length < meta.decimals) s = v.toFixed(meta.decimals);
       }
       s = group(s);
-      return meta.after ? `${s} ${meta.symbol}` : `${meta.symbol}${s}`;
+      // (a replay link in social mode that names no currency shows bare figures: no symbol, no stray space)
+      return (meta.after ? `${s} ${meta.symbol}` : `${meta.symbol}${s}`).trim();
     },
 
     /** Bet must sit within min/max and land on a step boundary. */

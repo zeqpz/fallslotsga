@@ -1305,8 +1305,78 @@
   @keyframes autospin { to { transform: rotate(360deg); } }
   /* replay mode: a viewer, not a player — every way of staking is gone, not just disabled */
   body.replay .betbox, body.replay #bonusBtn, body.replay #autoBtn, body.replay #spinBtn { display: none; }
-  .replaymeta { font-family: var(--legible); font-size: 13px; color: var(--ink); margin: 0 0 10px; line-height: 1.6; }
-  .replayres { font-family: var(--mono); font-size: 17px; letter-spacing: .08em; color: var(--gold); margin: 0 0 16px; line-height: 1.7; }
+  /* ---------- the replay window (review 2026-11-15) ----------
+     One card in the bonus shop's paint - the dark slab with its thin black outline, Fredoka, gold for the
+     tag and the mode, the shop's fat yellow button - listing the round: mode, base bet, the mode's
+     multiplier, the total, the payout multiplier and the win. It has ONE natural size per layout and
+     fitReplay() scales it to the window (Popout S 400x225 included): it never scrolls and is never cut.
+     The game behind stays readable (a light dim, a slight blur): at the end the final board is still there. */
+  .rpwrap { padding: 8px; overflow: hidden; background: rgba(8, 6, 10, .4); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .rpcard {
+    flex: none; box-sizing: border-box; width: 400px; padding: 20px 22px 16px; text-align: center;
+    font-family: "Fredoka", var(--num); color: #f4f1f8;
+    background: rgba(28, 26, 32, .95); border: 2px solid #000; border-radius: 22px;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, .07) inset, 0 18px 44px rgba(0, 0, 0, .6);
+    animation: bonuspop .42s cubic-bezier(.2,.9,.3,1.35);
+  }
+  .rphead { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .rptag {
+    padding: 3px 14px 4px; border-radius: 999px; background: #F2B33D; color: #1d1405;
+    font-weight: 700; font-size: 12px; line-height: 1.2; letter-spacing: .2em; text-indent: .2em; text-transform: uppercase;
+  }
+  .rptitle {
+    margin: 0; font-family: "Fredoka", var(--num); font-weight: 700; font-size: 26px; line-height: 1.05; letter-spacing: .1em;
+    text-transform: uppercase; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, .5);
+  }
+  .rpgrid { display: flex; flex-direction: column; gap: 10px; }
+  .rpcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .rpsep { flex: none; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, .14); }
+  .rprow { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 14px; padding: 4px 12px; text-align: left; }
+  .rprow .k { font-weight: 600; font-size: 13.5px; line-height: 1.3; letter-spacing: .12em; text-transform: uppercase; color: #c4bcd2; }
+  .rprow .v { margin-left: auto; font-weight: 700; font-size: 19px; line-height: 1.2; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rprow .v.gold { color: #FFC93C; text-transform: uppercase; letter-spacing: .05em; }
+  .rprow .v.win { color: #8FE05A; }
+  .rpcard.nores .rprow .v.win { color: #9a92a8; }   /* no result yet (loading, or the link failed): a quiet dash */
+  .rpwrap.done { background: rgba(8, 6, 10, .3); -webkit-backdrop-filter: none; backdrop-filter: none; }   /* the round is over: the final board stays sharp behind the result */
+  .rprow.box { padding: 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .06); border: 1.5px solid rgba(255, 255, 255, .15); }
+  .rprow.box .k { color: #fff; }
+  .rprow.box .v { font-size: 22px; }
+  .rpstatus { margin: 8px 0 2px; font-weight: 500; font-size: 14.5px; line-height: 1.35; color: #c4bcd2; }
+  .rpstatus[hidden] { display: none; }
+  .rpstatus.err { color: #ff9a85; }
+  .rpgo {
+    display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; width: 100%; padding: 11px 0 13px;
+    border: 0; border-radius: 14px; cursor: pointer;
+    font-family: "Fredoka", var(--num); font-weight: 700; font-size: 22px; line-height: 1.1; letter-spacing: .08em; color: #1d1405; text-transform: uppercase;
+    background: linear-gradient(#FFD34E, #F2B33D); box-shadow: 0 5px 0 #A86E12, 0 8px 14px rgba(0, 0, 0, .4);
+    transition: transform .1s ease, filter .15s ease, box-shadow .1s ease;
+  }
+  .rpgo[hidden] { display: none; }
+  .rpgo i { width: 0; height: 0; border-style: solid; border-width: 9px 0 9px 15px; border-color: transparent transparent transparent #1d1405; }
+  .rpgo.retry i { display: none; }
+  .rpgo:hover { filter: brightness(1.08); }
+  .rpgo:active { transform: translateY(4px); box-shadow: 0 1px 0 #A86E12, 0 3px 8px rgba(0, 0, 0, .4); }
+  .rpgo:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .rpnote { margin: 12px 0 0; font-weight: 400; font-size: 12px; line-height: 1.35; color: #a59db3; }
+  /* a window that is short and wider than tall (the popouts, a small laptop, a phone on its side): the round
+     on the left, the result and the button on the right */
+  @media (max-height: 560px) and (min-aspect-ratio: 1/1) {
+    .rpcard { width: 540px; padding: 14px 18px 12px; }
+    .rphead { flex-direction: row; justify-content: center; gap: 12px; margin-bottom: 10px; }
+    .rptitle { font-size: 22px; }
+    .rpgrid { flex-direction: row; align-items: stretch; gap: 14px; }
+    .rpcol { flex: 1 1 0; }
+    .rpsep { width: 2px; height: auto; }
+    .rprow { padding: 3px 10px; }
+    .rprow .k { font-size: 12.5px; letter-spacing: .09em; }
+    .rprow .v { font-size: 18px; }
+    .rprow.box { padding: 7px 10px; }
+    .rprow.box .v { font-size: 20px; }
+    .rpgo { margin-top: auto; font-size: 19px; padding: 9px 0 11px; }
+    .rpstatus { margin: auto 0; }
+    .rpnote { margin-top: 10px; font-size: 11.5px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .rpcard { animation: none; } .rpgo { transition: none; } }
   .meter[hidden] { display: none; }
   .infopanel h3 {
     margin: 0 0 12px; font-family: var(--disp); font-size: 22px; letter-spacing: .06em;
@@ -3290,6 +3360,31 @@
     .bshop #bonusBetDown, .bshop #bonusBetUp { width: 56px; height: 56px; }
     .bshopx { width: 56px; height: 56px; }
   }
+  /* ---- the shop in a very short wide window (Popout S 400x225; review 2026-11-15) ----
+     The whole panel is scaled to fit (fitBonus), and at full size that left 5 px words. Here the cards are
+     narrower, their banner a strip and their words bigger for the card, so after the same scaling the names,
+     prices and buttons read at about 10 px and the small print at 7. */
+  @media (max-height: 340px) and (min-aspect-ratio: 1/1) {
+    #bonusWrap { padding: 4px; }
+    .bshop { gap: 8px; padding: 4px 6px 6px; }
+    .bshoptitle { font-size: 20px; }
+    .bshopx { top: -2px; right: 0; width: 44px; height: 44px; }
+    .bshoprow { gap: 10px; }
+    .bscard { width: 204px; border-radius: 14px; }
+    .bsban { aspect-ratio: auto; height: 56px; }
+    .bsbody { gap: 4px; padding: 6px 10px 4px; }
+    .bspips i { width: 16px; height: 16px; }
+    .bsttl { font-size: 23px; }
+    .bsdesc { font-size: 17.5px; line-height: 1.2; min-height: 3.6em; color: #d8d1e4; }
+    .bsmax { padding-top: 4px; font-size: 14.5px; letter-spacing: .06em; color: #b9b1c7; } .bsmax b { font-size: 16px; }
+    .bsfoot { padding: 6px 10px 10px; gap: 0; }
+    .bsprice { font-size: 27px; }
+    .bsx { font-size: 15px; letter-spacing: .1em; color: #b9b1c7; }
+    .bsget { margin-top: 6px; padding: 7px 0 9px; font-size: 23px; border-radius: 12px; }
+    .bsget.armed { font-size: 21px; }
+    .bshopbar { padding: 6px 20px; gap: 18px; border-radius: 14px; }
+    .bsstat .lbl { font-size: 15px; } .bsstat .val { font-size: 26px; }
+  }
 
   /* a break-apart never draws over the frame or outside the board (owner, 2026-11-12): the popping tile and
      the burst canvas go under the logs (the frame is z-index 3) and are cut off just inside the board's edge */
@@ -3433,13 +3528,28 @@
   <i class="intrograin" aria-hidden="true"></i>
 </div>
 
-<div class="infowrap" id="replayWrap" hidden>
-  <div class="infopanel" role="dialog" aria-modal="true" aria-label="Round replay">
-    <h3>Round replay</h3>
-    <p class="replaymeta" id="replayMeta"></p>
-    <p class="replayres" id="replayResult" hidden></p>
-    <p class="fine" id="replayStatus">Loading the round…</p>
-    <button class="infoclose" id="replayPlay" hidden>Play</button>
+<!-- The replay window (review 2026-11-15): up when a replay link opens - loading, then every figure of the
+     round and START REPLAY - and back again when the round has played out, with PLAY AGAIN. bootReplay()
+     writes every word (real or social wording) and fitReplay() shrinks the card to any window. -->
+<div class="infowrap rpwrap" id="replayWrap" hidden>
+  <div class="rpcard" id="rpCard" role="dialog" aria-modal="true" aria-labelledby="rpTitle">
+    <div class="rphead"><span class="rptag">Replay</span><h3 class="rptitle" id="rpTitle">Play replay</h3></div>
+    <div class="rpgrid">
+      <div class="rpcol">
+        <div class="rprow"><span class="k">Mode</span><b class="v gold" id="rpMode">&mdash;</b></div>
+        <div class="rprow"><span class="k" id="rpBaseLbl"></span><b class="v" id="rpBase">&mdash;</b></div>
+        <div class="rprow"><span class="k">Multiplier</span><b class="v" id="rpCost">&mdash;</b></div>
+        <div class="rprow box"><span class="k" id="rpTotalLbl"></span><b class="v" id="rpTotal">&mdash;</b></div>
+      </div>
+      <i class="rpsep" aria-hidden="true"></i>
+      <div class="rpcol">
+        <div class="rprow"><span class="k" id="rpMultLbl"></span><b class="v win" id="rpMult">&mdash;</b></div>
+        <div class="rprow box"><span class="k" id="rpWinLbl"></span><b class="v win" id="rpWin">&mdash;</b></div>
+        <p class="rpstatus" id="rpStatus" role="status">Loading the round…</p>
+        <button type="button" class="rpgo" id="replayPlay" hidden><i aria-hidden="true"></i><span id="rpGoTxt">Start replay</span></button>
+      </div>
+    </div>
+    <p class="rpnote" id="rpNote"></p>
   </div>
 </div>
 
@@ -3531,6 +3641,8 @@ const fmt = v => RGS.money(v);
 // goes through T(): a no-op normally, the sweeps vocabulary when the lobby says social=true.
 let SOCIAL = RGS.social;   // `let`: authenticate's jurisdiction.socialCasino can turn it on (applySocial)
 const T = s => RULES.T(s, SOCIAL);
+// a math mode's one display name (RULES.MODE_NAMES): the shop, the rules, the recent rounds and the replay window all say it the same
+const modeName = m => RULES.modeName(m, SOCIAL);
 // the symbols' short names reach the board as alt text and the ticker: they follow the rule too
 if (SOCIAL) for (const d of Object.values(SYM)) { d.label = T(d.label); d.sub = T(d.sub); }
 const bet = () => state.bets[state.betIdx] || 0;
@@ -6161,6 +6273,7 @@ function teaseOff(hit) {
 async function banner(big, sub, ms, cls) {
   const b = $("banner");
   b.className = "banner show " + (cls || "");
+  big = T(big); sub = T(sub || "");   // every line a player can read passes the social word list (a no-op outside social mode)
   $("bannerBig").textContent = big;
   // the figures in the line take the number font; the words keep theirs
   const esc = str => str.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -6169,11 +6282,15 @@ async function banner(big, sub, ms, cls) {
   if (!REDUCED_MOTION) { b.classList.add("out"); await new Promise(r => setTimeout(r, 200)); }
   b.className = "banner";
 }
-function tick(html) { $("ticker").innerHTML = html; }
+// The ticker, the notices and the blocking error panel are where text made up at run time lands (a server's
+// own error message included), so each passes what it is given through T() itself - already-worded text comes
+// back unchanged, and nothing reaches a social player unswept because a caller forgot.
+function tick(html) { $("ticker").innerHTML = T(html); }
 // What the player has to see goes up as a notice as well as into the (hidden) ticker:
 // errors in red, everything else in the game's lime, gone again after a few seconds.
 let noticeTimer = 0;
 function notice(html, err = false, ms = 3400) {
+  html = T(html);
   tick(html);
   const el = $("notice");
   if (!el) return;
@@ -6186,6 +6303,7 @@ function notice(html, err = false, ms = 3400) {
 // No session, no game: a blocking panel over everything (the loading and feature screens
 // included) instead of a board that looks ready and a button that does nothing.
 function fatal(title, html) {
+  title = T(title); html = T(html);
   tick(html);
   $("errorTitle").textContent = title;
   $("errorMsg").innerHTML = html;
@@ -7760,17 +7878,20 @@ function placeWinChip(positions, amount, mult) {
 }
 
 const RGS_MESSAGE = {
-  ERR_IPB: "Not enough balance — lower the bet.",
+  ERR_IPB: "Not enough balance — lower the {bet|play amount}.",
   ERR_IS: "Session expired — reopen the game from the lobby.",
   ERR_ATE: "Session expired — reopen the game from the lobby.",
-  ERR_GLE: "Gambling limits reached.",
+  ERR_GLE: "{Gambling|Play} limits reached.",
   ERR_LOC: "Not available in your location.",
-  ERR_VAL: "That bet was rejected — try another amount.",
+  ERR_VAL: "That {bet|play} was rejected — try another amount.",
   ERR_MAINTENANCE: "The game is under maintenance, try again shortly.",
   ERR_GEN: "Something went wrong — try again.",
   ERR_ACT: "Slow down — give it a second.",
 };
-for (const k of Object.keys(RGS_MESSAGE)) RGS_MESSAGE[k] = T(RGS_MESSAGE[k]);
+// What the player reads for a failed call: our own line for the code, else the server's message, else `fallback`.
+// Worded when it is shown (T), not at load: the jurisdiction can turn social mode on after authenticate, and a
+// message the server wrote passes through the same word list as ours.
+const rgsMessage = (err, fallback) => T(RGS_MESSAGE[err && err.code] || (err && err.message) || fallback || "Something went wrong — try again.");
 
 /** Animate a round's event stream, then settle it. Shared by play, resume and replay —
  *  a replay is watched, not played, so it never touches the wallet (settle: false). */
@@ -7820,7 +7941,7 @@ async function presentRound(round, { settle = true } = {}) {
       await RGS.endRound();
       setBalance(RGS.state.balance, win > 0 ? "up" : null);
     } catch (err) {
-      notice(`<b>${RGS_MESSAGE[err.code] || err.message}</b>`, true, 6000);
+      notice(`<b>${rgsMessage(err)}</b>`, true, 6000);
       return;
     }
   }
@@ -7828,7 +7949,7 @@ async function presentRound(round, { settle = true } = {}) {
   if (settle) recordRound(round.mode || state.mode, round.amount || bet(), win, mult);
 
   if (win > 0) {
-    tick(T(`Round paid <b>${fmt(win)}</b> (${mult.toFixed(2)}x bet)`));
+    tick(T(`Round {paid|won} <b>${fmt(win)}</b> (${mult.toFixed(2)}x {bet|play amount})`));
     // A spin that pays over 10x gets the popup over the board: the figure counts itself up dead
     // centre on the icons while they rain down, and the lettering pops in above it at each mark
     // it passes (BIG -> MEGA -> XTREME, the same marks the bonus uses). It holds a moment and
@@ -7855,11 +7976,13 @@ async function presentRound(round, { settle = true } = {}) {
 // playRound() with anything but "base".
 // The shop's cards, in order. A mode the math does not have (no MODE_COST) shows no card.
 // boost is not a buy: it is switched on and makes every base spin a boosted one (playRound).
+// A card's title is its mode's one display name (modeName / RULES.MODE_NAMES: Bonus, Extreme Bonus,
+// Bonus Boost, Cork Storm) - the same words the rules, the recent rounds and the replay window use.
 const BUYS = [
-  { mode: "bonus", key: "fs", title: "Free Spins", desc: "10-15 free spins. Multis stay all bonus.", heat: 3, acc: "#F2B33D", icon: () => SYM.BS.img },
-  { mode: "extremebonus", key: "xfs", title: "Extreme Spins", desc: "17 free spins. Every Multi is x2 or more.", heat: 5, acc: "#C0399A", icon: () => SYM.ES.img },
-  { mode: "boost", key: "boost", title: "Bonus Boost", desc: "Every spin 1.6x as likely to land free spins.", heat: 2, acc: "#7FD04B", icon: () => SYM.BS.img, tag: "x1.6", toggle: true },
-  { mode: "corkstorm", key: "corkstorm", title: "Cork Storm", desc: "1 spin. 4 Multis worth x2,500 each rain down - no win promised.", heat: 5, acc: "#3FB0E0", icon: () => SYM.M.img, quad: true },
+  { mode: "bonus", key: "fs", desc: "10-15 free spins. Multis stay all bonus.", heat: 3, acc: "#F2B33D", icon: () => SYM.BS.img },
+  { mode: "extremebonus", key: "xfs", desc: "17 free spins. Every Multi is x2 or more.", heat: 5, acc: "#C0399A", icon: () => SYM.ES.img },
+  { mode: "boost", key: "boost", desc: "Every spin 1.6x as likely to land free spins.", heat: 2, acc: "#7FD04B", icon: () => SYM.BS.img, tag: "x1.6", toggle: true },
+  { mode: "corkstorm", key: "corkstorm", desc: "1 spin. 4 Multis worth x2,500 each rain down - no win promised.", heat: 5, acc: "#3FB0E0", icon: () => SYM.M.img, quad: true },
 ];
 const MAX_WIN_ODDS = { bonus: "1 in 25K", extremebonus: "1 in 13.9K", boost: "1 in 3.1M", corkstorm: "1 in 15K" };   // a x10,000 win, LUT-weighted (math 2026-11-04)
 let bonusMode = "bonus";
@@ -7888,7 +8011,7 @@ function bshopCard(o) {
     `<div class="bsbody"><div class="bspips">${Array.from({ length: 5 }, (_, i) => `<i class="${i < o.heat ? "on" : ""}"></i>`).join("")}</div>` +
     `<div class="bsttl"></div><div class="bsdesc"></div><div class="bsmax"><span></span><b></b></div></div>` +
     `<div class="bsfoot"><div class="bsprice"></div><div class="bsx"></div><button type="button" class="bsget"></button></div>`);
-  card.querySelector(".bsttl").textContent = T(o.title);
+  card.querySelector(".bsttl").textContent = modeName(o.mode);
   card.querySelector(".bsdesc").textContent = T(o.desc);
   card.querySelector(".bsget").addEventListener("click", () => bshopGet(o));
   return card;
@@ -7917,12 +8040,16 @@ function paintBonus() {
   const wrap = $("bonusWrap");
   if (!wrap || wrap.hidden) return;
   const row = $("bshopRow");
-  // a mode the RGS switched off for this session (gameModes[].maxBet 0, e.g. under XGC) is not offered at all
-  const live = BUYS.filter(o => MODE_COST[o.mode] > 0 && RGS.maxBetOf(o.mode) !== 0);
+  // Every mode the math has gets its card, always (review 2026-11-15: under XGC the RGS sends gameModes[].maxBet 0
+  // for every mode, and reading that as "switched off" left the panel with no cards). A cap of 0 is no cap of its
+  // own (RGS.maxBetOf falls back to config.maxBet); a bet over a real cap only turns the button to "Lower bet",
+  // a price over the balance to "Low balance". The cards are rebuilt when social mode came on after they were made.
+  const live = BUYS.filter(o => MODE_COST[o.mode] > 0);
   if (state.boost && !RGS.modeAllowed("boost", bet())) state.boost = false;   // over Boost's cap: back to plain spins
-  if (row.dataset.modes !== live.map(o => o.mode).join()) {
+  const made = live.map(o => o.mode).join() + (SOCIAL ? "|social" : "");
+  if (row.dataset.modes !== made) {
     row.replaceChildren(...live.map(bshopCard));
-    row.dataset.modes = live.map(o => o.mode).join();
+    row.dataset.modes = made;
   }
   for (const card of row.children) {
     const o = BUYS.find(x => x.mode === card.dataset.mode), cost = MODE_COST[o.mode], price = cost * bet();
@@ -7978,8 +8105,9 @@ function openBonus() {
 function fitBonus() {
   const pop = document.querySelector("#bonusWrap .bonuspop"), panel = document.querySelector("#bonusWrap .bshop");
   if (!pop || !panel || $("bonusWrap").hidden) return;
-  // the panel drifts a few px, and the wrap keeps a 20 px margin: room for both
-  const k = Math.min((innerHeight - 28) / (panel.offsetHeight + 12), (innerWidth - 28) / (panel.offsetWidth + 12));
+  // the panel drifts a few px, and the wrap keeps a 20 px margin: room for both (a popout's 225 px cannot spare it: 4 px there)
+  const m = innerHeight < 340 && innerWidth > innerHeight ? 8 : 28, slack = m < 28 ? 4 : 12;
+  const k = Math.min((innerHeight - m) / (panel.offsetHeight + slack), (innerWidth - m) / (panel.offsetWidth + slack));
   pop.style.scale = k < 1 ? k.toFixed(3) : "";
 }
 addEventListener("resize", fitBonus);
@@ -8014,13 +8142,13 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("bonusW
 async function playRound(mode) {
   if (REPLAY) return false;
   if (mode === "base" && state.boost && MODE_COST.boost > 0 && RGS.modeAllowed("boost", bet())) mode = "boost";   // Bonus Boost is on: every base spin is boosted (a replay is watched, never played)
-  // the RGS's own cap per mode (gameModes[].maxBet; 0 = switched off): never send a play it will refuse
-  if (!RGS.modeAllowed(mode, bet())) { notice(T("<b>Not available at this bet</b> — lower the bet."), true); return false; }
+  // the RGS's own cap per mode (gameModes[].maxBet; 0 or none = config.maxBet): never send a play it will refuse
+  if (!RGS.modeAllowed(mode, bet())) { notice(T("<b>Not available at this {bet|play amount}</b> — lower the {bet|play amount}."), true); return false; }
   if (state.playing) { if (!state.noSkip) state.skip = true; return false; }   // fast-forward
   if (screensUp()) return false;                         // nothing is staked behind the opening screens
   if (!RGS.state.authenticated) { notice(T("<b>Not connected</b> — reopen the game from the lobby."), true); return false; }
   const price = (MODE_COST[mode] || 1) * bet();
-  if (price > state.balance) { notice(T("<b>Not enough balance</b> — lower the bet."), true); return false; }
+  if (price > state.balance) { notice(T("<b>Not enough balance</b> — lower the {bet|play amount}."), true); return false; }
   if (performance.now() - (state.lastPlayAt || 0) < 250) return false;
   state.lastPlayAt = performance.now();
 
@@ -8028,7 +8156,7 @@ async function playRound(mode) {
   setButtons(false);
   bounceFx();
   if (window.SprayFX) SprayFX.stoke($("board"));   // the spin blows on the frame's fire: its flames whoosh up and settle
-  tick(T(mode === "base" || mode === "boost" ? "Spinning..." : "Buying bonus..."));
+  tick(T(mode === "base" || mode === "boost" ? "Spinning..." : "{Buying|Starting} bonus..."));
   const t0 = performance.now();
   let ok = true;
 
@@ -8040,7 +8168,7 @@ async function playRound(mode) {
     await presentRound(d.round);
   } catch (err) {
     ok = false;
-    notice(`<b>${RGS_MESSAGE[err.code] || err.message || T("Round failed")}</b>`, true, 5000);
+    notice(`<b>${rgsMessage(err, "Round failed")}</b>`, true, 5000);
     try { await RGS.balance(); setBalance(RGS.state.balance); } catch (e) { /* offline */ }
   }
 
@@ -8288,12 +8416,12 @@ function historyHtml() {
   let h = [];
   try { h = JSON.parse(localStorage.getItem(histKey()) || "[]"); } catch (e) { /* ignore */ }
   if (!h.length) return "";
-  const name = { base: T("Spin"), bonus: T("Buy Bonus"), extremebonus: T("Buy Extreme"), boost: T("Boosted spin"), corkstorm: T("Cork Storm") };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const rows = h.slice(0, 20).map(x => {
     const d = new Date(x.t);
     const when = d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     const cls = x.payout > 0 ? "win" : "zero";
-    return `<tr><td>${when}</td><td>${name[x.mode] || x.mode}</td><td>${fmt(x.amount)}</td><td class="${cls}">${fmt(x.payout)}</td><td class="${cls}">${(x.mult || 0).toFixed(2)}x</td></tr>`;
+    return `<tr><td>${when}</td><td>${esc(modeName(x.mode))}</td><td>${fmt(x.amount)}</td><td class="${cls}">${fmt(x.payout)}</td><td class="${cls}">${(x.mult || 0).toFixed(2)}x</td></tr>`;
   }).join("");
   return `<section><h4>${T("Recent rounds")}</h4><p class="fine">${T("Your last rounds on this device, in the token you are playing with. The balance shown in the game is always the amount the server reports.")}</p>
     <div class="tbl"><table class="hist"><tr><th>${T("When")}</th><th>${T("Mode")}</th><th>${T("Bet")}</th><th>${T("Win")}</th><th>x</th></tr>${rows}</table></div></section>`;
@@ -9748,7 +9876,7 @@ const INTRO_SFX = ["introWhoosh", "introHit", "introShimmer", "introOut", "landB
 // word (art/ui-src/intro_letters_v2: gen.py, build.py -> assets/intro_letters/pieces.json; the seal is
 // the old wordmark's):
 // [x, y, w, h] on the 2736x1160 wordmark, the letters in the order they drop
-const INTRO_SIZE = [2736, 1160], INTRO_PIECES = {"S":[26,302,401,549],"M":[380,282,499,533],"U":[841,321,412,509],"K":[1220,246,358,532],"i":[1531,431,103,355],"E":[1606,306,424,515],"Z":[1993,220,567,622],"swash":[420,705,2180,360],"tm":[2578,230,144,94],"seal":[2481,950,139,140],"glow":[-110,-110,2956,1380]};
+const INTRO_SIZE = [2736, 1160], INTRO_PIECES = {"S":[322,236,275,372],"M":[615,246,388,362],"U":[1021,240,325,368],"K":[1364,236,283,372],"i":[1665,245,119,363],"E":[1802,245,292,363],"Z":[2112,244,301,364],"swash":[532,656,1877,184],"tm":[2417,242,125,73],"glow":[-110,-110,2956,1380]};   // 2026-11-15: Fredoka Bold, even caps and spacing, the slash in the same rounded stroke (tools/fall/make_intro_letters.py)
 const INTRO_DROP = ["S", "M", "U", "K", "i", "E", "Z"];
 function runIntro() {
   const wrap = $("intro"), fill = $("introFill");
@@ -9862,13 +9990,13 @@ function runIntro() {
       sw.animate([{ clipPath: "inset(0 100% 0 0)", opacity: 1 }, { clipPath: "inset(0 0 0 0)", opacity: 1 }],
                  { duration: 420, easing: "cubic-bezier(.5, 0, .2, 1)", fill: "both" }).finished.then(() => sw.classList.add("flat"), () => {});
     });
-    after(landed + 520, () => {   // the seal stamps on
+    after(landed + 520, () => {   // the glow comes up (and the seal stamps on, where the wordmark has one)
+      word.querySelector(".iwglow").classList.add("up");
       const se = pieceEl.seal;
       if (!se) return;
       se.style.transformOrigin = "50% 50%";
       se.animate([{ transform: "scale(2.2) rotate(-14deg)", opacity: 0 }, { transform: "scale(.9) rotate(3deg)", opacity: 1, offset: .6 }, { transform: "none", opacity: 1 }],
                  { duration: 340, easing: "cubic-bezier(.3, 0, .2, 1)", fill: "both" }).finished.then(() => se.classList.add("flat"), () => {});
-      word.querySelector(".iwglow").classList.add("up");
     });
     after(landed + 760, () => {   // the trademark rolls up underneath, and the TM pops on by the arrow
       const line = wrap.querySelector(".introtm span"), tm = pieceEl.tm;
@@ -11007,47 +11135,97 @@ async function bootReplay(p) {
   REPLAY = true;
   document.body.classList.add("replay");
   const intro = $("intro"); if (intro) intro.remove();
-  if (p.currency) RGS.state.currency = p.currency;
-  state.bets = [p.amount || RGS.UNIT]; state.betIdx = 0;
+  // Only the round's coordinates are required; currency and amount are optional and may be missing or junk.
+  // A currency is a short letter code (it is written into the page) - anything else counts as missing: USD
+  // then, but in social mode bare figures (a "$" must never stand before a social coin amount).
+  const cur = /^[A-Za-z]{2,5}$/.test(p.currency || "") ? p.currency.toUpperCase() : "";
+  RGS.state.currency = cur || (SOCIAL ? "" : "USD");
+  // amount is the BASE bet in API units (1000000 = 1.00); 1.00 when the link names none
+  state.bets = [p.amount > 0 && Number.isFinite(p.amount) ? Math.round(p.amount) : RGS.UNIT]; state.betIdx = 0;
   state.mode = p.mode || "base";
-  const modeName = T({ base: "Base game", bonus: "Buy Bonus", extremebonus: "Buy Extreme", boost: "Boosted spin", corkstorm: "Cork Storm" }[state.mode] || state.mode);
-  $("balanceLbl").innerHTML = (SOCIAL ? "Replay" : "Replay bet") + `<span class="cur">${RGS.currencyName()}</span>`;
-  $("balance").textContent = fmt(bet());
   refreshBet(); setButtons(false);
-  const wrap = $("replayWrap"), meta = $("replayMeta"), status = $("replayStatus"),
-        result = $("replayResult"), play = $("replayPlay");
-  meta.textContent = T(`${modeName} \u00b7 event ${p.event} \u00b7 bet ${fmt(bet())}`);
-  wrap.hidden = false;
-  let round;
-  try {
-    const d = await RGS.replay(p);
-    if (typeof d.costMultiplier === "number" && d.costMultiplier > 0) MODE_COST[state.mode] = d.costMultiplier;
-    round = { events: d.state, payoutMultiplier: d.payoutMultiplier || 0, amount: bet(), mode: state.mode };
-  } catch (err) {
-    status.textContent = T("This replay could not be loaded. Check the link and try again.");
-    return;
+
+  // The replay window. Everything is a multiple of the BASE bet, as the RGS defines it: the mode's
+  // costMultiplier gives the total bet, payoutMultiplier (a plain multiple) the win.
+  const wrap = $("replayWrap"), status = $("rpStatus"), play = $("replayPlay");
+  const xn = v => (+(+v).toFixed(2)).toLocaleString("en-US", { maximumFractionDigits: 2 }) + "x";
+  const costMult = () => MODE_COST[state.mode] > 0 ? MODE_COST[state.mode] : 1;
+  let round = null, busy = false;
+  function paint(phase) {   // "loading" | "ready" | "done" | "error"
+    const total = Math.round(costMult() * bet());
+    $("rpTitle").textContent = T(phase === "error" ? "Replay unavailable" : phase === "done" ? "Replay finished" : "Play replay");
+    // the mode by its one display name; an id the game does not know is shown as given (never in social mode)
+    $("rpMode").textContent = RULES.MODE_NAMES[state.mode] ? modeName(state.mode) : SOCIAL ? "\u2014" : state.mode;
+    $("rpBaseLbl").textContent = T("{Base bet|Base play}");
+    $("rpBase").textContent = fmt(bet());
+    $("rpCost").textContent = xn(costMult());
+    $("rpTotalLbl").textContent = T("{Total bet|Total to play}");
+    $("rpTotal").textContent = fmt(total);
+    $("rpMultLbl").textContent = T("{Payout multiplier|Reward multiplier}");
+    $("rpMult").textContent = round ? xn(round.payoutMultiplier) : "\u2014";
+    $("rpWinLbl").textContent = T("{Total win|Total reward}");
+    $("rpWin").textContent = round ? fmt(Math.round(round.payoutMultiplier * bet())) : "\u2014";
+    $("rpNote").textContent = T("{This is a replay of a previous bet round. No bet will be placed.|This is a replay of a previous play round. No play amount will be used.}");
+    status.textContent = T(phase === "error" ? "This replay could not be loaded. Check the link and try again." : "Loading the round\u2026");
+    status.classList.toggle("err", phase === "error");
+    status.hidden = phase === "ready" || phase === "done";
+    play.hidden = phase === "loading";
+    play.classList.toggle("retry", phase === "error");
+    $("rpGoTxt").textContent = T(phase === "error" ? "Try again" : phase === "done" ? "Play again" : "Start replay");
+    play.dataset.phase = phase;
+    $("rpCard").classList.toggle("nores", !round);
+    wrap.classList.toggle("done", phase === "done");
+    // the bar under the board keeps the round's figures while it plays: the total and the base
+    $("balanceLbl").innerHTML = T("{Total bet|Total play}") + `<span class="cur">${RGS.currencyName()}</span>`;
+    $("balance").textContent = fmt(total);
+    fitFigure($("balance"), fmt(total));
+    showMenu(wrap, true);
+    fitReplay();
+    if (!play.hidden) play.focus({ preventScroll: true });
   }
-  // a replay has no loading screen: Play waits (at most 15 s) for what the round animates - the
-  // symbol rigs, the spray can and the characters - so nothing swaps or uploads once it runs
-  await Promise.race([Promise.all([loadSymFrames(), prepareSpray(), charsLoaded]).catch(() => {}), new Promise(r => setTimeout(r, 15000))]);
-  const cost = MODE_COST[state.mode] * bet();
-  const payout = Math.round(round.payoutMultiplier * bet());
-  meta.textContent = T(`${modeName} \u00b7 event ${p.event} \u00b7 bet cost ${fmt(cost)} (x${MODE_COST[state.mode]} the bet of ${fmt(bet())})`);
-  status.textContent = "";
-  play.hidden = false;
-  play.textContent = T("Play");
+  async function load() {
+    round = null;
+    paint("loading");
+    try {
+      const d = await RGS.replay(p);
+      if (typeof d.costMultiplier === "number" && d.costMultiplier > 0) MODE_COST[state.mode] = d.costMultiplier;
+      const mult = Number(d.payoutMultiplier);
+      round = { events: d.state, payoutMultiplier: mult > 0 && Number.isFinite(mult) ? mult : 0, amount: bet(), mode: state.mode };
+    } catch (err) {
+      paint("error");
+      return;
+    }
+    paint("loading");   // the figures are in; the button waits for the art
+    // a replay has no loading screen: Start waits (at most 15 s) for what the round animates - the
+    // symbol rigs, the spray can and the characters - so nothing swaps or uploads once it runs
+    await Promise.race([Promise.all([loadSymFrames(), prepareSpray(), charsLoaded]).catch(() => {}), new Promise(r => setTimeout(r, 15000))]);
+    paint("ready");
+  }
   play.addEventListener("click", async () => {
-    wrap.hidden = true;
+    if (busy) return;
+    if (play.dataset.phase === "error") { busy = true; try { await load(); } finally { busy = false; } return; }
+    if (!round) return;
+    busy = true;
+    showMenu(wrap, false);
     state.playing = true; state.skip = false;
     setButtons(false);
     try { await presentRound(round, { settle: false }); } catch (e) { /* shown in the ticker */ }
     state.playing = false;
     setButtons(false);   // the viewer's bar stays off, but Rapid and the menu come back
-    result.innerHTML = T(`Bet cost ${fmt(cost)}<br>Payout ${fmt(payout)} \u00b7 ${round.payoutMultiplier.toFixed(2)}x the bet`);
-    result.hidden = false;
-    play.textContent = T("Play again");
-    wrap.hidden = false;
+    await new Promise(r => setTimeout(r, 700));   // a beat on the final board before the window is back over it
+    paint("done");       // the same window again, the result in it, with Play again
+    busy = false;
   });
+  addEventListener("resize", fitReplay);
+  await load();
+}
+// The replay card has one natural size per layout (tall, or two columns in a short wide window); this scales it
+// down to whatever window it is given - Popout S is 400x225 - so it is whole on screen without scrolling.
+function fitReplay() {
+  const wrap = $("replayWrap"), card = $("rpCard");
+  if (!wrap || !card || wrap.hidden) return;
+  const k = Math.min((innerWidth - 16) / card.offsetWidth, (innerHeight - 16) / card.offsetHeight, 1);
+  card.style.scale = k < 1 ? k.toFixed(3) : "";
 }
 
 // Optional readouts a jurisdiction can require in the header: RTP, a session clock, and
@@ -11087,7 +11265,7 @@ async function boot() {
     // the small print says what actually failed - the code, and the server's answer or that
     // there was none - so a screenshot of this panel is enough to tell an outage from a block
     const detail = `${/^ERR_[A-Z_]+$/.test(err && err.code) ? err.code : "ERR"} · ${err && err.status ? "HTTP " + Number(err.status) : T("no answer from the game server")}`;
-    fatal(T("Can't connect"), `<b>${RGS_MESSAGE[err.code] || T("Could not connect to the game server.")}</b><br>` +
+    fatal(T("Can't connect"), `<b>${T(RGS_MESSAGE[err.code] || "Could not connect to the game server.")}</b><br>` +
       T("Reopen the game from the lobby, or reload to try again.") + `<br><small class="errcode">${detail}</small>`);
     return;
   }
@@ -11115,6 +11293,13 @@ async function boot() {
   if (at < 0) at = state.bets.indexOf(def);
   if (at < 0 && def) at = state.bets.reduce((best, v, i) => Math.abs(v - def) < Math.abs(state.bets[best] - def) ? i : best, 0);
   state.betIdx = Math.max(0, at);
+  // A wallet that cannot cover that level (review 2026-11-15: 1,000 GC against a 10,000 GC play) opens on the
+  // highest level it can cover instead, so the first spin is playable; with nothing affordable it stays put.
+  if (state.bets[state.betIdx] > RGS.state.balance) {
+    let ok = -1;
+    for (let i = 0; i < state.betIdx; i++) if (state.bets[i] <= RGS.state.balance) ok = i;
+    if (ok >= 0) state.betIdx = ok;
+  }
   if ($("maxWin")) $("maxWin").textContent = "x" + RULES.MAX_WIN;
   setBalance(RGS.state.balance);
 
