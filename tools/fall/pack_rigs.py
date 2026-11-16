@@ -15,7 +15,7 @@ from PIL import Image
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RIGS = os.path.join(ROOT, "art", "blender", "rigs")
 RENDERS = os.path.join(ROOT, "art", "blender", "renders")
-OUT = os.path.join(ROOT, "frontend", "assets", "rig")
+OUT = os.environ.get("RIG_OUT") or os.path.join(ROOT, "frontend", "assets", "rig")   # RIG_OUT: pack elsewhere (to compare)
 TIERS = (20, 40)          # px per unit: a cell up to ~200 / ~400 device px across its 10-unit icon
 PAGE = 2048               # safe on every phone's WebGL
 PAD = 2                   # transparent px kept around each picture (no bleed from its atlas neighbours)
@@ -123,7 +123,10 @@ def pack(ids=None):
         for pi in range(n):
             used = [(place[i], crops[i]) for i in range(len(crops)) if place[i][0] == pi]
             pw = 1 << math.ceil(math.log2(max(x + c.size[0] for (p, x, y), c in used)))
-            ph = 1 << math.ceil(math.log2(max(y + c.size[1] for (p, x, y), c in used)))
+            # the page's height is what its shelves use (rounded up to 16 rows), not the next power of two: the game
+            # draws from it on 2D canvases (any size is fine there) and a page is held decoded, w x h x 4 bytes - the
+            # phone's r20 page was 2048x2048 for 1454 rows of pictures (16.8 -> 11.9 MB; iOS crash review 3)
+            ph = -(-max(y + c.size[1] for (p, x, y), c in used) // 16) * 16
             sheet = Image.new("RGBA", (pw, ph), (0, 0, 0, 0))
             for (p, x, y), c in used:
                 sheet.paste(c, (x, y))

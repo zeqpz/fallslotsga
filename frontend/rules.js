@@ -102,10 +102,12 @@ const RULES = (() => {
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const x = v => "x" + (Number.isInteger(v) ? v : String(v));
+  // the paytable's icons: a phone (index.html's mobile tier) takes the 320 px copies (iOS crash review 3)
+  const FLATDIR = window.MOBILE ? "assets/lite/flat/" : "assets/flat/";
 
   function tile(sym, social) {
     if (sym === "M") return `<div class="ptile multi"><span>x5</span><small>MULTI</small></div>`;
-    return `<img class="ptile" src="assets/flat/${sym}.webp" alt="${esc(T(NAMES[sym], social))}" draggable="false">`;
+    return `<img class="ptile" src="${FLATDIR}${sym}.webp" alt="${esc(T(NAMES[sym], social))}" draggable="false">`;
   }
 
   /**
@@ -168,9 +170,9 @@ const RULES = (() => {
     <div class="ptext">${t("Cider Line: a straight line of 3 or 4 Multis can land together, along a row or down a column; their blasts overlap, so the cells between them collect more than one value. It can land on any spin, and far more often in a bonus. Full Harvest: very rarely, in the base game, every cell of the board except an FS or XFS symbol becomes a Multi at once; they all blow out together and the whole board drops in on top of their values.")}</div></div>
   <div class="prow"><div class="ptile multi"><span>x1.25</span><small>DROP</small></div><div class="pname">${t("Line Drops")}</div>
     <div class="ptext">${t("Every winning cluster, once {paid|counted}, leaves a small multiplier (x1.25, x1.5 or x2) on one of its own cells for every five symbols it held, chosen at random. A line drop adds to whatever value that cell already holds and lasts exactly as a Multi's value does: for the rest of the spin in the base game, for the whole feature in a bonus. It never changes the win of the cluster that left it.")}</div></div>
-  <div class="prow"><img class="ptile" src="assets/flat/BS.webp" alt="FS" draggable="false"><div class="pname">${t("FS — Free Spins Scatter")}<small>BS</small></div>
+  <div class="prow"><img class="ptile" src="${FLATDIR}BS.webp" alt="FS" draggable="false"><div class="pname">${t("FS — Free Spins Scatter")}<small>BS</small></div>
     <div class="ptext">${t("Appears anywhere. 3, 4 or 5 FS symbols on one spin award 10, 12 or 15 free spins (the Standard Bonus). FS does not form clusters and has no value of its own.")}</div></div>
-  <div class="prow"><img class="ptile" src="assets/flat/ES.webp" alt="XFS" draggable="false"><div class="pname">${t("XFS — Extreme Free Spins Scatter")}<small>ES</small></div>
+  <div class="prow"><img class="ptile" src="${FLATDIR}ES.webp" alt="XFS" draggable="false"><div class="pname">${t("XFS — Extreme Free Spins Scatter")}<small>ES</small></div>
     <div class="ptext">${t("2 XFS symbols anywhere on one spin award 17 free spins in the Extreme Bonus directly. 1 XFS on the same spin as an FS trigger upgrades that trigger to the Extreme Bonus, keeping its spin count. XFS does not form clusters and has no value of its own.")}</div></div>
 </section>
 

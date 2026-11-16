@@ -43,9 +43,29 @@ window.IOS_WEBKIT = (() => {
   const ua = navigator.userAgent || "", touch = (navigator.maxTouchPoints || 0) > 1;
   return /iP(hone|od|ad)|CriOS|FxiOS|EdgiOS/.test(ua) || (/Macintosh/.test(ua) && touch) || (navigator.platform === "MacIntel" && touch);
 })();
+// The MOBILE tier (iOS crash review 3, 2026-11-16: v8 still reloaded on an iPhone 12, at launch and after a cork
+// and the pops - WebKit's WebContent process over its memory budget inside the casino page's iframe). Every phone
+// and tablet: WebKit on iOS (above: Safari, CriOS, FxiOS, EdgiOS, iPadOS asking for the desktop site) and touch
+// Android / small touch screens. There the game is built light (research/ios_crash_3_2026-11-16.md): no scarecrow,
+// no living WebGL background (the still painting instead), no cork spray, burst light, chunks, stains or icon
+// rain, no 3D lean, filters or blend modes, and #app is ZOOMED to fit instead of transform-scaled (WebKit backs a
+// layer at its layout size: under scale(.38) every layer cost ~7x the pixels it shows). Desktop is unchanged.
+// ?mobile=1 / ?mobile=0 force it either way; ?ios=1 and ?lite=1 imply it (?mobile=0 keeps the old lite tier).
+window.MOBILE = (() => {
+  const q = new URLSearchParams(location.search), m = q.get("mobile");
+  if (m === "1" || m === "0") return m === "1";
+  if (q.get("ios") === "1" || q.get("lite") === "1") return true;
+  if (q.get("ios") === "0" && q.get("lite") === "0") return false;
+  const ua = navigator.userAgent || "", touch = (navigator.maxTouchPoints || 0) > 1;
+  const small = Math.min(screen.width || 9999, screen.height || 9999) <= 820;
+  return window.IOS_WEBKIT || (touch && (/Android|Mobi|Tablet|Silk|Kindle/i.test(ua) || small));
+})();
+// the mobile tier carries every lite saving too, and only ever fetches the phone copies of the painting and frame
+if (window.MOBILE) { window.LITE = true; window.LITE_ART = { bg: true, frame: true }; }
 document.documentElement.classList.toggle("lite", window.LITE);
 document.documentElement.classList.toggle("litebg", window.LITE_ART.bg);
 document.documentElement.classList.toggle("ioswk", window.IOS_WEBKIT);
+document.documentElement.classList.toggle("mob", window.MOBILE);
 </script>
 <style>
   :root {
@@ -3118,7 +3138,7 @@ document.documentElement.classList.toggle("ioswk", window.IOS_WEBKIT);
      (which scales it down by --fit), so it lands on exactly the same pixels - but WebKit sizes a layer by its layout
      box, so the frame's layer (it sits over the symbols' canvases, so it always is one) is drawn at screen resolution
      instead of 1/fit^2 (~7x) that: 49 -> 7 MB on a portrait iPhone 12 */
-  html.ioswk #paintframe {
+  html.ioswk:not(.zfit) #paintframe {   /* (under the mobile tier's zoom the frame's layout box IS what it shows) */
     width: calc((100% - 36px) / .7528 * var(--fit, 1)); height: calc((100% - 36px) / .7119 * var(--fit, 1));
     transform-origin: 0 0; transform: scale(calc(1 / var(--fit, 1)));
   }
@@ -3471,6 +3491,42 @@ document.documentElement.classList.toggle("ioswk", window.IOS_WEBKIT);
      keyframe too). The brightness() flashes on the tiles and values stay: CoreAnimation takes those itself. */
   html.ioswk .cell img, html.ioswk .cell .rigin { filter: none !important; }
 
+  /* ---- the MOBILE tier (iOS crash review 3, 2026-11-16; window.MOBILE, html.mob) ----
+     Every phone and tablet. The structural fix: #app is zoomed to fit (html.zfit, fitToScreen), so every layer inside
+     it costs what it shows; contain: layout keeps a fixed child (the flying win figure) hanging off #app as the
+     transform did. And what costs graphics memory goes: the scene's 3D lean and every 3D tilt (a perspective()
+     transform is a composited layer at its layout size), every CSS filter and backdrop blur (an offscreen buffer
+     each; the dialogs get a darker veil instead), the screen-blended glows and sheens (the blend forces a buffer),
+     the loading screen's grain (a moving layer 116% of the screen). The scenery stops being position: fixed (WebKit
+     composites a fixed element as a layer of its own: the painting and the foreground were two ~14 MB layers) -
+     the page never scrolls, so absolute is the same place - and the foreground cut-outs are no layers of their own
+     (nothing moves behind them here: no camera, no living background). */
+  html.zfit #app { contain: layout; }
+  html.mob { --scene-yaw: 0deg; }
+  html.mob #bgwall, html.mob .stage, html.mob .bonusintro .inner, html.mob .bonusintro .blogo, html.mob .bonusintro .byou,
+  html.mob .bonusintro .bnum, html.mob .bonusintro .bfs, html.mob .bonusintro .bhow, html.mob .fbox,
+  html.mob .features .fcont .ftxt, html.mob .bonuscard { transform: none; }
+  html.mob *, html.mob *::before, html.mob *::after { filter: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  html.mob #tagglow, html.mob #tagspill, html.mob .bonusintro .bnum::after, html.mob .totalwin .twhead.tier::after,
+  html.mob .totalwin .twamount::after, html.mob .totalwin .twsheen, html.mob .fbox::after, html.mob .intro .intrograin { display: none !important; }
+  html.mob .bonusbtn .bglow, html.mob .bonuspanel h3 .bglow { mix-blend-mode: normal; opacity: .5; }
+  html.mob .infowrap { background: rgba(8, 6, 10, .72); }
+  html.mob #infoWrap { background: none; }
+  html.mob #infoWrap::before { background: rgba(8, 6, 10, .6); }
+  html.mob .rpwrap { background: rgba(8, 6, 10, .55); }
+  html.mob .rpwrap.done { background: rgba(8, 6, 10, .3); }
+  html.mob .infopanel, html.mob .hudpop { --hud-fill: rgba(30, 18, 10, .92); }
+  html.mob .camlayer, html.mob #bgwall, html.mob #fgwall { position: absolute; }
+  html.mob #fgwall img { will-change: auto; }
+  .corklite { position: fixed; left: 0; top: 0; z-index: 58; pointer-events: none; will-change: transform; }
+  #moblogo { display: none; }
+  html.mob #moblogo.on { display: block; position: absolute; z-index: -1; left: 50%; translate: -50% 0; height: auto; pointer-events: none; user-select: none; }
+  html.mob body.features-up #moblogo { visibility: hidden; }   /* (the features screen wears its own) */
+  /* two whole-screen layers at once are the boot's and a win's peaks: the studio ident cuts away (no cross-fade over
+     the features screen fading up), and a win's headline lands without the screen-wide flash */
+  html.mob .intro { transition: none; }
+  html.mob .totalwin .twflash { display: none; }
+
   /* the bonus counter shows the rounds left and nothing else (owner, 2026-11-15): the bonus's running win is on
      the WIN readout already; the box and its counter stay in the page, unseen, so paintFsWin has its element */
   .fswinbox { display: none !important; }
@@ -3509,12 +3565,42 @@ document.documentElement.classList.toggle("ioswk", window.IOS_WEBKIT);
     .bonusintro .bcont { font-size: 10px; margin-top: 6px; max-width: 34vw; }
   }
 </style>
+<script>
+// The mobile tier's interface art (iOS crash review 3): a phone shows #app at ~0.3-0.4 of its layout size, so the
+// panels, buttons and win headlines are drawn at well under half their pixels - it takes the copies in assets/lite/
+// (tools/fall/make_lite_art.py, which lists the same files) and never fetches the full ones. The stylesheet above is
+// rewritten before the body is parsed (nothing has asked for a picture yet); a picture named in script goes through
+// liteArt(). Desktop: untouched.
+window.MOBILE_LITE = ["bonus_panel", "info_panel", "feature_box", "bonus_btn_text", "bonus_btn_bg", "banner_box", "spin_btn_arrows",
+  "xbonus_text", "win_box", "brickwall", "hud_bar", "tier_bg", "total_bg", "total_win", "big_win", "mega_win", "xtreme_win", "plate_grey",
+  "intro_wordmark", "intro_wordmark_glow"];
+window.liteArt = u => {
+  if (!window.MOBILE) return u;
+  const m = /^(.*assets\/)([\w-]+)\.webp$/.exec(u);
+  return m && window.MOBILE_LITE.includes(m[2]) ? m[1] + "lite/" + m[2] + ".webp" : u;
+};
+if (window.MOBILE) (() => {
+  const re = new RegExp("assets/(" + window.MOBILE_LITE.join("|") + ")\\.webp", "g");
+  const walk = rules => {
+    for (const r of rules) {
+      const st = r.style;   // (the whole declaration block: a shorthand holding a var() has no longhands to read)
+      if (st && st.cssText.indexOf("assets/") >= 0) {
+        const v = st.cssText, w = v.replace(re, "assets/lite/$1.webp").replace(/assets\/flat\//g, "assets/lite/flat/");
+        if (w !== v) st.cssText = w;
+      }
+      if (r.cssRules) walk(r.cssRules);
+    }
+  };
+  for (const sh of document.styleSheets) { try { walk(sh.cssRules); } catch (e) { /* not ours */ } }
+})();
+</script>
 </head>
 <body>
 <div id="camfar" class="camlayer"><div id="bgwall"><div id="wallpaint" aria-hidden="true"></div><div id="tagspill" class="tagfx" aria-hidden="true"><i></i></div><img id="walltag" width="3303" height="1674" alt="" draggable="false"><!-- no src in the fall build: the tag is never shown (was 640 KB + 22 MB decoded) --><div id="tagglow" class="tagfx" aria-hidden="true"><i></i><b class="sheen"><b><i></i></b></b></div></div>
 </div>
 <div id="fgwall" aria-hidden="true"><div class="fgpic"><img id="fgl" src="assets/bg/fg_left.webp" width="1065" height="364" alt="" draggable="false" decoding="async"><img id="fgr" src="assets/bg/fg_right.webp" width="2066" height="646" alt="" draggable="false" decoding="async"></div></div>
 <div id="camnear" class="camlayer"><div id="charfx" class="charfx" aria-hidden="true"></div></div>
+<img id="moblogo" alt="" aria-hidden="true" draggable="false">
 
 <div id="teasefx" aria-hidden="true"></div>
 <div id="app">
@@ -3683,11 +3769,12 @@ document.documentElement.classList.toggle("ioswk", window.IOS_WEBKIT);
   </div>
 </div>
 
-<script src="assets/spine/pixi.min.js"></script>
+<!-- Pixi (the scarecrow's renderer), the spray rims and the living background are desktop-only: the mobile tier
+     never loads them, so no WebGL context exists there at all (iOS crash review 3) -->
+<script>if (!window.MOBILE) document.write('<script src="assets/spine/pixi.min.js"><\/script>');</script>
 <script src="rgs.js"></script>
 <script src="rules.js"></script>
-<script src="sprayrim.js"></script>
-<script src="bgfx.js"></script>
+<script>if (!window.MOBILE) document.write('<script src="sprayrim.js"><\/script><script src="bgfx.js"><\/script>');</script>
 <script>
 "use strict";
 
@@ -3718,6 +3805,8 @@ const SYM = {
 // The 5x5 game (math tipsy_5x5, 2026-11-08) keeps three lows: the others never land, so they are not
 // loaded, not drawn in a celebration's shower and not offered anywhere (their art stays in assets/).
 for (const k of ["L2", "L5", "L6", "L7", "L8", "L9", "L10"]) delete SYM[k];
+// (the mobile tier: the 320 px copies - tools/fall/make_lite_art.py - for tiles a phone shows at ~200 device px)
+if (window.MOBILE) for (const def of Object.values(SYM)) if (def.img) def.img = def.img.replace("assets/flat/", "assets/lite/flat/");
 const FLAT = {};   // the flat icon pictures, kept: the paytable, the shards of a blown-out tile and the fallback all draw them
 for (const [k, def] of Object.entries(SYM)) {   // pre-warm icon cache
   if (def.img) { const i = new Image(); i.src = def.img; FLAT[k] = i; }
@@ -3852,7 +3941,7 @@ function buildBoard() {
 // symbols' own idles are Blender's now, the values keep this one): a slow random wander in width,
 // height and lean that never repeats, played by the compositor (wander, below).
 function multIdle() {
-  if (REDUCED_MOTION) return;
+  if (REDUCED_MOTION || MOB) return;
   const AMP = [.07, .07, 2.5];   // up to 7% wider or narrower, 7% taller or shorter, 2.5 degrees of lean
   for (let r = 0; r < REELS; r++) for (let y = 0; y < ROWS; y++) {
     // each channel is a slow wander with a quicker, smaller one laid over it, so the motion
@@ -3959,7 +4048,7 @@ function frameIdle() {
   // WebKit on iOS: the frame stands still (its drift is ~1 px on a phone's screen). Drifting, it and the plate were
   // layers of their own drawn at 3x their layout size - 49 + 28 MB on a portrait iPhone for two pictures; still, the
   // plate paints with the board and the frame is drawn at the size it shows (html.ioswk #paintframe)
-  if (REDUCED_MOTION || !frame || window.IOS_WEBKIT) return;
+  if (REDUCED_MOTION || MOB || !frame || window.IOS_WEBKIT) return;
   const dx = drift(2.5, 4.5), dy = drift(2.5, 4.5), dr = drift(3, 5), dsx = drift(2.5, 4.5), dsy = drift(2.5, 4.5);
   // the plate behind the reels rides with the frame (owner, 2026-11-08: drifting alone, the logs opened a
   // gap along its edge), and the drift is a little smaller so the logs never pull away from the icons
@@ -4171,11 +4260,14 @@ function symHold(id, clip, s) {
 // it was keyed at. Same canvases, same boxes, so every CSS effect on the board's cells still applies.
 // ?sheets forces the old frame sheets (QA).
 const RIG_TIERS = [20, 40];      // atlas px per Blender unit (the icon is 10 units across)
-const RIG_SUB = 2;               // drawn steps per Blender frame: up to 60 a second at tempo 1
+// drawn steps per Blender frame: up to 60 a second at tempo 1 (the mobile tier: 30 - Blender's own rate - so the 25
+// symbol canvases are re-uploaded half as often; iOS crash review 3)
+const RIG_SUB = window.MOBILE ? 1 : 2;
 const RIGL = { on: false, data: null, tier: null, pages: [], k: 10, gen: 0 };
 // screen px per Blender unit of the board's symbols at rest
 function rigPx() {
-  const c = cellEls[0] && cellEls[0][0], dpr = Math.min(window.devicePixelRatio || 1, 3);
+  // (the mobile tier draws its canvases at DPR 2 at most, like every other canvas there)
+  const c = cellEls[0] && cellEls[0][0], dpr = Math.min(window.devicePixelRatio || 1, window.MOBILE ? 2 : 3);
   if (!c || !c.offsetWidth || !c.offsetHeight) return 10 * dpr;
   const unit = Math.min(c.clientWidth, c.clientHeight) * .88 / 10;
   const fit = c.getBoundingClientRect().width / c.offsetWidth;
@@ -4242,8 +4334,8 @@ function rigDraw(el, clip, ft) {
   // 25-tile pop (or a cork storm's popped neighbours) re-made every one of those surfaces 2-5x bigger in the same
   // frame (~20 MB at once). There the pop's canvas stays at the everyday size (at least 256 px): the same box on
   // screen, drawn a little less dense while it flies apart.
-  if (window.IOS_WEBKIT) {
-    const cap = Math.max(256, Math.ceil(2 * rig.span * RIGL.k));
+  if (window.IOS_WEBKIT || MOB) {   // (the mobile tier: exactly the everyday size - a pop never resizes its canvas)
+    const cap = MOB ? Math.ceil(2 * rig.span * RIGL.k) : Math.max(256, Math.ceil(2 * rig.span * RIGL.k));
     if (size > cap) { K *= cap / size; size = cap; }
   }
   if (el._box !== span) {
@@ -4307,7 +4399,7 @@ function loadSymFrames() {
     // icons - the old frame sheets are not shipped any more, so that path is never taken (audit, 2026-11-11)
     const live = await rigLiveLoad().catch(() => new Promise(r => setTimeout(r, 1200)).then(rigLiveLoad)).catch(() => false);
     if (!live) return false;
-    setTimeout(fxPreload, 1500);   // the Multi's cork and cider pictures (~60 KB): after the board is up
+    setTimeout(MOB ? () => { if (!REDUCED_MOTION) fxPic("cork_up"); } : fxPreload, 1500);   // the Multi's cork and cider pictures (~60 KB): after the board is up (the mobile tier: the cork alone)
     return Object.keys(RIGL.data.rigs).length > 0;
     // eslint-disable-next-line no-unreachable
     SYMF.density = symWantDensity();
@@ -4447,7 +4539,7 @@ const CORK_BLAST = .55;      // share of the popped icons' "multi" clip held bef
 const FX_PICS = ["cork_up", "fizz_drop", "fizz_bubble", "foam_puff", "fizz_burst"];
 let fxWarmed = false;
 function fxPreload() {
-  if (fxWarmed || REDUCED_MOTION) return;
+  if (fxWarmed || REDUCED_MOTION || MOB) return;
   fxWarmed = true;
   Promise.all(FX_PICS.map(n => { const im = fxPic(n); return im.decode ? im.decode().catch(() => {}) : null; })).then(() => {
     fxCanvas();
@@ -4559,7 +4651,7 @@ function fxBlank() {
            tick: null, fade: 1, sq: 0, flip: 0, wob: 0, ph: 0, t: 0, a1: 0, a2: 0, a3: 0, hit: 0, rs: 0, spinB: 0 };
 }
 function fxAdd(kind, pic, x, y, size, life) {
-  if (REDUCED_MOTION) return null;
+  if (REDUCED_MOTION || MOB) return null;
   fxCanvas();
   if (!FXS.g) return null;   // no canvas to draw on (the safety net): the cork does not fly, the cell pops by itself
   if (kind !== "cork" && kind !== "burst" && FXS.parts.length >= (GFX.low ? 200 : FX_CAP.fx)) return null;
@@ -4688,6 +4780,7 @@ function fxSplash(cell, k = 1, seed) {
 // On the cell it squashes, `hit` is called, and it ricochets up and away and falls off. Skip lands it at once.
 // Returns false when it cannot fly (reduced motion, the cell not laid out): the caller pops the cell itself.
 function corkShot(to, seed, hit) {
+  if (MOB && !REDUCED_MOTION) return corkLite(to, seed, hit);
   const b = to.getBoundingClientRect();
   if (REDUCED_MOTION || !b.width) return false;
   fxCanvas();
@@ -4770,6 +4863,55 @@ function corkShot(to, seed, hit) {
     }
     p.rs = fxS; fxS = keep;
   };
+  return true;
+}
+// The mobile tier's cork (iOS crash review 3): the same shot - up from just under the screen's bottom edge beneath
+// the Multi's column, over the top and down onto the cell, tumbling and shrinking to the icon's size, then knocked up
+// and away - as ONE small picture moved by a Web Animation of its transform (the compositor plays it), not a
+// whole-screen particle canvas with its gush, trail and spray. Same seed, same path, same sounds, same `hit`.
+const corkLive = new Set();   // (the memory probe reads how many are in the air)
+function corkLite(to, seed, hit) {
+  const b = to.getBoundingClientRect();
+  if (!b.width) return false;
+  fxS = seed | 0;
+  const u = b.width, W = innerWidth, H = innerHeight;
+  const tx = b.left + u / 2, ty = b.top + b.height * .42;
+  const x0 = Math.max(u * .4, Math.min(W - u * .4, tx + rnd(-.32, .32) * u));
+  const s0 = u * 1.25, s1 = u * .82, y0 = H + s0 * .3, top = b.height * rnd(.3, .6);
+  const T = CORK_FLIGHT * rnd(.93, 1.07) * tempo() / (state.skip ? CORK_SKIP : 1);
+  const rise = Math.max(1, y0 - ty) + top, root = Math.sqrt(2 * rise) + Math.sqrt(2 * top);
+  const gg = root * root, vy = -Math.sqrt(2 * gg * rise);   // up, over and down in one unit of time
+  const spin = (tx < x0 ? -1 : 1) * rnd(520, 720) * T / 1000, ang = Math.atan2(vy, (tx - x0)) * 180 / Math.PI + 90;
+  sfx("bottlePop", rnd(1.02, 1.12)); sfx("bottleGush", rnd(1.1, 1.25));
+  const whirr = rnd(1.05, 1.2);
+  setTimeout(() => sfx("corkWhirr", whirr), 40 * tempo());
+  const im = document.createElement("img");
+  im.className = "corklite"; im.alt = ""; im.setAttribute("aria-hidden", "true"); im.draggable = false;
+  im.src = fxPic("cork_up").src;
+  im.style.width = im.style.height = s0.toFixed(1) + "px";
+  document.body.append(im);
+  corkLive.add(im);
+  const at = (e, x, y, rot, k, o = 1) => ({ transform: `translate(${(x - s0 / 2).toFixed(1)}px, ${(y - s0 / 2).toFixed(1)}px) rotate(${rot.toFixed(1)}deg) scale(${k.toFixed(3)})`, opacity: o, offset: e });
+  const fly = [];
+  for (let i = 0; i <= 12; i++) {
+    const e = i / 12, x = x0 + (tx - x0) * e, y = y0 + vy * e + gg * e * e / 2;
+    fly.push(at(e, x, y, ang + spin * Math.max(0, e - .08), (s0 + (s1 - s0) * (1 - (1 - e) * (1 - e))) / s0));
+  }
+  let fired = false;
+  const land = () => { if (fired) return; fired = true; hit(); };
+  setTimeout(land, T + 400);   // should the page stop animating (a hidden tab), the hit still comes
+  const a = im.animate(fly, { duration: T, easing: "linear", fill: "forwards" });
+  // skipped mid-flight: it flies the rest CORK_SKIP times as fast, as the particle cork does
+  const quick = state.skip ? 0 : setInterval(() => { if (state.skip) { a.playbackRate = CORK_SKIP; clearInterval(quick); } }, 40);
+  a.onfinish = () => {
+    clearInterval(quick);
+    land();
+    const k = s1 / s0, dx = (tx < x0 ? 1 : -1) * u * rnd(.9, 1.4), r1 = ang + spin;
+    const off = im.animate([at(0, tx, ty, r1, k * 1.1), at(.15, tx + dx * .15, ty - b.height * .45, r1 - 40, k),
+                            at(1, tx + dx, ty + b.height * 1.2, r1 - 300, k * .9, 0)], { duration: 700 * tempo(), easing: "ease-in", fill: "forwards" });
+    off.onfinish = off.oncancel = () => { corkLive.delete(im); im.remove(); };
+  };
+  a.oncancel = () => { clearInterval(quick); land(); corkLive.delete(im); im.remove(); };
   return true;
 }
 // The icon the cork hits takes the knock before it pops: squashed down by the blow, it springs up, wobbles and
@@ -4905,7 +5047,7 @@ function startRigs() {
       if (sym && SYMF.man.symbols[sym.name]) fillCell(cellEls[r][y], sym);
     }
     symIdleTick();
-    setTimeout(prewarmBursts, 2500);
+    if (!MOB) setTimeout(prewarmBursts, 2500);   // (the mobile tier never bursts: no pieces, chunks or splats are cut)
   });
 }
 // The pieces a popping icon tears into and the bits of its material are cut once per icon - on its first
@@ -5469,7 +5611,7 @@ function burstKit(name, img, upTo = 3) {
 // every symbol's pieces cut ahead of time, one way of tearing it per idle moment once the game has
 // loaded, so the first time a symbol bursts the frame is not held up cutting 30-odd pieces
 function warmBursts() {
-  if (REDUCED_MOTION) return;
+  if (REDUCED_MOTION || MOB) return;
   const jobs = Object.keys(FLAT).flatMap(name => (window.IOS_WEBKIT ? [1] : [1, 2, 3]).map(upTo => [name, upTo]));   // iOS: one way of tearing each (a third of the ~570 piece canvases)
   const idle = window.requestIdleCallback ? f => requestIdleCallback(f, { timeout: 3000 }) : f => setTimeout(f, 250);
   const next = () => {
@@ -5527,7 +5669,7 @@ function smearOn(cell, name) {
   if (cell.smear) cell.smear.style.backgroundImage = SMEARS[name] ? `url("${SMEARS[name]}")` : "";
 }
 function makeSmears() {
-  if (REDUCED_MOTION) return;
+  if (REDUCED_MOTION || MOB) return;
   const names = Object.keys(FLAT), tries = {};
   // one symbol a turn - a few ms of pixel work - close behind one another: the first spin wants them
   // all, and a page drawing every frame has little idle time to wait for
@@ -5582,7 +5724,7 @@ function smokePuff() {
 // the first of them starts (tumbleBoard): the pops that follow one another then never force a
 // layout each, between one tile's classes changing and the next tile being measured
 function burstMeasure(r, y, sym) {
-  if (REDUCED_MOTION || !shardLayer()) return null;
+  if (REDUCED_MOTION || MOB || !shardLayer()) return null;
   // the picture on the tile: a flat icon, or an animated symbol (its rig box is the icon's own
   // footprint; the pieces are cut from the flat picture of the same symbol)
   const pic = cellEls[r][y].querySelector("img, .rig");
@@ -5600,7 +5742,7 @@ function burstMeasure(r, y, sym) {
 // strains, then on the blow the flash, the rings, rays, sparks, embers, smoke and the icon's own material
 // (BURST_MAT) - everything but the torn sticker pieces, which the clip's own parts replace. (owner, 2026-11-11)
 function popFx(c, name) {
-  if (!c || REDUCED_MOTION || !shardCtx) return;
+  if (!c || REDUCED_MOTION || MOB || !shardCtx) return;
   const t = tempo(), now = performance.now(), col = BURST_COLOUR[name] || "#ffffff";
   const b = { name, from: now, born: now + BURST_AT * t, t, x: c.x, y: c.y, W: c.w, col, rgb: rgbOf(col), glow: glowSprite(col),
               pieces: null, sparks: [], flecks: [], puffs: [], rig: true };
@@ -5819,7 +5961,7 @@ const DEBRIS = {
 };
 const FLY_PAD = 200;
 const debImg = new Image();
-debImg.src = "assets/fx/debris.webp";
+if (!window.MOBILE) debImg.src = "assets/fx/debris.webp";   // (the mobile tier throws no chunks: never fetched there)
 let stainCv = null, stainCtx = null, flyCv = null, flyCtx = null, debDpr = 1, debRaf = 0, debLast = 0;
 let stains = [], flyers = [], juice = [], debBoard = [0, 0];
 const splatSprites = {};
@@ -5988,6 +6130,11 @@ function clearFx() {
 const hold = ms => new Promise(r => setTimeout(r, ms * tempo()));   // never collapses, only quickens
 
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// The mobile tier (window.MOBILE, <head>; iOS crash review 3): the effects that cost graphics memory are left out -
+// the cork's spray, the splashes, the burst light, chunks and stains, the icon rain and the loading icons, the
+// sparks, the camera, the drifting values / frame / headlines, the 3D tilts, the motion-blur smears. A tile still
+// pops with its own clip (or a plain scale-and-fade), the cork still flies (one small picture), the win line draws.
+const MOB = !!window.MOBILE;
 // Read from the stylesheet rather than hardcoded: the spin overlay positions itself in whole
 // cell steps, so a cell resize has to move it too or every reel lands off by a fraction of a row.
 let CELL_STEP = 100;
@@ -6008,7 +6155,7 @@ let shownStop = null;   // paddingPositions of the reveal currently on the board
 let zoomAnim = null, zoomOn = false;
 function boardZoom(on, heldEls = [], ms = 1800) {
   const bd = $("board");
-  if (!bd || REDUCED_MOTION) return;
+  if (!bd || REDUCED_MOTION || MOB) return;
   if (!on && !zoomOn) return;
   const now = parseFloat(getComputedStyle(bd).scale) || 1;
   if (zoomAnim) zoomAnim.cancel();
@@ -6034,7 +6181,7 @@ function boardZoom(on, heldEls = [], ms = 1800) {
 }
 function bounceFx() {
   // background bounce + board pop + character hop, on every reveal (base and each free spin)
-  if (REDUCED_MOTION) return;
+  if (REDUCED_MOTION || MOB) return;
   const bgw = $("bgwall"), bd = $("board");
   const chars = [...document.querySelectorAll(".charfx")];
   bgw.classList.remove("bounce"); bd.classList.remove("pop");
@@ -6048,7 +6195,7 @@ function bounceFx() {
 // "pop" (a win's punch; tagPop sets its size). Its slow wander carries on underneath either.
 function tagFx(...kinds) {
   const tag = $("walltag");
-  if (REDUCED_MOTION || !tag) return;
+  if (REDUCED_MOTION || MOB || !tag) return;
   for (const el of [tag, ...document.querySelectorAll(".tagfx")]) {   // its glow and its light go with it
     el.classList.remove("bounce", "pop");
     restyle(el);   // flush, so a repeat restarts rather than running on
@@ -6188,7 +6335,7 @@ const Cam = (() => {
   const sp = () => Math.max(.7, tempo());                               // Rapid: a little quicker, never twitchy
   const amp = v => v * CAM_STRENGTH * (geo && geo.phone ? .65 : 1);     // how much it moves at all; a phone: smaller
   function ready() {
-    if (REDUCED_MOTION || state.skip) return false;
+    if (REDUCED_MOTION || MOB || state.skip) return false;   // (the mobile tier: no camera - its moves were whole-screen layers)
     if (!path || !geo) geo = measure() || geo;                          // measured at rest (or first use)
     return !!geo;
   }
@@ -7156,7 +7303,10 @@ function audio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return null;
   if (!actx) {
-    actx = new Ctx();
+    // the mobile tier runs the sound at 32 kHz (iOS crash review 3): every decoded sample is a 32-bit float at the
+    // context's rate, so the music and the effects take two thirds of the memory (the base loop 29 -> 19.5 MB); a
+    // phone's speaker shows nothing above 16 kHz. Loop points and beats are kept in seconds, so nothing else moves.
+    try { actx = window.MOBILE ? new Ctx({ sampleRate: 32000 }) : new Ctx(); } catch (e) { actx = new Ctx(); }
     // everything routes through one of two buses so the volume sliders (and mute) are a
     // single gain each rather than a change to every source
     // both buses through one gentle limiter, so a pile-up of hits never clips the output
@@ -7182,14 +7332,14 @@ const SFX_LAZY = !!window.LITE, SFX_BUDGET = 10e6;
 // WebKit on iOS (crash review 2, 2026-11-16): the cork's and the pops' sounds (~3 MB decoded) are decoded once, at
 // the first touch, two at a time, and never let go - a pop run used to ask for a dozen first takes in one instant,
 // and the LRU let them go again between spins, so every big pop re-decoded its sounds in a burst
-const SFX_KIT = window.IOS_WEBKIT ? ["pop", "multiHit", "paintBurst", "bottlePop", "bottleGush", "corkWhirr", "corkBonk", "ciderSplash",
+const SFX_KIT = (window.IOS_WEBKIT || window.MOBILE) ? ["pop", "multiHit", "paintBurst", "bottlePop", "bottleGush", "corkWhirr", "corkBonk", "ciderSplash",
   "ciderFizz", "ciderDrip", "bubblePop", "popH1", "popH2", "popH3", "popH4", "popH5", "popH6", "popH7", "popL1", "popL3", "popL4"]
   .flatMap(n => SFX_VARS[n] || [n]).filter(n => SFX[n]) : [];
 const SFX_PIN = ["reels", "coins", "moneyTick", "hoverLoop", ...SFX_KIT];
 let sfxDecodeBusy = 0;
 const sfxDecodeWait = [];
 function sfxDecodeSlot(fn) {   // iOS: at most two clips decoding at once, the rest wait their turn
-  if (!window.IOS_WEBKIT) return fn();
+  if (!window.IOS_WEBKIT && !window.MOBILE) return fn();
   return new Promise((res, rej) => {
     const go = () => {
       sfxDecodeBusy++;
@@ -7501,7 +7651,7 @@ const handlers = {
     const timers = [];
     let anyPop = false;
     const geo = order.map(([r, y]) => burstMeasure(r, y, showSym(r, y)));   // every tile's burst, measured once up front
-    shardLayer();
+    if (!MOB) shardLayer();   // (the mobile tier has no burst layer: a tile pops with its own clip, or scales and fades)
     // where every popping tile sits in the board, and the cut that keeps its break-apart inside the frame's
     // opening (owner, 2026-11-12: pieces flew over the logs and out of the board): an inset on the tile itself,
     // reaching POP_EDGE px inside the board's edge on every side - that is under the logs, which draw over it
@@ -8021,7 +8171,7 @@ function winFx(cell) {
 // the size) and its pace (under 1 is livelier). It writes --p* and --t* on host (see the
 // .twhead and .winpop rules) until host leaves the page.
 function hoverWin(host, reach, lag, css) {
-  if (REDUCED_MOTION || !host) return;
+  if (REDUCED_MOTION || MOB || !host) return;
   const unit = reach.unit || "px", pace = reach.pace || 1;
   const chans = [["x", 1.3], ["y", 1.05], ["r", 1.6], ["s", 1.9]].map(([k, step]) => ({
     k, amp: reach[k] || 0, step: step * pace * (.85 + Math.random() * .3), stops: [0],
@@ -9944,6 +10094,9 @@ async function makeCharacterParts({ el, name, flavour, swap = {} }) {
 // the loading screen waits for both characters (their walk-on and idle decoded)
 let charsLoaded = Promise.resolve([]);
 (async function characters() {
+  // the mobile tier has no scarecrow at all (iOS crash review 3): no rig, no atlas, no Pixi app, no canvas, no shadow,
+  // no sounds - his box and the camera layer he stands in are taken out of the page
+  if (window.MOBILE) { for (const id of ["charfx", "camnear"]) { const el = $(id); if (el) el.remove(); } return; }
   charsLoaded = Promise.all(CHARACTERS.map(c => (CHAR_FRAMES ? makeCharacterFrames : CHAR_MESH ? makeCharacterRig : makeCharacterParts)(c)));
   const rigs = (await charsLoaded).filter(Boolean);
   if (!rigs.length) return;
@@ -9965,6 +10118,42 @@ let charsLoaded = Promise.resolve([]);
 // content down to whatever the window is. Measured at --fit:1 each time so the factor is
 // derived from the natural size, never compounded on the previous scale.
 let fitBusy = false;
+// The mobile tier ZOOMS #app to fit instead of scaling it with a transform (iOS crash review 3). WebKit backs every
+// composited layer at its LAYOUT size x DPR^2 and never scales that down for a transform-scaled ancestor: under
+// scale(.38) on a portrait iPhone each layer inside #app cost ~7x the pixels it showed (11x landscape). With CSS zoom
+// the layout itself is that size, so a layer costs what it shows. Same picture: lengths (px, vh) zoom like the
+// transform scaled them, a fixed child still hangs off #app (contain: layout, html.zfit), and rects read on screen
+// px either way. Checked once at the first fit: an engine whose rects come back in the element's own unzoomed px
+// (older WebKit) gets them scaled back (zoomRects); one that does not zoom viewport units, or has no zoom at all,
+// keeps the transform. ?zoomfit=0 forces the transform (QA).
+let zoomFit = null;
+function zoomFitOk(app) {
+  if (zoomFit !== null) return zoomFit;
+  zoomFit = false;
+  if (!MOB || /[?&]zoomfit=0\b/.test(location.search) || !(window.CSS && CSS.supports && CSS.supports("zoom", "0.5"))) return false;
+  const host = document.createElement("div"), a = document.createElement("i"), ref = document.createElement("i");
+  host.style.cssText = "position:fixed;left:0;top:0;width:400px;height:400px;zoom:.5;contain:layout;visibility:hidden;pointer-events:none";
+  a.style.cssText = ref.style.cssText = "position:absolute;display:block;left:40px;top:0;width:100px;height:10vh";
+  ref.style.zoom = 2;   // (back to 1 inside the host: the unzoomed reference for 10vh)
+  host.append(a, ref); document.body.append(host);
+  const r = a.getBoundingClientRect(), q = ref.getBoundingClientRect();
+  host.remove();
+  const zoomedRects = Math.abs(r.width - 50) < 3, unzoomedRects = Math.abs(r.width - 100) < 3;
+  const vhZoomed = r.width > 0 && q.width > 0 && Math.abs((r.height / r.width) / (q.height / q.width) - 1) < .06;
+  if (!(zoomedRects || unzoomedRects) || !vhZoomed) return false;
+  if (unzoomedRects) zoomRects(app);
+  zoomFit = true;
+  document.documentElement.classList.add("zfit");
+  return true;
+}
+// rects of #app's pieces back on screen px, for an engine that reports them in the element's own zoomed-out px
+function zoomRects(app) {
+  const z = () => parseFloat(app.style.zoom) || 1, P = Element.prototype, gb = P.getBoundingClientRect, gr = P.getClientRects;
+  const k = el => (el === app || app.contains(el)) ? z() : 1;
+  const sc = (r, f) => new DOMRect(r.x * f, r.y * f, r.width * f, r.height * f);
+  P.getBoundingClientRect = function () { const r = gb.call(this), f = k(this); return f === 1 ? r : sc(r, f); };
+  P.getClientRects = function () { const l = gr.call(this), f = k(this); return f === 1 ? l : Array.from(l, r => sc(r, f)); };
+}
 function fitToScreen(opts) {
   placeMultLayer();   // the slots follow the cells whenever the layout moves
   const app = $("app"), stage = document.querySelector(".stage");
@@ -9990,8 +10179,10 @@ function fitToScreen(opts) {
     // page out wide enough for it, then see how tall that comes out and fit that too. The
     // final width is never narrower than the first pass, so nothing wraps back taller.
     const root = document.documentElement.style;
+    const zf = zoomFitOk(app);
     const measure = () => {
       app.style.transform = "none"; app.style.width = "auto"; app.style.height = "auto";
+      if (zf) app.style.zoom = "";
       const needW = stage.offsetWidth + 40;                   // .main's side padding
       const fitW = Math.min(1, W / needW);
       app.style.width = (W / fitW) + "px";
@@ -10023,13 +10214,29 @@ function fitToScreen(opts) {
     }
     app.style.width = (W / fit) + "px";
     app.style.height = (H / fit) + "px";
-    app.style.transform = `scale(${fit.toFixed(4)})`;
+    if (zf) app.style.zoom = fit.toFixed(4);   // the mobile tier: laid out at the size it shows (above)
+    else app.style.transform = `scale(${fit.toFixed(4)})`;
     document.documentElement.style.setProperty("--fit", fit.toFixed(4));
     placeScenery();   // the characters and the tag take their places from where the board landed
+    placeMobLogo();
     if (flip) fitEase(flip, fit);
   } finally {
     fitBusy = false;
   }
+}
+// The mobile tier has no scarecrow over the board: on an upright phone the sky above the frame carries the game's
+// wordmark instead (the features screen's, still - no glow, no motion, no layer of its own), centred in the room
+// between the top of the screen and the frame's top log, when there is room for it.
+function placeMobLogo() {
+  const el = $("moblogo"), board = $("board");
+  if (!el || !MOB || !board) return;
+  const r = board.getBoundingClientRect(), room = r.top - 22;   // (the frame's top log stands ~20 px over the board's box)
+  const h = Math.min(room * .74, innerWidth * .84 * 1160 / 2736);
+  if (innerHeight <= innerWidth || !r.width || h < 44) { el.classList.remove("on"); return; }
+  if (!el.getAttribute("src")) el.src = liteArt("assets/intro_wordmark.webp");
+  el.style.width = (h * 2736 / 1160).toFixed(1) + "px";
+  el.style.top = Math.max(4, (room - h) * .55).toFixed(1) + "px";
+  el.classList.add("on");
 }
 // FLIP: each piece is put back where it was drawn before the re-fit (an added transform, so the stage's lean,
 // the camera and the bar's own moves carry on under it) and let go to its new place and size
@@ -10188,7 +10395,7 @@ function iconSprites() {
   });
   return iconKinds;
 }
-if (!REDUCED_MOTION) iconSprites();   // baked while the game loads, for the loading screen and the first big win
+if (!REDUCED_MOTION && !MOB) iconSprites();   // baked while the game loads, for the loading screen and the first big win
 
 /* ---------- opening sequence ---------- */
 // Logo fades up on black, fades out, the required disclosure fades in, then the whole
@@ -10219,9 +10426,9 @@ function assetUrls() {
   for (const n of ["0","1","2","3","4","5","6","7","8","9","dot","comma"]) urls.add("assets/num/" + n + ".webp");
   // the win screen's lettering, named rather than read off WIN_TIERS: that list is declared
   // further down the file than this screen runs
-  for (const n of ["total_win", "big_win", "mega_win", "xtreme_win"]) urls.add("assets/" + n + ".webp");
+  for (const n of ["total_win", "big_win", "mega_win", "xtreme_win"]) urls.add(liteArt("assets/" + n + ".webp"));
   if (window.WallFX) urls.add("assets/wall_tag.webp");   // the graffiti build's tag is an <img>, so no rule names it
-  urls.add("assets/xbonus_text.webp");   // the Extreme Bonus intro's XTREME BONUS, an <img> too
+  urls.add(liteArt("assets/xbonus_text.webp"));   // the Extreme Bonus intro's XTREME BONUS, an <img> too
   if (REDUCED_MOTION) for (const id of Object.keys(TIER)) for (const k of ["halo", "tube"]) urls.add(`assets/glow/${id}_${k}.webp`);   // set by tierGlow()
   // Not pictures, or never shown in the fall build (audit 2026-11-08): fonts load through @font-face
   // (an Image() of a .ttf fetched it twice), and the graffiti wall's tag glows are display:none here.
@@ -10272,7 +10479,7 @@ function preloadAll(onProgress) {
 // icon, flips it harder for a moment. Drawn as a flat affine of the card's two axes (an
 // orthographic view), which is all a 100px card needs to read as turning in space.
 function startIntroIcons(canvas, avoid) {
-  if (REDUCED_MOTION || !canvas) return;
+  if (REDUCED_MOTION || MOB || !canvas) return;
   const kinds = iconSprites();
   if (!kinds.length) return;
   const ctx = gfxCtx(canvas);
@@ -10644,7 +10851,7 @@ function rollNumerals(el, text, rolling) {
 // about a second. Plain elements, removed when they are done; nothing at all with reduced motion.
 // x, y: where in the host it bursts from (0..1); reach scales how far they fly.
 function sparkBurst(host, { x = .5, y = .5, n = 18, colors = ["#ffffff", "#FFE39A", "#E8742A"], reach = 1, size = 1 } = {}) {
-  if (REDUCED_MOTION || !host) return;
+  if (REDUCED_MOTION || MOB || !host) return;
   const box = document.createElement("div");
   box.className = "sparks";
   box.setAttribute("aria-hidden", "true");
@@ -10709,7 +10916,7 @@ const WIN_TIERS = [
   { at: 100, art: "xtreme_win.webp", label: "Xtreme win", rate: 1.5 },
 ];
 const OVER_BOARD_AT = 10;   // a spin has to pay MORE than this many times the bet for the popup
-for (const t of WIN_TIERS) { const i = new Image(); i.src = "assets/" + t.art; }   // ready before it is wanted
+for (const t of WIN_TIERS) { const i = new Image(); i.src = liteArt("assets/" + t.art); }   // ready before it is wanted
 // Icons raining down behind the figure, as a small physics toy: every icon falls under gravity
 // through a little air, tumbles on its own spin, and bounces off any icon it runs into - round
 // bodies, overlap pushed apart by mass, momentum traded along the line between centres, and the
@@ -10720,7 +10927,7 @@ for (const t of WIN_TIERS) { const i = new Image(); i.src = "assets/" + t.art; }
 // when the icons still falling fade out with their layer. It is all one canvas, drawn from the
 // sprites iconSprites() bakes, so a couple of hundred icons cost a frame next to nothing.
 function startIconRain(host) {
-  if (REDUCED_MOTION) return () => {};
+  if (REDUCED_MOTION || MOB) return () => {};
   const kinds = iconSprites();
   const layer = document.createElement("canvas");
   layer.className = "iconrain";
@@ -10853,7 +11060,7 @@ function totalWinScreen(amount, { total = true } = {}) {
       `<div class="twin">` +
         `<div class="twhead blank">` +   // every headline the popup can show, stacked, so a swap is instant
           [...WIN_TIERS.map(t => t.art), "total_win.webp"].map(art =>
-            `<img class="twlogo" data-art="${art}" src="assets/${art}" alt="" draggable="false">`).join("") +
+            `<img class="twlogo" data-art="${art}" src="${liteArt("assets/" + art)}" alt="" draggable="false">`).join("") +
           `<i class="twsheen" aria-hidden="true"></i>` +   // the band of light across the lettering
         `</div>` +
         `<div class="twamount"><div class="twfig">${numeralRow(fmt(0))}</div></div>` +
@@ -11077,7 +11284,7 @@ let featuresDone = Promise.resolve();
 // On `translate` / `rotate` added on top of the plates' own drift, so nothing jumps as the drift
 // takes over. With reduced motion they are simply there.
 function fanPlates(wrap) {
-  if (REDUCED_MOTION || !Element.prototype.animate) return;
+  if (REDUCED_MOTION || MOB || !Element.prototype.animate) return;
   const row = wrap.querySelector(".fboxes"), plates = [...wrap.querySelectorAll(".fbox")];
   if (!row || plates.length < 2) return;
   const rr = row.getBoundingClientRect(), cx = rr.left + rr.width / 2, cy = rr.top + rr.height / 2;
@@ -11099,7 +11306,7 @@ function fanPlates(wrap) {
 // and sheen, and the raised contents. Leaving a plate eases it flat again. Touch never tilts:
 // a tap here is the click to play, and a flick on the way out would only read as a glitch.
 function tiltPlates(plates) {
-  if (REDUCED_MOTION) return { stop() {} };
+  if (REDUCED_MOTION || MOB) return { stop() {} };
   const tilts = [];
   let raf = 0, stopped = false;
   const step = () => {
@@ -11146,7 +11353,7 @@ function runFeatures() {
   wrap.setAttribute("aria-label", T("How the game works"));
   const box = (icon, title, text) => `<div class="fbox"><div class="fin"><div class="ficon">${icon}</div><h3>${title}</h3><p>${text}</p></div></div>`;
   wrap.innerHTML =
-    `<div class="flogo" role="img" aria-label="Tipsy Harvest"><img class="iwglow" src="assets/intro_wordmark_glow.webp" alt="" draggable="false"><img class="iwink" src="assets/intro_wordmark.webp" alt="" draggable="false"></div>` +
+    `<div class="flogo" role="img" aria-label="Tipsy Harvest"><img class="iwglow" src="${liteArt("assets/intro_wordmark_glow.webp")}" alt="" draggable="false"><img class="iwink" src="${liteArt("assets/intro_wordmark.webp")}" alt="" draggable="false"></div>` +
     `<div class="fboxes">` +
       box(`<img src="${SYM.M.img}" alt="${T("Multi")}" draggable="false"><div class="fmult" id="featMult">x${fmtMult(FEATURE_VALUES[0])}</div>`,
         T("Multi"),
@@ -11243,8 +11450,8 @@ function bonusIntro(spins, extreme) {
       `<img class="fgr" src="assets/bg/fg_right.webp" alt="" draggable="false"></div></div>` +
       `<div class="inner"><div class="bstack">` +
         (extreme
-          ? `<img class="blogo" src="assets/xbonus_text.webp" alt="${T("Xtreme Bonus")}" draggable="false">`
-          : `<img class="blogo" src="assets/bonus_btn_text.webp" alt="${T("Bonus")}" draggable="false">`) +
+          ? `<img class="blogo" src="${liteArt("assets/xbonus_text.webp")}" alt="${T("Xtreme Bonus")}" draggable="false">`
+          : `<img class="blogo" src="${liteArt("assets/bonus_btn_text.webp")}" alt="${T("Bonus")}" draggable="false">`) +
         `<div class="byou">${T("You won")}</div>` +
         `<div class="bnum" aria-label="${spins}"><i class="brays" aria-hidden="true"></i><div class="bfig">${numeralRow(REDUCED_MOTION ? String(spins) : "0")}</div></div>` +
         `<div class="bfs">${T("Free spins")}</div>` +
@@ -11708,6 +11915,34 @@ document.addEventListener("visibilitychange", async () => {
   close.addEventListener("click", () => show(false));
   wrap.addEventListener("click", e => { if (e.target === wrap) show(false); });   // click-away
   document.addEventListener("keydown", e => { if (e.key === "Escape") show(false); });
+})();
+
+/* ---------- ?perf=1: the frame-time readout (iOS crash review 3) ---------- */
+// The one measure an iPhone gives without a Mac: frame times (rAF intervals) over the last 900 frames - p50 / p95 / p99 -
+// the frames over 20 ms in the current (or last) round, the canvases in the page and their pixels, and the tier
+// (mobile / zoom-fit / lite). Off unless the URL asks for it; nothing of it exists otherwise.
+if (/[?&]perf=1\b/.test(location.search)) (() => {
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;left:4px;top:4px;z-index:99;padding:3px 6px;font:11px/1.3 ui-monospace,Consolas,monospace;color:#fff;background:rgba(0,0,0,.72);border-radius:4px;pointer-events:none;white-space:pre";
+  document.body.append(box);
+  const N = 900, ring = new Float32Array(N);
+  let n = 0, last = 0, slow = 0, wasPlaying = false, shown = 0;
+  const tier = [window.MOBILE && "mobile", document.documentElement.classList.contains("zfit") && "zoom", window.LITE && "lite", window.IOS_WEBKIT && "ioswk"].filter(Boolean).join(" ") || "desktop";
+  const frame = t => {
+    if (last) { const d = t - last; ring[n++ % N] = d; if (d > 20 && state.playing) slow++; }
+    last = t;
+    if (state.playing && !wasPlaying) slow = 0;
+    wasPlaying = state.playing;
+    if (t - shown > 500) {
+      shown = t;
+      const k = Math.min(n, N), a = Array.from(ring.subarray(0, k)).sort((x, y) => x - y);
+      const q = p => k ? a[Math.min(k - 1, Math.floor(p * k))].toFixed(1) : "-";
+      let px = 0, c = 0; for (const cv of document.querySelectorAll("canvas")) { px += cv.width * cv.height; c++; }
+      box.textContent = `${tier}  ${innerWidth}x${innerHeight}@${devicePixelRatio}\nframe ms p50 ${q(.5)}  p95 ${q(.95)}  p99 ${q(.99)}\n>20 ms this round: ${slow}\ncanvases ${c}  ${(px * 4 / 1e6).toFixed(1)} MB`;
+    }
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
 })();
 
 /* ---------- boot ---------- */
