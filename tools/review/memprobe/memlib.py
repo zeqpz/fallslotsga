@@ -40,6 +40,8 @@ def _dims():   # every picture's size under frontend/assets (decoded bytes = w x
 DIMS = _dims()
 IPHONE_UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 "
              "(KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1")
+CRIOS_UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "CriOS/141.0.7390.96 Mobile/15E148 Safari/604.1")   # Chrome for iOS: WebKit underneath
 
 
 class Browser:

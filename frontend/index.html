@@ -29,8 +29,23 @@ window.LITE_ART = (() => {
   const sw = screen.width || innerWidth, sh = screen.height || innerHeight, dpr = devicePixelRatio || 1;
   return { bg: window.LITE && Math.max(sw, sh) <= 960, frame: window.LITE && Math.min(sw, sh) * dpr <= 1350 };
 })();
+// WebKit on iOS (iOS crash review 2, 2026-11-16: still reloading on an iPhone 12, in Safari and in Chrome for iOS,
+// which is WebKit too, "when a cork is fired and icons pop"): Safari, Chrome (CriOS), Firefox (FxiOS), Edge
+// (EdgiOS) and any in-app view on an iPhone/iPad, and iPadOS asking for the desktop site (a Mac UA with touch).
+// WebKit draws every composited layer and every software filter at its LAYOUT size x the screen's DPR - it never
+// scales a layer down for a scaled-down ancestor - and #app is laid out at window/fit and scaled by --fit (~0.38
+// on a portrait phone), so there a layer costs ~7x the pixels it shows; every 2D canvas is a GPU surface and a layer
+// of its own. html.ioswk / IOS_WEBKIT keep the cork and the pops inside that (research/ios_crash_2026-11-16.md).
+// ?ios=1 / ?ios=0 force it (QA).
+window.IOS_WEBKIT = (() => {
+  const q = new URLSearchParams(location.search).get("ios");
+  if (q === "1" || q === "0") return q === "1";
+  const ua = navigator.userAgent || "", touch = (navigator.maxTouchPoints || 0) > 1;
+  return /iP(hone|od|ad)|CriOS|FxiOS|EdgiOS/.test(ua) || (/Macintosh/.test(ua) && touch) || (navigator.platform === "MacIntel" && touch);
+})();
 document.documentElement.classList.toggle("lite", window.LITE);
 document.documentElement.classList.toggle("litebg", window.LITE_ART.bg);
+document.documentElement.classList.toggle("ioswk", window.IOS_WEBKIT);
 </script>
 <style>
   :root {
@@ -3099,6 +3114,14 @@ document.documentElement.classList.toggle("litebg", window.LITE_ART.bg);
     width: calc((100% - 36px) / .7528); height: calc((100% - 36px) / .7119);
     left: calc(18px - (100% - 36px) * .1612); top: calc(18px - (100% - 36px) * .2098);
   }
+  /* WebKit on iOS: the frame is laid out at the size it shows (x --fit) and scaled back up by 1/--fit inside #app
+     (which scales it down by --fit), so it lands on exactly the same pixels - but WebKit sizes a layer by its layout
+     box, so the frame's layer (it sits over the symbols' canvases, so it always is one) is drawn at screen resolution
+     instead of 1/fit^2 (~7x) that: 49 -> 7 MB on a portrait iPhone 12 */
+  html.ioswk #paintframe {
+    width: calc((100% - 36px) / .7528 * var(--fit, 1)); height: calc((100% - 36px) / .7119 * var(--fit, 1));
+    transform-origin: 0 0; transform: scale(calc(1 / var(--fit, 1)));
+  }
   #bgwall {
     background:
       linear-gradient(rgba(40,18,6,.06), rgba(40,18,6,.26)),
@@ -3438,6 +3461,15 @@ document.documentElement.classList.toggle("litebg", window.LITE_ART.bg);
      frame's opening like the pops are; its chunks and drops over the frame and out past the board */
   .stainlayer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; clip-path: inset(14px); }
   .flylayer { position: absolute; left: -200px; top: -200px; width: calc(100% + 400px); height: calc(100% + 400px); z-index: 5; pointer-events: none; }
+
+  /* ---- WebKit on iOS (iOS crash review 2, 2026-11-16; window.IOS_WEBKIT) ----
+     No filters on the board's tiles or values. WebKit can composite a filter list only when a drop-shadow is its last
+     entry; anything else is painted in software at the LAYOUT size x 3 (never scaled down with #app), a source buffer
+     and two more per shadow, redrawn every frame the canvas inside changes - 10-25 MB per tile. The lit-tile and
+     scatter drop-shadow chains (img/.rigin) match nothing on the live rigs today (no .rigin element; measured: no
+     such filter is ever applied in a round), so this is a guard that keeps it that way (!important wins over a
+     keyframe too). The brightness() flashes on the tiles and values stay: CoreAnimation takes those itself. */
+  html.ioswk .cell img, html.ioswk .cell .rigin { filter: none !important; }
 
   /* the bonus counter shows the rounds left and nothing else (owner, 2026-11-15): the bonus's running win is on
      the WIN readout already; the box and its counter stay in the page, unseen, so paintFsWin has its element */
@@ -3924,7 +3956,10 @@ function startRims() {
 }
 function frameIdle() {
   const frame = $("paintframe");
-  if (REDUCED_MOTION || !frame) return;
+  // WebKit on iOS: the frame stands still (its drift is ~1 px on a phone's screen). Drifting, it and the plate were
+  // layers of their own drawn at 3x their layout size - 49 + 28 MB on a portrait iPhone for two pictures; still, the
+  // plate paints with the board and the frame is drawn at the size it shows (html.ioswk #paintframe)
+  if (REDUCED_MOTION || !frame || window.IOS_WEBKIT) return;
   const dx = drift(2.5, 4.5), dy = drift(2.5, 4.5), dr = drift(3, 5), dsx = drift(2.5, 4.5), dsy = drift(2.5, 4.5);
   // the plate behind the reels rides with the frame (owner, 2026-11-08: drifting alone, the logs opened a
   // gap along its edge), and the drift is a little smaller so the logs never pull away from the icons
@@ -4200,14 +4235,32 @@ function rigDraw(el, clip, ft) {
   if (el._shown === key) return;
   const f0 = Math.floor(q), f1 = c.loop ? (f0 + 1) % n : Math.min(f0 + 1, n - 1), t = f1 === f0 ? 0 : q - f0;
   const span = clip === "pop" ? Math.max(c.span, rig.span) : rig.span;
-  const K = RIGL.k, size = Math.ceil(2 * span * K), cv = el._cv;
+  let K = RIGL.k, size = Math.ceil(2 * span * K);
+  const cv = el._cv;
+  // WebKit on iOS: every 2D canvas is a GPU surface (and a composited layer); resizing one allocates a new surface.
+  // A phone's symbol canvas is ~210-320 px (the reach of its everyday clips); a pop's clip reaches to ~470 px, so a
+  // 25-tile pop (or a cork storm's popped neighbours) re-made every one of those surfaces 2-5x bigger in the same
+  // frame (~20 MB at once). There the pop's canvas stays at the everyday size (at least 256 px): the same box on
+  // screen, drawn a little less dense while it flies apart.
+  if (window.IOS_WEBKIT) {
+    const cap = Math.max(256, Math.ceil(2 * rig.span * RIGL.k));
+    if (size > cap) { K *= cap / size; size = cap; }
+  }
   if (el._box !== span) {
     const m = el._m, u = 2 * span * 10;
     cv.style.cssText = `left:${(m.icon[0] * 5 - u / 2).toFixed(2)}px;top:${(m.icon[1] * 5 - u / 2).toFixed(2)}px;width:${u}px;height:${u}px`;
     el._box = span;
   }
   if (cv.width !== size) cv.width = cv.height = size;
-  const g = el._ctx, pics = RIGL.tier.pics, pages = RIGL.pages, next = t > 0 ? c.idx[f1] : null, o = size / 2;
+  let g = el._ctx;
+  if (!g) {   // a canvas the browser would not give a context (the safety net): asked again at most once a second
+    const now = performance.now();
+    if (now - (el._ctxTry || 0) < 1000) return;
+    el._ctxTry = now;
+    g = el._ctx = gfxCtx(cv);
+    if (!g) return;
+  }
+  const pics = RIGL.tier.pics, pages = RIGL.pages, next = t > 0 ? c.idx[f1] : null, o = size / 2;
   const rest = clip === "idle" && IDLE_AMP < 1 && !IDLE_FULL[el._name] ? c.idx[0] : null;
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalAlpha = 1;
@@ -4285,7 +4338,7 @@ function rigEl(name, label) {
   const cv = document.createElement("canvas");
   cv.className = "symc";
   el.append(cv);
-  Object.assign(el, { _name: name, _m: m, _cv: cv, _ctx: cv.getContext("2d"), _clip: null, _box: null, _shown: "" });
+  Object.assign(el, { _name: name, _m: m, _cv: cv, _ctx: gfxCtx(cv), _clip: null, _box: null, _shown: "" });
   symRest(el);
   return el;
 }
@@ -4399,6 +4452,7 @@ function fxPreload() {
   Promise.all(FX_PICS.map(n => { const im = fxPic(n); return im.decode ? im.decode().catch(() => {}) : null; })).then(() => {
     fxCanvas();
     const g = FXS.g;
+    if (!g) return;
     g.globalAlpha = .01;
     for (const n of FX_PICS) { const im = FXS.imgs[n]; if (im.naturalWidth) g.drawImage(im, 0, 0, 8, 8); }
     g.globalAlpha = 1;
@@ -4421,6 +4475,26 @@ function fxPreload() {
 // allocated per frame.
 const FX_FPS = 90;   // the cap: every 2nd frame of a 165 Hz screen, every frame of a 60 Hz one
 const FXS = { cv: null, g: null, parts: [], free: [], raf: 0, last: 0, imgs: {}, d: 1, w: 0, h: 0 };
+// The safety net (iOS crash review 2, 2026-11-16). A browser out of canvas memory hands back no 2D context
+// (getContext returns null) and takes WebGL contexts away (webglcontextlost); either is counted here and from then
+// on the cork, the splashes and the pops run their lightest version (GFX.low) - never an exception in a frame loop,
+// never a reload. A canvas with no context is simply left blank.
+const GFX = { fails: 0, lost: 0, low: false };
+function gfxFail(kind) {
+  GFX[kind]++;
+  if (!GFX.low) { GFX.low = true; console.warn("graphics memory short: effects reduced (" + kind + ")"); }
+}
+function gfxCtx(cv, opts) {
+  let g = null;
+  try { g = cv.getContext("2d", opts); } catch (e) { g = null; }
+  if (!g) gfxFail("fails");
+  return g;
+}
+addEventListener("webglcontextlost", () => gfxFail("lost"), true);   // (it does not bubble: caught on the way down)
+// WebKit on iOS: how many of each effect's particles may be alive at once (a cork storm's six corks with their
+// spray, a 25-tile pop's chunks and juice: up to ~950 spray particles, 81 chunks, 46 drops and 35 stains in the
+// biggest books); past it a new one is simply not made - the ones in the air cover it
+const FX_CAP = window.IOS_WEBKIT ? { fx: 520, flyers: 64, juice: 64, stains: 36 } : { fx: 1e9, flyers: 1e9, juice: 1e9, stains: 1e9 };
 function fxPic(name) {
   let im = FXS.imgs[name];
   if (!im) { im = FXS.imgs[name] = new Image(); im.src = `assets/fx/${name}.webp`; }
@@ -4432,18 +4506,22 @@ function fxCanvas() {
   const cv = FXS.cv = document.createElement("canvas");
   cv.className = "fxsim"; cv.setAttribute("aria-hidden", "true");
   document.body.append(cv);
-  FXS.g = cv.getContext("2d");
+  FXS.g = gfxCtx(cv);
   const size = FXS.size = () => {
     if (FXS.asleep) return;
     const d = FXS.d = Math.min(window.LITE ? 1.5 : 2, devicePixelRatio || 1);   // a phone: 1.5 (iOS memory, 2026-11-16)
     FXS.w = innerWidth; FXS.h = innerHeight;
-    cv.width = FXS.w * d; cv.height = FXS.h * d; FXS.g.setTransform(d, 0, 0, d, 0, 0);
+    cv.width = FXS.w * d; cv.height = FXS.h * d;
+    if (FXS.g) FXS.g.setTransform(d, 0, 0, d, 0, 0);
   };
   size();
   addEventListener("resize", size);
 }
 // The effect canvases on a phone (LITE) let go of their pixels a few seconds after their last particle (a
-// whole-screen canvas is 5-19 MB there) and take them back on the next effect; a desktop keeps them.
+// whole-screen canvas is 5-19 MB there) and take them back on the next effect; a desktop keeps them. (WebKit on iOS
+// too: there a live canvas is a composited layer, and everything that paints after it and overlaps it - the values
+// over the stains, the frame and the HUD over the chunks - is pushed onto a layer of its own as well, each at 3x
+// its layout size; an empty canvas is no layer, so the board is back to its few layers between rounds.)
 const idleFreeT = {};
 function idleFreeCancel(key) { clearTimeout(idleFreeT[key]); }
 function idleFree(key, fn, ms = 4000) {
@@ -4457,6 +4535,7 @@ function idleFree(key, fn, ms = 4000) {
 function boardDpr(cap, room = 1.2) {
   const d = devicePixelRatio || 1;
   if (!window.LITE) return Math.min(cap, d);
+  if (window.IOS_WEBKIT) room = Math.min(room, 1);   // iOS: exactly what the screen shows (the lean-in softens the light a hair)
   const fit = parseFloat(document.documentElement.style.getPropertyValue("--fit")) || 1;
   return Math.max(.75, Math.min(cap, d * fit * room));
 }
@@ -4482,6 +4561,8 @@ function fxBlank() {
 function fxAdd(kind, pic, x, y, size, life) {
   if (REDUCED_MOTION) return null;
   fxCanvas();
+  if (!FXS.g) return null;   // no canvas to draw on (the safety net): the cork does not fly, the cell pops by itself
+  if (kind !== "cork" && kind !== "burst" && FXS.parts.length >= (GFX.low ? 200 : FX_CAP.fx)) return null;
   const q = FXS.free.pop() || fxBlank();
   q.kind = kind; q.im = pic ? fxPic(pic) : null; q.x = x; q.y = y; q.size = size; q.life = life;
   q.age = 0; q.vx = 0; q.vy = 0; q.g = 0; q.drag = 0; q.rot = 0; q.spin = 0; q.tick = null; q.fade = 1;
@@ -4838,7 +4919,7 @@ function prewarmBursts() {
     const dj = DEBRIS[n] && DEBRIS[n].juice;
     if (dj && debImg.complete && debImg.naturalWidth) { matSprite("drop", dj); for (let i = 0; i < 4; i++) splatSprite("splat", dj, i); }
     const img = FLAT[n];
-    if (img && img.complete && img.naturalWidth) { try { burstKit(n, img); } catch (e) { /* cut on first use instead */ } }
+    if (img && img.complete && img.naturalWidth) { try { burstKit(n, img, window.IOS_WEBKIT ? 1 : 3); } catch (e) { /* cut on first use instead */ } }   // (iOS: one way of tearing it, as warmBursts)
     (window.requestIdleCallback || (f => setTimeout(f, 60)))(next);
   };
   next();
@@ -5212,8 +5293,9 @@ function shardLayer() {
     shardCanvas = document.createElement("canvas");
     shardCanvas.className = "shardlayer";
     board.appendChild(shardCanvas);   // over everything
-    shardCtx = shardCanvas.getContext("2d");
+    shardCtx = gfxCtx(shardCanvas);
   }
+  if (!shardCtx) return null;   // no context (the safety net): the tiles pop without the light and the pieces
   idleFreeCancel("shard");
   const w = board.offsetWidth + BURST_PAD * 2, h = board.offsetHeight + BURST_PAD * 2;
   const dpr = boardDpr(2);   // a phone: the density it is shown at (18.8 -> ~7 MB on a 390x844 @3x screen)
@@ -5286,7 +5368,8 @@ function matSprite(kind, col) {
   const key = kind + col;
   if (matSprites[key]) return matSprites[key];
   const S = 32, c = document.createElement("canvas"); c.width = c.height = S;
-  const g = c.getContext("2d");
+  const g = gfxCtx(c);
+  if (!g) return (matSprites[key] = c);   // (blank: the safety net)
   g.translate(S / 2, S / 2);
   g.fillStyle = col; g.strokeStyle = "rgba(20, 12, 6, .55)"; g.lineWidth = 1.4; g.lineJoin = "round";
   const hi = (x, y, r) => { g.fillStyle = "rgba(255, 255, 255, .55)"; g.beginPath(); g.ellipse(x, y, r, r * .6, -.6, 0, 7); g.fill(); };
@@ -5365,7 +5448,8 @@ function burstKit(name, img, upTo = 3) {
       const x0 = Math.floor(Math.min(...xs)), y0 = Math.floor(Math.min(...ys));
       const cw = Math.max(1, Math.ceil(Math.max(...xs)) - x0), ch = Math.max(1, Math.ceil(Math.max(...ys)) - y0);
       const c = document.createElement("canvas"); c.width = cw; c.height = ch;
-      const g = c.getContext("2d", { willReadFrequently: true });
+      const g = gfxCtx(c, { willReadFrequently: true });
+      if (!g) continue;
       g.translate(-x0, -y0);
       g.beginPath(); poly.forEach(([x, y], q) => q ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
       g.save(); g.clip(); g.drawImage(img, 0, 0, w, h); g.restore();
@@ -5386,7 +5470,7 @@ function burstKit(name, img, upTo = 3) {
 // loaded, so the first time a symbol bursts the frame is not held up cutting 30-odd pieces
 function warmBursts() {
   if (REDUCED_MOTION) return;
-  const jobs = Object.keys(FLAT).flatMap(name => [1, 2, 3].map(upTo => [name, upTo]));
+  const jobs = Object.keys(FLAT).flatMap(name => (window.IOS_WEBKIT ? [1] : [1, 2, 3]).map(upTo => [name, upTo]));   // iOS: one way of tearing each (a third of the ~570 piece canvases)
   const idle = window.requestIdleCallback ? f => requestIdleCallback(f, { timeout: 3000 }) : f => setTimeout(f, 250);
   const next = () => {
     const job = jobs.shift();
@@ -5472,7 +5556,9 @@ const rgbOf = col => { const n = parseInt(col.slice(1), 16); return `${n >> 16},
 function glowSprite(col) {
   if (glowSprites[col]) return glowSprites[col];
   const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
-  const g = c.getContext("2d"), rgb = rgbOf(col), gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  const g = gfxCtx(c);
+  if (!g) return (glowSprites[col] = c);
+  const rgb = rgbOf(col), gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
   gr.addColorStop(0, "rgba(255, 255, 255, 1)"); gr.addColorStop(.12, "rgba(255, 255, 255, .8)");
   gr.addColorStop(.3, `rgba(${rgb}, .55)`); gr.addColorStop(.55, `rgba(${rgb}, .12)`); gr.addColorStop(1, `rgba(${rgb}, 0)`);
   g.fillStyle = gr; g.fillRect(0, 0, S, S);
@@ -5482,7 +5568,8 @@ function glowSprite(col) {
 function smokePuff() {
   if (smokeSprite) return smokeSprite;
   const S = 128, c = document.createElement("canvas"); c.width = c.height = S;
-  const g = c.getContext("2d");
+  const g = gfxCtx(c);
+  if (!g) return (smokeSprite = c);
   for (let i = 0; i < 6; i++) {
     const a = i / 6 * Math.PI * 2 + Math.random() * .6, d = S * (.08 + Math.random() * .1), r = S * (.2 + Math.random() * .1);
     const x = S / 2 + Math.cos(a) * d, y = S / 2 + Math.sin(a) * d, gr = g.createRadialGradient(x, y, 0, x, y, r);
@@ -5524,7 +5611,7 @@ function popFx(c, name) {
 function burstIcon(m) {
   if (!m) return;
   const { pic, name, img, c, drawW } = m, t = tempo(), now = performance.now();
-  const kit = burstKit(name || "?", img), col = BURST_COLOUR[name] || "#ffffff";
+  const kit = burstKit(name || "?", img, window.IOS_WEBKIT ? 1 : 3), col = BURST_COLOUR[name] || "#ffffff";
   // it heats up while it strains (drawn from now on), and blows at the top of the strain
   const b = { name, from: now, born: now + BURST_AT * t, t, x: c.x, y: c.y, W: c.w, col, rgb: rgbOf(col), glow: glowSprite(col),
               pieces: null, sparks: [], flecks: [], puffs: [] };
@@ -5539,7 +5626,7 @@ function burstIcon(m) {
 // time that has passed); a big cluster bursting at once throws fewer sparks and flecks each, and
 // past 16 at once no smoke (a slow machine was losing frames to 30 bursts in full)
 function blow(b, variant, f) {
-  const W = b.W, t = b.t, crowd = bursts.length > 8, mob = bursts.length > 16;
+  const W = b.W, t = b.t, crowd = GFX.low || bursts.length > 8, mob = GFX.low || bursts.length > 16;   // (GFX.low: the lightest version)
   b.pieces = (variant || []).map(p => {
     const a = Math.atan2(p.oy, p.ox) + (Math.random() - .5) * .8, sp = W * (.07 + Math.random() * .11) / t;
     return { c: p.c, x: b.x + p.ox * f, y: b.y + p.oy * f, w: p.c.width * f, h: p.c.height * f,
@@ -5740,12 +5827,13 @@ const splatSprites = {};
 // "splatdir" thrown ones, drawn pointing right (turned to the way they were thrown); "splatdrip" ones that run down
 function splatSprite(kind, col, i = Math.floor(Math.random() * 99)) {
   const list = DEBRIS_AT[kind] || DEBRIS_AT.splat;
-  i %= list.length;
+  i %= window.IOS_WEBKIT ? Math.min(4, list.length) : list.length;   // iOS: four shapes of each kind, so at most ~80 tinted splats (a GPU surface each) ever made, not ~150
   const key = kind + i + col;
   if (splatSprites[key]) return splatSprites[key];
   const [x, y, w, h] = list[i];
   const c = document.createElement("canvas"); c.width = w; c.height = h;
-  const g = c.getContext("2d");
+  const g = gfxCtx(c);
+  if (!g) return (splatSprites[key] = c);
   g.drawImage(debImg, x, y, w, h, 0, 0, w, h);
   g.globalCompositeOperation = "multiply"; g.fillStyle = col; g.fillRect(0, 0, w, h);
   g.globalCompositeOperation = "destination-in"; g.drawImage(debImg, x, y, w, h, 0, 0, w, h);
@@ -5757,11 +5845,12 @@ function debrisLayers() {
   if (!stainCv) {
     stainCv = document.createElement("canvas"); stainCv.className = "stainlayer";
     board.insertBefore(stainCv, board.firstChild);   // on the wall, under the icons
-    stainCtx = stainCv.getContext("2d");
+    stainCtx = gfxCtx(stainCv);
     flyCv = document.createElement("canvas"); flyCv.className = "flylayer";
     board.appendChild(flyCv);                        // over the frame
-    flyCtx = flyCv.getContext("2d");
+    flyCtx = gfxCtx(flyCv);
   }
+  if (!stainCtx || !flyCtx) return false;   // (the safety net: the drawn flecks stand in)
   idleFreeCancel("debris");
   const w = board.offsetWidth, h = board.offsetHeight, dpr = boardDpr(1.5, 1);   // a phone: as shown (boardDpr; soft stains and fast chunks need no room for the camera's lean-in)
   if (debBoard[0] !== w || debBoard[1] !== h || debDpr !== dpr) {
@@ -5777,10 +5866,11 @@ function debrisBlow(b, crowd, mob) {
   if (!d || !debImg.complete || !debImg.naturalWidth || !debrisLayers()) return false;
   const W = b.W, t = b.t, x0 = b.x - BURST_PAD, y0 = b.y - BURST_PAD, now = performance.now(), R = Math.random;
   const keep = mob ? .4 : crowd ? .65 : 1;
+  // (iOS: past FX_CAP a pop throws only what room is left - at least one chunk of its own - and no new stains)
   if (d.juice) {
     // the smack on the wall: one big splat behind the icon, the others thrown off to a side
     const dir = R() * 6.3;
-    for (let i = 0, n = mob ? 1 : crowd ? Math.min(2, d.stains) : d.stains + 1; i < n; i++) {
+    for (let i = 0, n = stains.length >= FX_CAP.stains ? 0 : mob ? 1 : crowd ? Math.min(2, d.stains) : d.stains + 1; i < n; i++) {
       const far = i ? W * (.35 + R() * .45) : W * R() * .12, a = dir + i * 2.2 + (R() - .5);
       // the big one a round mark (now and then one that runs), the others thrown marks pointing the way they went
       const drip = !i && R() < .22, kind = i ? "splatdir" : drip ? "splatdrip" : "splat";
@@ -5789,7 +5879,7 @@ function debrisBlow(b, crowd, mob) {
     }
     // drops of juice thrown out, each leaving a small splat where it lands - on the wall, or out past the frame
     const spr = matSprite("drop", d.juice);
-    for (let i = 0, n = Math.round(10 * keep); i < n; i++) {
+    for (let i = 0, n = Math.min(Math.round(10 * keep), FX_CAP.juice - juice.length); i < n; i++) {
       const a = R() * 6.3, sp = W * (.16 + R() * .26) / t;
       juice.push({ spr, col: d.juice, x: x0 + Math.cos(a) * W * .15, y: y0 + Math.sin(a) * W * .15, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - W * .03 / t,
         s: W * (.13 + R() * .1), W, t, born: now, life: (170 + R() * 330) * t });
@@ -5797,7 +5887,7 @@ function debrisBlow(b, crowd, mob) {
   }
   // the chunks: no two the same until the sheet runs out
   const pool = DEBRIS_AT[d.sheet].slice().sort(() => R() - .5);
-  for (let i = 0, n = Math.max(2, Math.round(d.n * keep)); i < n; i++) {
+  for (let i = 0, n = Math.min(Math.max(2, Math.round(d.n * keep)), Math.max(1, FX_CAP.flyers - flyers.length)); i < n; i++) {
     const r = pool[i % pool.length], fl = !!d.flutter;
     const a = -Math.PI / 2 + (R() - .5) * Math.PI * (fl ? 1.9 : 1.6) + (i % 4 === 3 ? Math.PI : 0), sp = W * (fl ? .05 + R() * .11 : .1 + R() * .15) / t;
     flyers.push({ r, fl, x: x0 + (R() - .5) * W * .35, y: y0 + (R() - .5) * W * .35, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - W * (fl ? .03 : .07) / t,
@@ -5831,7 +5921,7 @@ function debrisStep() {
     const inside = j.x > POP_EDGE + 4 && j.y > POP_EDGE + 4 && j.x < bw - POP_EDGE - 4 && j.y < bh - POP_EDGE - 4;
     if (now - j.born < j.life && inside) return true;   // (a drop is gone the moment it leaves the board)
     // on the board only (owner, 2026-11-15): a drop that ends past the frame leaves nothing
-    if (inside) stains.push({ spr: splatSprite("splatdir", j.col), x: j.x, y: j.y, s: j.W * (.18 + Math.random() * .2), rot: Math.atan2(j.vy, j.vx),
+    if (inside && stains.length < FX_CAP.stains) stains.push({ spr: splatSprite("splatdir", j.col), x: j.x, y: j.y, s: j.W * (.18 + Math.random() * .2), rot: Math.atan2(j.vy, j.vx),
       born: now, life: (1000 + Math.random() * 500) * j.t, run: j.W * .03 });
     return false;
   });
@@ -7089,7 +7179,25 @@ function audio() {
 // held up to SFX_BUDGET bytes: past that, the ones played longest ago are let go (decoded again if asked for).
 // The loops (whose callers need the clip in hand at once) are decoded up front and never let go.
 const SFX_LAZY = !!window.LITE, SFX_BUDGET = 10e6;
-const SFX_PIN = ["reels", "coins", "moneyTick", "hoverLoop"];
+// WebKit on iOS (crash review 2, 2026-11-16): the cork's and the pops' sounds (~3 MB decoded) are decoded once, at
+// the first touch, two at a time, and never let go - a pop run used to ask for a dozen first takes in one instant,
+// and the LRU let them go again between spins, so every big pop re-decoded its sounds in a burst
+const SFX_KIT = window.IOS_WEBKIT ? ["pop", "multiHit", "paintBurst", "bottlePop", "bottleGush", "corkWhirr", "corkBonk", "ciderSplash",
+  "ciderFizz", "ciderDrip", "bubblePop", "popH1", "popH2", "popH3", "popH4", "popH5", "popH6", "popH7", "popL1", "popL3", "popL4"]
+  .flatMap(n => SFX_VARS[n] || [n]).filter(n => SFX[n]) : [];
+const SFX_PIN = ["reels", "coins", "moneyTick", "hoverLoop", ...SFX_KIT];
+let sfxDecodeBusy = 0;
+const sfxDecodeWait = [];
+function sfxDecodeSlot(fn) {   // iOS: at most two clips decoding at once, the rest wait their turn
+  if (!window.IOS_WEBKIT) return fn();
+  return new Promise((res, rej) => {
+    const go = () => {
+      sfxDecodeBusy++;
+      Promise.resolve().then(fn).then(res, rej).finally(() => { sfxDecodeBusy--; const n = sfxDecodeWait.shift(); if (n) n(); });
+    };
+    if (sfxDecodeBusy < 2) go(); else sfxDecodeWait.push(go);
+  });
+}
 const sfxUse = {};   // name -> when it last played (performance.now)
 let sfxHeld = 0;     // bytes of decoded clips held (LITE)
 const sfxBytes = b => b ? b.length * b.numberOfChannels * 4 : 0;
@@ -7102,8 +7210,8 @@ function sfxDecode(name) {
   if (sfxDecoding[name]) return sfxDecoding[name];
   const ctx = actx;
   // a copy of the bytes is decoded when they are kept for a second decode (decodeAudioData takes its buffer)
-  const p = sfxDecoding[name] = sfxRaw[name].then(b => b && ctx.decodeAudioData(SFX_LAZY ? b.slice(0) : b))
-    .catch(() => wavOf(SFX[name]).then(b => b && ctx.decodeAudioData(b)))   // an Opus copy that will not decode: the WAV
+  const p = sfxDecoding[name] = sfxRaw[name].then(b => b && sfxDecodeSlot(() => ctx.decodeAudioData(SFX_LAZY ? b.slice(0) : b)))
+    .catch(() => wavOf(SFX[name]).then(b => b && sfxDecodeSlot(() => ctx.decodeAudioData(b))))   // an Opus copy that will not decode: the WAV
     .then(buf => {
       if (!buf || sfxDecoding[name] !== p) return;
       sfxBuf[name] = buf;
@@ -7714,8 +7822,8 @@ function lineSprites() {
   const make = (px, draw) => {
     const c = document.createElement("canvas");
     c.width = c.height = Math.round(px * S);
-    const g = c.getContext("2d");
-    g.scale(S, S); draw(g, px / 2);
+    const g = gfxCtx(c);
+    if (g) { g.scale(S, S); draw(g, px / 2); }   // (no context: a blank dab, the safety net)
     return c;
   };
   const core = make(LINE_CORE + 3, (g, h) => {   // the solid paint, its edge softened
@@ -7765,7 +7873,7 @@ function wipeSheet(sh) {
   sh.el.classList.remove("on", "out");
   for (const b of sh.el.querySelectorAll("b")) b.remove();
   const c = sh.paint, g = c.getContext("2d");
-  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+  if (g) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height); }
 }
 function clearWinLine() {   // the line fades out with its cluster's moment
   for (const sh of lineSheets) {
@@ -7823,7 +7931,9 @@ function drawWinLine(positions) {
   // never dulls the stroke it runs under
   const cv = sh.paint;
   cv.width = Math.round(bw * k); cv.height = Math.round(bh * k);
-  const gp = cv.getContext("2d"); gp.setTransform(k, 0, 0, k, -bx * k, -by * k);
+  const gp = cv.getContext("2d");
+  if (!gp) { gfxFail("fails"); return 0; }   // (the safety net: the cluster is paid without its line)
+  gp.setTransform(k, 0, 0, k, -bx * k, -by * k);
   sh.el.classList.add("on");
   // a few runs of paint, each where the stroke has just passed, on its way down the board
   const drips = [];
@@ -10061,11 +10171,14 @@ function iconSprites() {
       const w = img.naturalWidth * fit, h = img.naturalHeight * fit;
       const icon = document.createElement("canvas");
       icon.width = icon.height = S;
-      icon.getContext("2d").drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+      const ig = gfxCtx(icon);
+      if (!ig) return;   // (the safety net: this kind never rains)
+      ig.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
       // the icon is drawn far off its canvas, so only the shadow it throws lands on it
       const shade = document.createElement("canvas");
       shade.width = shade.height = HALF + 2 * PAD;
-      const g = shade.getContext("2d");
+      const g = gfxCtx(shade);
+      if (!g) return;
       g.shadowColor = "rgba(0,0,0,.55)"; g.shadowBlur = BLUR; g.shadowOffsetX = 4096;
       g.drawImage(icon, PAD - 4096, PAD, HALF, HALF);
       kind.icon = icon; kind.shade = shade;
@@ -10162,7 +10275,8 @@ function startIntroIcons(canvas, avoid) {
   if (REDUCED_MOTION || !canvas) return;
   const kinds = iconSprites();
   if (!kinds.length) return;
-  const ctx = canvas.getContext("2d");
+  const ctx = gfxCtx(canvas);
+  if (!ctx) return;
   const SPIN_KICK = 0.25;   // how much of a glancing knock turns into spin
   const FLIP_KICK = 1.4;    // degrees/s of flip per px/s of a knock's normal speed
   const SETTLE = 0.8;       // per second: how quickly a knocked icon eases back to its own pace and spin
@@ -10172,7 +10286,8 @@ function startIntroIcons(canvas, avoid) {
     if (kind.back || !kind.icon) return kind.back;
     const c = document.createElement("canvas");
     c.width = c.height = ICON_SPRITE;
-    const g = c.getContext("2d");
+    const g = gfxCtx(c);
+    if (!g) return (kind.back = kind.icon);   // (the safety net: its front for a back)
     g.drawImage(kind.icon, 0, 0);
     g.globalCompositeOperation = "source-atop";   // only where the art is
     g.fillStyle = "rgba(14, 10, 22, .58)";
@@ -10610,7 +10725,8 @@ function startIconRain(host) {
   const layer = document.createElement("canvas");
   layer.className = "iconrain";
   host.prepend(layer);   // behind the figure and the lettering
-  const ctx = layer.getContext("2d");
+  const ctx = gfxCtx(layer);
+  if (!ctx) { layer.remove(); return () => {}; }   // (the safety net: the win screen without its rain)
   const GRAVITY = 1250;               // px/s^2
   const DRAG_X = 0.5, DRAG_Y = 1.1;   // per second, for a middling icon; it tops out near 1000px/s
   const BOUNCE = 0.62;                // how much of a head-on hit comes back
