@@ -15,8 +15,12 @@
 // prefers-reduced-motion. window.BGFX = { pause(), resume(), setWind(k), setFps(n), bench(n), stats }.
 (() => {
   "use strict";
-  const IW = 3840, IH = 2160;
-  const IMG = "assets/bonus_wall.webp", MASK = "assets/bg/bg_mask.webp", FXA = "assets/bg/bg_fx.webp";
+  const IW = 3840, IH = 2160;   // the painting's own pixels: every coordinate here is in these, whatever file is drawn
+  // a phone takes the 2560x1440 copy (index.html LITE_ART; tools/fall/make_lite_art.py): bgfx never draws it
+  // denser than 1.5 px per CSS px, which that copy covers on a phone (iOS memory, 2026-11-16)
+  const LITE = !!window.LITE;
+  const IMG = window.LITE_ART && window.LITE_ART.bg ? "assets/lite/bonus_wall.webp" : "assets/bonus_wall.webp";
+  const MASK = "assets/bg/bg_mask.webp", FXA = "assets/bg/bg_fx.webp";
   const TINT = [40 / 255, 18 / 255, 6 / 255], TA0 = 0.06, TA1 = 0.26;   // #bgwall's gradient, top -> bottom
   // 30 fps; if the whole page is struggling (every 30 fps repaint of this full-screen canvas makes
   // the compositor redraw every layer above it), drop to 20 fps - see adapt()
@@ -45,6 +49,7 @@ precision mediump float;
 varying vec2 vBox;
 uniform sampler2D uImg, uMask;
 uniform vec4 uFit;        // box uv -> image uv: uv = vBox * uFit.xy + uFit.zw
+uniform vec4 uCrop;       // the part of the painting the texture holds, in image uv: x0, y0, w, h
 uniform float uT, uWind, uPulse;
 uniform vec3 uTint;
 uniform vec2 uTintA;
@@ -84,7 +89,7 @@ void main() {
   // the sun: a faint heat shimmer at the disc's edge, just above the horizon
   float sky = m.b * (1.0 - m.g) * step(p.y, 776.0);
   d.x += sky * smoothstep(640.0, 770.0, p.y) * 0.9 * sin(p.y * 0.21 - uT * 2.2);
-  vec3 col = texture2D(uImg, uv - d / ISZ).rgb;
+  vec3 col = texture2D(uImg, (uv - d / ISZ - uCrop.xy) / uCrop.zw).rgb;
   // its glow breathing (uPulse 0..1, slow)
   col += vec3(1.0, 0.70, 0.36) * sky * sky * (0.03 + 0.05 * uPulse);
   // the water's sheen moving with the ripple, and glints on the sun's streak
@@ -128,10 +133,15 @@ void main() {
   // ---- state ------------------------------------------------------------------------------
   let wall = null, cv = null, gl = null, bgP = null, fxP = null, quadBuf = null, fxBuf = null, idxBuf = null;
   let texImg = null, texMask = null, texFx = null, texW = 0;
+  // the texture holds only the part of the painting the box shows (crop, in painting px) at texK texture px per
+  // painting px: an upright phone sees about a third of the painting's width (iOS memory, 2026-11-16: 2431x1367
+  // -> 632x1367 on a 390x844 screen); the shader maps image uv into it (uCrop)
+  const crop = [0, 0, IW, IH];
+  let texK = 0, fileF = 1;
   let imgEl = null, maskEl = null, fxEl = null;
   let W = 0, H = 0, res = 1, sc = 1, ox = 0, oy = 0, contain = false;
   let ready = false, paused = false, raf = 0, next = 0, lastT = 0, simT = 0;
-  let wind = 1, windTarget = 1, building = false, shown = false;
+  let wind = 1, windTarget = 1, building = false, shown = false, glonT = 0;
   const stats = { frames: 0, cpuMs: 0, lastCpuMs: 0, res: 0, texW: 0, w: 0, h: 0, fps: 30, pageFps: 0 };
   let fixedFps = 0, winT = 0, winN = 0, good = 0, drops = 0;
 
@@ -212,39 +222,71 @@ void main() {
 
   // The painting at about the size it is shown (no mipmaps in WebGL1 for a 3840x2160 texture, so
   // a big downscale would alias where CSS resamples smoothly). Off-thread when the browser can.
-  async function uploadImage(wantW) {
+  // Only the part of it the box shows (plus a margin for the wind's sway) is uploaded: see crop.
+  const CROP_PAD = 24;   // painting px round the visible part: the trees and the water are pushed up to ~6 px
+  function wantCrop() {   // [x0, y0, x1, y1] in painting px, and the texture px per painting px
+    const v = visRect();
+    return [[Math.max(0, Math.floor(v[0] - CROP_PAD)), Math.max(0, Math.floor(v[1] - CROP_PAD)),
+             Math.min(IW, Math.ceil(v[2] + CROP_PAD)), Math.min(IH, Math.ceil(v[3] + CROP_PAD))], Math.min(1, sc * res)];
+  }
+  async function uploadImage() {
     building = true;
     try {
-      const w = Math.min(IW, Math.max(256, Math.ceil(wantW)));   // ~1:1 with the screen
-      let src = imgEl;
-      if (w < IW * 0.92) {
-        const h = Math.round(w * IH / IW);
-        try { src = await createImageBitmap(imgEl, { resizeWidth: w, resizeHeight: h, resizeQuality: "high" }); }
+      const img = await picture();
+      if (!img) return;
+      const [r, kWant] = wantCrop();
+      const nw = img.naturalWidth || IW, nh = img.naturalHeight || IH, f = nw / IW;   // file px per painting px
+      fileF = f;
+      const k = Math.min(kWant, f);                  // never upscale the file
+      let cw = r[2] - r[0], ch = r[3] - r[1];
+      // the painting at about the size it is shown (~1:1 with the screen), its visible part only
+      let w = Math.max(64, Math.ceil(cw * k)), h = Math.max(64, Math.ceil(ch * k));
+      const max = gl && !gl.isContextLost() ? gl.getParameter(gl.MAX_TEXTURE_SIZE) : 4096;
+      if (w > max || h > max) { const s = max / Math.max(w, h); w = Math.floor(w * s); h = Math.floor(h * s); }
+      const sx = Math.round(r[0] * f), sy = Math.round(r[1] * f), sw = Math.round(cw * f), sh = Math.round(ch * f);
+      let src = img;
+      const whole = sx === 0 && sy === 0 && sw >= nw - 1 && sh >= nh - 1;
+      if (!(whole && w >= nw * 0.92)) {
+        try { src = await createImageBitmap(img, sx, sy, sw, sh, { resizeWidth: w, resizeHeight: h, resizeQuality: "high" }); }
         catch (e) {
           const c = document.createElement("canvas"); c.width = w; c.height = h;
-          const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(imgEl, 0, 0, w, h); src = c;
+          const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(img, sx, sy, sw, sh, 0, 0, w, h); src = c;
         }
       }
-      if (!gl || gl.isContextLost()) return;
-      const max = gl.getParameter(gl.MAX_TEXTURE_SIZE);
-      if ((src.width || IW) > max) {
-        const c = document.createElement("canvas"); c.width = max; c.height = Math.round(max * IH / IW);
-        c.getContext("2d").drawImage(imgEl, 0, 0, c.width, c.height); src = c;
-      }
+      if (!gl || gl.isContextLost()) { if (src.close) src.close(); return; }
       if (texImg) gl.deleteTexture(texImg);
       texImg = tex(src, false);
-      texW = src.width || IW;
+      crop[0] = r[0]; crop[1] = r[1]; crop[2] = r[2]; crop[3] = r[3];
+      texK = (src.width || w) / cw;
+      texW = Math.round(texK * IW);                  // the whole painting's width at this density (the re-upload test)
       if (src.close) src.close();
-      stats.texW = texW;
+      else if (src !== img && src.width) { src.width = src.height = 0; }   // a fallback canvas: let its pixels go
+      stats.texW = src.width || w; stats.texH = src.height || h;
+      // on a phone the decoded painting is not kept once it is on the GPU (14.7 MB): a resize decodes it again
+      if (LITE) imgEl = null;
     } finally { building = false; }
+  }
+  // the painting's picture, decoded: kept from install, or loaded again (from the cache) for a re-upload
+  async function picture() {
+    if (imgEl) return imgEl;
+    try { imgEl = await load(IMG); } catch (e) { imgEl = null; }
+    return imgEl;
+  }
+  // the box shows a part of the painting (or wants it denser) the texture does not hold
+  function needsUpload() {
+    if (!texImg) return true;
+    const [r, k] = wantCrop();
+    return r[0] < crop[0] - .5 || r[1] < crop[1] - .5 || r[2] > crop[2] + .5 || r[3] > crop[3] + .5 || Math.min(k, fileF) > texK * 1.12;
   }
 
   // ---- layout: #bgwall's box, the CSS `center / cover` fit ---------------------------------
   function layout(w, h) {
     if (!(w > 0 && h > 0)) return;
     W = w; H = h;
-    const bs = getComputedStyle(wall).backgroundSize || "";
-    contain = /contain/.test(bs) && !/cover/.test(bs.split(",").pop());
+    if (!wall.classList.contains("glon")) {   // (with the CSS painting dropped there is no size to read: keep the last)
+      const bs = getComputedStyle(wall).backgroundSize || "";
+      contain = /contain/.test(bs) && !/cover/.test(bs.split(",").pop());
+    }
     sc = contain ? Math.min(W / IW, H / IH) : Math.max(W / IW, H / IH);
     ox = (W - IW * sc) / 2; oy = (H - IH * sc) / 2;
     const dpr = window.devicePixelRatio || 1;
@@ -252,8 +294,7 @@ void main() {
     const bw = Math.max(1, Math.round(W * res)), bh = Math.max(1, Math.round(H * res));
     if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
     stats.res = res; stats.w = bw; stats.h = bh;
-    const want = IW * sc * res;
-    if (ready && !building && texW < IW && want > texW * 1.12) uploadImage(want).then(() => drawStill());
+    if (ready && !building && needsUpload()) uploadImage().then(() => drawStill());
     if (ready) drawStill();
   }
   function drawStill() { if (ready && (REDUCED || paused || document.hidden)) render(0); }
@@ -392,6 +433,7 @@ void main() {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texMask);
     const dw = IW * sc, dh = IH * sc;
     gl.uniform4f(bgP.u.uFit, W / dw, H / dh, -ox / dw, -oy / dh);
+    gl.uniform4f(bgP.u.uCrop, crop[0] / IW, crop[1] / IH, (crop[2] - crop[0]) / IW, (crop[3] - crop[1]) / IH);
     gl.uniform1f(bgP.u.uT, simT);
     gl.uniform1f(bgP.u.uWind, wind);
     gl.uniform1f(bgP.u.uPulse, 0.5 + 0.32 * Math.sin(simT * 0.52) + 0.18 * Math.sin(simT * 0.21 + 1.7));
@@ -421,6 +463,9 @@ void main() {
     if (!shown) {
       shown = true;
       requestAnimationFrame(() => { cv.style.transition = "opacity .9s ease"; cv.style.opacity = "1"; });
+      // faded up: the CSS painting under it goes (#bgwall.glon), and with it its decoded picture and its layer
+      clearTimeout(glonT);
+      glonT = setTimeout(() => { if (shown && ready) wall.classList.add("glon"); }, 1200);
     }
   }
   function tick(now) {
@@ -479,10 +524,14 @@ void main() {
     gl = cv.getContext("webgl", opts) || cv.getContext("experimental-webgl", opts);
     if (!gl) { stats.err = "no webgl"; cv = null; return; }
     wall.insertBefore(cv, wall.firstChild);
-    cv.addEventListener("webglcontextlost", e => { e.preventDefault(); ready = false; stop(); cv.style.transition = ""; cv.style.opacity = "0"; shown = false; });
+    cv.addEventListener("webglcontextlost", e => {
+      e.preventDefault(); ready = false; stop();
+      clearTimeout(glonT); wall.classList.remove("glon");   // the CSS painting is back under it first: never a blank wall
+      cv.style.transition = ""; cv.style.opacity = "0"; shown = false;
+    });
     cv.addEventListener("webglcontextrestored", async () => {
-      texImg = null; texW = 0;
-      initGL(); await uploadImage(IW * sc * res); ready = true; render(0); start();
+      texImg = null; texW = 0; texK = 0;
+      initGL(); await uploadImage(); ready = true; render(0); start();
     });
     try {
       [imgEl, maskEl, fxEl] = await Promise.all([load(IMG), load(MASK), load(FXA)]);
@@ -491,7 +540,7 @@ void main() {
     const cs = getComputedStyle(wall);
     layout(parseFloat(cs.width) || r.width, parseFloat(cs.height) || r.height);
     try { initGL(); } catch (e) { stats.err = "gl: " + e; console.warn(e); cv.remove(); cv = null; return; }
-    await uploadImage(IW * sc * res);
+    await uploadImage();
     // a few seconds of leaves and smoke already in the air, so the scene never starts empty
     if (!REDUCED) {
       for (let i = 0; i < Math.round(N_LEAF * 0.55); i++) spawnLeaf(i, true);

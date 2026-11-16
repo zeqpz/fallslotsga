@@ -6,6 +6,32 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Tipsy Harvest</title>
+<script>
+// The device's tier (iOS review, 2026-11-16: the game kept reloading on an iPhone 12 - Safari closes a tab that
+// outgrows its memory, and a phone's budget is a fraction of a desktop's). "Lite" is every iPhone/iPad, any
+// device that reports 4 GB of memory or less, and any small touch screen: there the game keeps fewer and
+// smaller pictures, canvases and sounds in memory (research/ios_memory_2026-11-16.md). Desktops are unchanged.
+// ?lite=1 / ?lite=0 force it either way (QA).
+window.LITE = (() => {
+  const q = new URLSearchParams(location.search).get("lite");
+  if (q === "1" || q === "0") return q === "1";
+  const ua = navigator.userAgent || "", touch = (navigator.maxTouchPoints || 0) > 1;
+  const ios = /iP(hone|od|ad)/.test(ua) || (/Macintosh/.test(ua) && touch);   // iPadOS asks for the desktop site
+  const mem = navigator.deviceMemory;   // Chromium only, rounded down: 0.5 .. 8
+  const small = Math.min(screen.width || 9999, screen.height || 9999) <= 820;
+  return ios || (mem > 0 && mem <= 4) || (touch && small);
+})();
+// The phone copies of the two biggest pictures (tools/fall/make_lite_art.py), only where the screen shows no more
+// than they hold: the painting (2560x1440; bgfx draws it at <= 1.5 px per CSS px over a box 8% past the window)
+// on screens up to 960 CSS px long, the log frame (1500 wide; ~1.2x the window's short side on screen) up to
+// 1350 device px across. A bigger tablet keeps the full-size art.
+window.LITE_ART = (() => {
+  const sw = screen.width || innerWidth, sh = screen.height || innerHeight, dpr = devicePixelRatio || 1;
+  return { bg: window.LITE && Math.max(sw, sh) <= 960, frame: window.LITE && Math.min(sw, sh) * dpr <= 1350 };
+})();
+document.documentElement.classList.toggle("lite", window.LITE);
+document.documentElement.classList.toggle("litebg", window.LITE_ART.bg);
+</script>
 <style>
   :root {
     --bg: #141218;
@@ -3087,7 +3113,24 @@
      the painting's own rectangle, the cut-outs placed in it in % of the painting (art/fall-src/bg/
      fg.json). #bgwall's tint is baked into them. After #camfar, before #camnear: in front of the
      field, behind the figures, the board and the HUD. A still picture: no animation, no per-frame work. */
-  #fgwall { position: fixed; inset: -4%; z-index: -1; pointer-events: none; container-type: size; }
+  #fgwall { position: fixed; inset: -4%; z-index: -1; pointer-events: none; container-type: size; overflow: hidden; }
+  /* overflow: hidden (iOS memory, 2026-11-16): in an upright window the painting's 16:9 rectangle runs ~4 screen
+     widths across, and the layer this box is drawn into grew to hold all of it (1622x913 CSS px: 53 MB at 3x) -
+     only the part inside the box is ever on screen. The same for the bonus intro's copy below. */
+  .bonusintro .wall { overflow: hidden; }
+  /* a phone: the two cut-outs are their own layers, so the window-sized layer round them paints nothing and holds no
+     pixels (12-14 MB at 3x); a picture on a layer of its own is drawn straight from its decoded copy */
+  html.lite #fgwall img { will-change: transform; }
+  /* the phone copy of the painting (tools/fall/make_lite_art.py: 2560x1440, as sharp as bgfx draws it there) */
+  html.litebg #bgwall {
+    background:
+      linear-gradient(rgba(40,18,6,.06), rgba(40,18,6,.26)),
+      url("assets/lite/bonus_wall.webp") center / var(--wall-scale) no-repeat;
+  }
+  html.litebg .bonusintro .wall { background-image: url("assets/lite/bonus_wall.webp"); }
+  /* once bgfx draws the painting (tint included) the CSS copy under it is never seen: dropped, so the browser can
+     let go of the decoded picture and the layer it was painted into (bgfx takes it back off on a lost context) */
+  html #bgwall.glon { background: none; }
   #fgwall .fgpic {
     position: absolute; left: 50%; top: 50%; translate: -50% -50%;
     width: max(100cqw, 100cqh * 16 / 9); aspect-ratio: 16 / 9;
@@ -3445,7 +3488,7 @@
 <div id="app">
 <div class="main">
   <div class="stage">
-    <div class="board" id="board"><div class="boardplate" aria-hidden="true"></div><img id="paintframe" src="assets/frame.webp" alt="" draggable="false"></div>
+    <div class="board" id="board"><div class="boardplate" aria-hidden="true"></div><img id="paintframe" alt="" draggable="false"><script>document.getElementById("paintframe").src = window.LITE_ART.frame ? "assets/lite/frame.webp" : "assets/frame.webp";</script></div>
     <div class="ticker" id="ticker">Draws come from the optimized 96.7% RTP lookup tables — the real math.</div>
     <div class="banner" id="banner"><div class="big" id="bannerBig"></div><div class="sub2" id="bannerSub"></div><img id="bannerMural" class="muralimg" alt=""></div>
     <div class="tally" id="tally">0.00</div>
@@ -3915,6 +3958,10 @@ function tierGlow(name) {
 function fillCell(cell, sym) {
   const def = SYM[sym.name] || { label: sym.name, sub: "", cls: "low" };
   const el = cell.ico || cell;   // a board cell fills its lasting icon box
+  // the symbol leaving lets go of its canvas's pixels now, not at the next garbage collection: every spin and
+  // tumble leaves 25-50 of them behind (iOS memory, 2026-11-16: ~100 dead canvases, 20+ MB, seen mid-bonus).
+  // A symbol off the board is never drawn again (symStep drops it once it is out of the page).
+  for (const c of el.querySelectorAll("canvas.symc")) c.width = c.height = 0;
   el.replaceChildren();
   const rig = cell.ico ? rigEl(sym.name, def.label) : null;   // an animated symbol, once the rigs have loaded
   // the Multi shows its value as the tile itself - that number is what the player cares about
@@ -4356,6 +4403,7 @@ function fxPreload() {
     for (const n of FX_PICS) { const im = FXS.imgs[n]; if (im.naturalWidth) g.drawImage(im, 0, 0, 8, 8); }
     g.globalAlpha = 1;
     g.clearRect(0, 0, 16, 16);
+    if (!FXS.raf) idleFree("fx", () => { if (!FXS.raf && !FXS.parts.length) { FXS.asleep = true; FXS.cv.width = FXS.cv.height = 0; } });
   });
 }
 
@@ -4379,18 +4427,38 @@ function fxPic(name) {
   return im;
 }
 function fxCanvas() {
-  if (FXS.cv) return;
+  idleFreeCancel("fx");
+  if (FXS.cv) { if (FXS.asleep) { FXS.asleep = false; FXS.size(); } return; }
   const cv = FXS.cv = document.createElement("canvas");
   cv.className = "fxsim"; cv.setAttribute("aria-hidden", "true");
   document.body.append(cv);
   FXS.g = cv.getContext("2d");
-  const size = () => {
-    const d = FXS.d = Math.min(2, devicePixelRatio || 1);
+  const size = FXS.size = () => {
+    if (FXS.asleep) return;
+    const d = FXS.d = Math.min(window.LITE ? 1.5 : 2, devicePixelRatio || 1);   // a phone: 1.5 (iOS memory, 2026-11-16)
     FXS.w = innerWidth; FXS.h = innerHeight;
     cv.width = FXS.w * d; cv.height = FXS.h * d; FXS.g.setTransform(d, 0, 0, d, 0, 0);
   };
   size();
   addEventListener("resize", size);
+}
+// The effect canvases on a phone (LITE) let go of their pixels a few seconds after their last particle (a
+// whole-screen canvas is 5-19 MB there) and take them back on the next effect; a desktop keeps them.
+const idleFreeT = {};
+function idleFreeCancel(key) { clearTimeout(idleFreeT[key]); }
+function idleFree(key, fn, ms = 4000) {
+  if (!window.LITE) return;
+  clearTimeout(idleFreeT[key]);
+  idleFreeT[key] = setTimeout(fn, ms);
+}
+// device px per CSS px for the board's own canvases (they are inside #app, which is scaled by --fit): a desktop
+// keeps its density; a phone draws them at what the screen shows - its DPR times the fit, with room for the
+// camera's lean-in - instead of the DPR of the unscaled layout (1.75x the pixels each way on a 390x844 @3x phone)
+function boardDpr(cap, room = 1.2) {
+  const d = devicePixelRatio || 1;
+  if (!window.LITE) return Math.min(cap, d);
+  const fit = parseFloat(document.documentElement.style.getPropertyValue("--fit")) || 1;
+  return Math.max(.75, Math.min(cap, d * fit * room));
 }
 // The seeded randomness every cosmetic choice here draws on (mulberry32): a shot or a splash sets fxS from the
 // book first, so a replay throws the same drops the same way.
@@ -4452,6 +4520,7 @@ function fxStep(now) {
   if (!n) {
     cancelAnimationFrame(FXS.raf); FXS.raf = 0;
     g.setTransform(d, 0, 0, d, 0, 0); g.globalAlpha = 1; g.clearRect(0, 0, FXS.w, FXS.h);
+    idleFree("fx", () => { if (!FXS.raf && !FXS.parts.length) { FXS.asleep = true; FXS.cv.width = FXS.cv.height = 0; } });
   }
 }
 function fxDraw(g, p, d) {
@@ -5145,8 +5214,9 @@ function shardLayer() {
     board.appendChild(shardCanvas);   // over everything
     shardCtx = shardCanvas.getContext("2d");
   }
+  idleFreeCancel("shard");
   const w = board.offsetWidth + BURST_PAD * 2, h = board.offsetHeight + BURST_PAD * 2;
-  const dpr = Math.min(2, devicePixelRatio || 1);
+  const dpr = boardDpr(2);   // a phone: the density it is shown at (18.8 -> ~7 MB on a 390x844 @3x screen)
   burstDpr = dpr;
   if (shardCanvas.width !== Math.round(w * dpr) || shardCanvas.height !== Math.round(h * dpr)) {
     shardCanvas.width = Math.round(w * dpr); shardCanvas.height = Math.round(h * dpr);
@@ -5176,7 +5246,7 @@ function cellCentre(r, y) {   // the cell's resting spot inside the board, by la
 // only drawImage calls and a few strokes: a 30-tile cluster bursts without a stall.
 const BURST_AT = 260;     // ms into cellExplode, at tempo 1: the top of the strain (52%)
 const BURST_SWELL = 1.3;  // how big the tile has swollen by then: its pieces start that size
-const BURST_PX = 240;     // the pieces are cut with the icon this many px across (a tile is ~100 css px, at 2x DPR)
+const BURST_PX = window.LITE ? 200 : 240;   // the pieces are cut with the icon this many px across (a tile is ~100 css px, at 2x DPR; a phone shows its tiles at ~1.3x: 200)
 // the light each symbol bursts in: its own colour; the grey ones take their tier's neon, or white
 const BURST_COLOUR = {
   H1: "#e8902f", H2: "#f0a040", H3: "#d9a441", H4: "#f2c94c", H5: "#b07a48", H6: "#f7d046", H7: "#ff8a1c",   // fall: each symbol's own colour
@@ -5633,7 +5703,10 @@ function burstStep() {
   }
   ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
   if (bursts.length) burstRaf = requestAnimationFrame(burstStep);
-  else { burstRaf = 0; burstLast = 0; ctx.clearRect(0, 0, shardCanvas.width, shardCanvas.height); }
+  else {
+    burstRaf = 0; burstLast = 0; ctx.clearRect(0, 0, shardCanvas.width, shardCanvas.height);
+    idleFree("shard", () => { if (!burstRaf && !bursts.length) shardCanvas.width = shardCanvas.height = 0; });
+  }
 }
 /* ---------- what an icon breaks into ---------- */
 // Like a fruit-slicing game (owner, 2026-11-12): a popped fruit leaves its juice splashed on the wall behind the
@@ -5689,7 +5762,8 @@ function debrisLayers() {
     board.appendChild(flyCv);                        // over the frame
     flyCtx = flyCv.getContext("2d");
   }
-  const w = board.offsetWidth, h = board.offsetHeight, dpr = Math.min(1.5, devicePixelRatio || 1);
+  idleFreeCancel("debris");
+  const w = board.offsetWidth, h = board.offsetHeight, dpr = boardDpr(1.5, 1);   // a phone: as shown (boardDpr; soft stains and fast chunks need no room for the camera's lean-in)
   if (debBoard[0] !== w || debBoard[1] !== h || debDpr !== dpr) {
     debBoard = [w, h]; debDpr = dpr;
     stainCv.width = Math.round(w * dpr); stainCv.height = Math.round(h * dpr);
@@ -5788,6 +5862,10 @@ function debrisStep() {
     debRaf = 0; debLast = 0;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, stainCv.width, stainCv.height);
     f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(0, 0, flyCv.width, flyCv.height);
+    idleFree("debris", () => {
+      if (debRaf || stains.length || juice.length || flyers.length) return;
+      stainCv.width = stainCv.height = flyCv.width = flyCv.height = 0; debBoard = [0, 0];   // debrisLayers() sizes them again
+    });
   }
 }
 function resetGrid() { state.grid = emptyGrid(); paintGrid(); }
@@ -6833,8 +6911,10 @@ const musicTrack = {};   // name -> Promise<{ buf, at } | null>; at: where the c
 function loadTrack(name) {
   if (musicTrack[name]) return musicTrack[name];
   const m = MUSIC[name];
-  const fromOgg = () => fetchMusic(name).then(b => actx.decodeAudioData(b)).then(buf => ({ buf, at: 0 }));
-  const fromAac = () => (OPUS_OK ? fetch(m.aac).then(r => r.arrayBuffer()) : fetchMusic(name)).then(b => actx.decodeAudioData(b))
+  // (a copy of the bytes is decoded: decodeAudioData takes the buffer it is given away, and a cue that is let go is
+  // decoded again from the same bytes later - the original went to the AAC fallback and fetched it each time)
+  const fromOgg = () => fetchMusic(name).then(b => actx.decodeAudioData(b.slice(0))).then(buf => ({ buf, at: 0 }));
+  const fromAac = () => (OPUS_OK ? fetch(m.aac).then(r => r.arrayBuffer()) : fetchMusic(name).then(b => b.slice(0))).then(b => actx.decodeAudioData(b))
     .then(buf => ({ buf, at: Math.max(0, (m.aacStart - Math.max(0, m.aacFrames - buf.duration * MUSIC_RATE)) / MUSIC_RATE) }));
   musicTrack[name] = (OPUS_OK ? fromOgg().catch(fromAac) : fromAac()).catch(() => null);   // silence, never a broken round
   return musicTrack[name];
@@ -6846,7 +6926,10 @@ const LOOP_RESUMES = ["base", "menu"];
 // Decoded, the five cues would hold ~70 MB of samples - a lot for a phone. The base game's loop and
 // the intro (which has to hit the moment a bonus lands) stay decoded; each other cue is decoded
 // while the one before it plays (NEXT) or as it is asked for, and let go once it has faded out.
-const MUSIC_KEEP = ["base", "intro"], MUSIC_NEXT = { intro: "bonus", bonus: "total" };
+// A phone (LITE) keeps none: the base game's loop (29 MB decoded) is let go while the bonus plays and decoded again
+// for its return, and the intro (8 MB) is decoded by the round that triggers a bonus (presentRound) - so the base
+// loop, the bonus loop and the screens' cues are never all held at once (iOS memory, 2026-11-16).
+const MUSIC_KEEP = window.LITE ? [] : ["base", "intro"], MUSIC_NEXT = { intro: "bonus", bonus: "total" };
 // Fade the wanted cue up and every other one down, over `fade` seconds. Before the first touch it
 // only records the choice: the browser keeps the sound shut until then. A cue with a head starts
 // from its top, hit first; a cue on the beat of the one it takes over from (the free spins after
@@ -6993,18 +7076,53 @@ function audio() {
     sfxBus = actx.createGain(); sfxBus.connect(lim);
     musicBus = actx.createGain(); musicBus.connect(lim);
     applyVolumes();
-    for (const name of Object.keys(SFX)) {
-      sfxDecoding[name] = sfxRaw[name].then(b => b && actx.decodeAudioData(b))
-        .catch(() => wavOf(SFX[name]).then(b => b && actx.decodeAudioData(b)))   // an Opus copy that will not decode: the WAV
-        .then(buf => { if (buf) sfxBuf[name] = buf; })
-        .catch(() => {});   // a missing clip just means silence, never a broken round
-    }
+    // a desktop decodes every clip now; a phone only the loops and the first sounds of a spin, the rest as
+    // each is first asked for (see SFX_LAZY)
+    for (const name of SFX_LAZY ? sfxEager() : Object.keys(SFX)) sfxDecode(name);
   }
   if (actx.state === "suspended") actx.resume().catch(() => {});
   return actx;
 }
+// iOS memory (2026-11-16): decoded, every clip is 32-bit float samples at the context's rate - the 216 clips
+// came to 46 MB, held from the first touch on. On a phone (LITE) a clip is decoded the first time it plays
+// (sfx() plays it the moment it is in, ~10 ms) from its Opus bytes, which stay, and the decoded clips are
+// held up to SFX_BUDGET bytes: past that, the ones played longest ago are let go (decoded again if asked for).
+// The loops (whose callers need the clip in hand at once) are decoded up front and never let go.
+const SFX_LAZY = !!window.LITE, SFX_BUDGET = 10e6;
+const SFX_PIN = ["reels", "coins", "moneyTick", "hoverLoop"];
+const sfxUse = {};   // name -> when it last played (performance.now)
+let sfxHeld = 0;     // bytes of decoded clips held (LITE)
+const sfxBytes = b => b ? b.length * b.numberOfChannels * 4 : 0;
+function sfxEager() {   // the loops, and what every spin opens with
+  const takes = n => SFX_VARS[n] || [n];
+  return [...SFX_PIN, "spin", "bet", "skip", ...takes("uiClick"), ...takes("canShake"), ...takes("reelStop"), ...takes("cascade")].filter(n => SFX[n]);
+}
+function sfxDecode(name) {
+  if (sfxBuf[name] || !actx || !SFX[name]) return Promise.resolve();
+  if (sfxDecoding[name]) return sfxDecoding[name];
+  const ctx = actx;
+  // a copy of the bytes is decoded when they are kept for a second decode (decodeAudioData takes its buffer)
+  const p = sfxDecoding[name] = sfxRaw[name].then(b => b && ctx.decodeAudioData(SFX_LAZY ? b.slice(0) : b))
+    .catch(() => wavOf(SFX[name]).then(b => b && ctx.decodeAudioData(b)))   // an Opus copy that will not decode: the WAV
+    .then(buf => {
+      if (!buf || sfxDecoding[name] !== p) return;
+      sfxBuf[name] = buf;
+      if (SFX_LAZY) { sfxHeld += sfxBytes(buf); sfxUse[name] = sfxUse[name] || performance.now(); sfxTrim(); }
+    })
+    .catch(() => {});   // a missing clip just means silence, never a broken round
+  return p;
+}
+function sfxTrim() {
+  if (sfxHeld <= SFX_BUDGET) return;
+  const old = Object.keys(sfxBuf).filter(n => !SFX_PIN.includes(n)).sort((a, b) => (sfxUse[a] || 0) - (sfxUse[b] || 0));
+  for (const n of old) {
+    if (sfxHeld <= SFX_BUDGET * .8) break;
+    sfxHeld -= sfxBytes(sfxBuf[n]);
+    delete sfxBuf[n]; delete sfxDecoding[n];   // a source still playing it keeps its own hold until it ends
+  }
+}
 // browsers only allow audio once the player has interacted — first gesture opens the context
-addEventListener("pointerdown", () => { audio(); startMusic(); if (actx) loadTrack("intro"); }, { once: true });   // the intro is decoded ahead of the first bonus
+addEventListener("pointerdown", () => { audio(); startMusic(); if (actx && !window.LITE) loadTrack("intro"); }, { once: true });   // the intro is decoded ahead of the first bonus (a phone: by the round that triggers it, presentRound)
 
 const SFX_MAX_VOICES = 18;
 let sfxVoices = 0;
@@ -7020,10 +7138,12 @@ function sfx(name, rate = 1) {
   if (!sfxBuf[name]) {
     // asked for before the clip has decoded (the first press after the page opens): play it
     // the moment it has, as long as that is still the same beat, otherwise let it go
-    const at = performance.now(), pending = sfxDecoding[name];
+    // (on a phone this is also every clip's first play, and a clip let go a while ago: decoded now)
+    const at = performance.now(), pending = sfxDecoding[name] || sfxDecode(name);
     if (pending) pending.then(() => { if (sfxBuf[name] && performance.now() - at < 600) sfx(name, rate); });
     return;
   }
+  sfxUse[name] = performance.now();
   // a cap on voices (2026-11-04: the music "buzzed" on long sessions - a busy cascade had 60 clips
   // sounding at once, more than a phone's audio thread keeps up with, and an underrun is a buzz):
   // past the cap a new clip is simply left out - the ones already sounding cover it
@@ -7816,13 +7936,20 @@ function hoverWin(host, reach, lag, css) {
     host.style.setProperty(`--${tag}r`, v.r.toFixed(3) + "deg");
     host.style.setProperty(`--${tag}s`, (1 + v.s).toFixed(4));
   };
-  const t0 = performance.now();
+  // Each write re-styles and repaints what hangs on host (custom properties inherit; the plates carry filters): at the
+  // screen's rate it was the biggest cost of a big-win screen (perf, 2026-11-16, 4x-throttled 390x844 @3x: frames
+  // over 33 ms 142 -> 46 with the writes off). The path drifts well under a pixel a frame, so it is written 30 times a
+  // second on a phone and 60 elsewhere (a 120-165 Hz screen wrote it every frame): ~150 -> ~110 such frames there.
+  const t0 = performance.now(), every = 1000 / (window.LITE ? 30 : 60) - 2;
+  let last = -1e9;
   const frame = now => {
     if (!host.isConnected) return;
+    requestAnimationFrame(frame);
+    if (now - last < every) return;
+    last = now;
     const t = (now - t0) / 1000;
     put("p", at(t));         // the plate
     put("t", at(t - lag));   // the words: the very same path, a beat behind
-    requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
 }
@@ -7960,6 +8087,9 @@ const rgsMessage = (err, fallback) => T(RGS_MESSAGE[err && err.code] || (err && 
 async function presentRound(round, { settle = true } = {}) {
   $("spinBtn").classList.add("armed");   // lime for as long as the round is playing out
   spinArrows.start();                    // and slowly turning
+  // a phone does not hold the bonus intro's cue decoded between bonuses (MUSIC_KEEP): a round that triggers one
+  // says so in its events, seconds before its screen, so the cue is decoded now and hits on time
+  if (window.LITE && actx && (round.events || []).some(e => e && /Trigger$/.test(e.type || ""))) loadTrack("intro");
   state.totalWin = 0;
   state.roundTotal = 0; state.spinWin = 0; state.fsFrom = 0; state.fsWinShown = -1; state.fsWinEnd = null;   // the bonus win readout
   state.tallied = false;
@@ -9110,7 +9240,11 @@ const CHAR_RIG = {
   cueBlend: 90,
   backBlend: 140,  // ms a finished one-shot blends back into the idle (its first pose is the idle's, near enough)
 };
-async function charRig(name, kind = "_rig") {
+// want(man): the device px per art px the figure is drawn at on this screen (0: unknown). Where that is half or
+// less (a phone: ~0.39 on a 390x844 @3x screen) the atlas is held at half size - same frames, Pixi's resolution
+// .5 - which is still more than the screen shows (iOS memory, 2026-11-16: 16.8 MB bitmap + 22.4 MB mipmapped
+// texture -> 4.2 + 5.6 MB).
+async function charRig(name, kind = "_rig", want = null) {
   const base = `assets/chars/${name}${kind}`;
   const get = async (f, kind) => {   // a dropped request is tried again (twice) before the figure gives up
     for (let n = 0; ; n++) {
@@ -9130,8 +9264,17 @@ async function charRig(name, kind = "_rig") {
   // the atlas: decoded once, uploaded once with mipmaps (he is drawn at a half to two thirds of its size)
   // premultiplied by the decoder: WebGL ignores its premultiply-on-upload flag for an ImageBitmap (straight alpha
   // there drew a light fringe round every part)
-  const bmp = await createImageBitmap(atlasBlob, { premultiplyAlpha: "premultiply" });
-  const source = new PIXI.ImageSource({ resource: bmp, autoGenerateMipmaps: true, alphaMode: "premultiplied-alpha" });
+  let bmp = await createImageBitmap(atlasBlob, { premultiplyAlpha: "premultiply" }), resolution = 1;
+  const need = want ? +want(man) || 0 : 0;
+  if (need > 0 && need <= .5 && bmp.width >= 512) {
+    try {
+      const half = await createImageBitmap(bmp, { resizeWidth: Math.round(bmp.width / 2), resizeHeight: Math.round(bmp.height / 2),
+                                                  resizeQuality: "high", premultiplyAlpha: "premultiply" });
+      resolution = half.width / bmp.width;
+      bmp.close(); bmp = half;
+    } catch (e) { /* the full atlas then */ }
+  }
+  const source = new PIXI.ImageSource({ resource: bmp, resolution, autoGenerateMipmaps: true, alphaMode: "premultiplied-alpha" });
   source.style.minFilter = "linear"; source.style.magFilter = "linear"; source.style.mipmapFilter = "linear";
   const atlas = new PIXI.Texture({ source });
   const sub = r => new PIXI.Texture({ source, frame: new PIXI.Rectangle(r[0], r[1], r[2], r[3]) });
@@ -9144,7 +9287,7 @@ async function makeCharacterRig({ el, name, flavour, swap = {} }) {
   const headroom = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--char-headroom")) || 1;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   let R;
-  try { R = await charRig(name); }
+  try { R = await charRig(name, "_rig", m => window.LITE && m.rest_height ? root.clientHeight / headroom() * dpr / m.rest_height : 0); }
   catch (e) { console.warn("character rig failed to load:", name, e.message); return null; }
   const { man, arr } = R, fps = man.fps, NB = man.bones.length;
   const has = clip => !!man.clips[clip];
@@ -9453,7 +9596,8 @@ async function makeCharacterParts({ el, name, flavour, swap = {} }) {
   const headroom = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--char-headroom")) || 1;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   let R;
-  try { R = await charRig(name, "_parts"); }
+  // (on a phone, how dense he is drawn - his standing height in the box, as fit() puts it - picks the atlas's size)
+  try { R = await charRig(name, "_parts", m => window.LITE && m.rest_height ? root.clientHeight / headroom() * dpr / m.rest_height : 0); }
   catch (e) { console.warn("character rig failed to load:", name, e.message); return null; }
   const { man, arr } = R, fps = man.fps, NB = man.bones.length;
   const has = clip => !!man.clips[clip];
@@ -9968,8 +10112,9 @@ function assetUrls() {
   if (REDUCED_MOTION) for (const id of Object.keys(TIER)) for (const k of ["halo", "tube"]) urls.add(`assets/glow/${id}_${k}.webp`);   // set by tierGlow()
   // Not pictures, or never shown in the fall build (audit 2026-11-08): fonts load through @font-face
   // (an Image() of a .ttf fetched it twice), and the graffiti wall's tag glows are display:none here.
-  // (and the spray-paint rim art, only drawn under ?rim: its html.sprayfx rules never apply otherwise)
-  const hidden = new RegExp([window.WallFX ? null : "assets/wallfx/", /[?&]rim/.test(location.search) ? null : "assets/rim/"].filter(Boolean).join("|") || "$^");
+  // (and the spray-paint rim art, only drawn under ?rim: its html.sprayfx rules never apply otherwise;
+  // and of the painting, the one copy this screen shows - the phone copy or the full one, never both)
+  const hidden = new RegExp([window.LITE_ART.bg ? "^assets/bonus_wall\\.webp" : "assets/lite/", window.WallFX ? null : "assets/wallfx/", /[?&]rim/.test(location.search) ? null : "assets/rim/"].filter(Boolean).join("|") || "$^");
   return [...urls].filter(u => !/\.(ttf|otf|woff2?)(\?|$)/i.test(u) && !(hidden && hidden.test(u)));
 }
 // Every preloaded picture is held on to, not dropped: while one is held, a new <img> of it is
@@ -10146,7 +10291,7 @@ function startIntroIcons(canvas, avoid) {
         q.vyaw += FLIP_KICK * jn * iq * Math.abs(nx) * Math.sign(q.vyaw || 1); q.vpitch += FLIP_KICK * jn * iq * Math.abs(ny) * Math.sign(q.vpitch || 1);
       }
     }
-    const dpr = Math.min(2, devicePixelRatio || 1);
+    const dpr = Math.min(window.LITE ? 1.5 : 2, devicePixelRatio || 1);   // a whole-screen canvas: 1.5 on a phone (iOS memory)
     const cw = Math.round(w * dpr), ch = Math.round(h * dpr);
     if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }   // (clears it too)
     else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cw, ch); }
@@ -10530,7 +10675,7 @@ function startIconRain(host) {
     raf = requestAnimationFrame(tick);
   };
   const draw = (w, h) => {
-    const dpr = Math.min(2, devicePixelRatio || 1);
+    const dpr = Math.min(window.LITE ? 1.5 : 2, devicePixelRatio || 1);   // a whole-screen canvas: 1.5 on a phone (iOS memory)
     const cw = Math.round(w * dpr), ch = Math.round(h * dpr);
     if (layer.width !== cw || layer.height !== ch) { layer.width = cw; layer.height = ch; }   // (clears it too)
     else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cw, ch); }
